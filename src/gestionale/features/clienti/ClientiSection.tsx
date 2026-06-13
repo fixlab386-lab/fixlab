@@ -7,6 +7,7 @@ import { buildClientiPrintHtml } from '../../../lib/clientiPrint'
 import { printHtmlInIframe } from '../../../lib/printDocument'
 import type { Client } from '../../../types'
 import { exportClientsExcel } from '../../../components/clients/exportClientsExcel'
+import { SectionHeader } from '../../../components/ui'
 import { importClientsFromCsv } from '../../lib/importAnagraficaCsv'
 import ClientiActionBar from './ClientiActionBar'
 import ClientiColonneMenu from './ClientiColonneMenu'
@@ -359,39 +360,32 @@ export default function ClientiSection() {
   if (loading) return <div className="clienti-empty">Caricamento clienti…</div>
 
   return (
-    <div className={`clienti-section${editing ? ' clienti-section--scheda-open' : ''}`} data-tutorial="page-clienti">
+    <div className={`gestionale-page clienti-section${editing ? ' clienti-section--scheda-open' : ''}`} data-tutorial="page-clienti">
       {error ? <div className="clienti-section__banner">{error}</div> : null}
 
-      <div className="clienti-section-header">
-        <span className="clienti-section-header__title">Clienti</span>
-        <div className="clienti-section-header__search">
-          <span className="clienti-section-header__search-icon">🔍</span>
-          <input
-            className="clienti-section-header__search-input"
-            placeholder="Cerca partita iva"
-            value={searchPiva}
-            onChange={e => setSearchPiva(e.target.value)}
+      <SectionHeader
+        title="Clienti"
+        searchValue={searchPiva}
+        onSearchChange={setSearchPiva}
+        searchPlaceholder="Cerca partita iva, nome, città…"
+        actions={
+          <ClientiTopBar
+            raggruppa={criterioRaggruppamento}
+            filtraAttivo={filtraAttivo || Object.keys(filtriColonna).length > 0}
+            selectionMode={selectionMode}
+            colonneMenu={<ClientiColonneMenu visible={colonneVisibili} onChange={setColonneVisibili} />}
+            onRaggruppaChange={c => {
+              setCriterioRaggruppamento(c)
+              setCollapsedGroups(new Set())
+            }}
+            onToggleFiltra={() => setFiltraAttivo(v => !v)}
+            onToggleSelezione={() => {
+              setSelectionMode(v => !v)
+              if (selectionMode) setSelectedIds(new Set())
+            }}
           />
-          <button type="button" className="clienti-section-header__search-caret" title="Opzioni ricerca">
-            ▼
-          </button>
-        </div>
-        <ClientiTopBar
-          raggruppa={criterioRaggruppamento}
-          filtraAttivo={filtraAttivo || Object.keys(filtriColonna).length > 0}
-          selectionMode={selectionMode}
-          colonneMenu={<ClientiColonneMenu visible={colonneVisibili} onChange={setColonneVisibili} />}
-          onRaggruppaChange={c => {
-            setCriterioRaggruppamento(c)
-            setCollapsedGroups(new Set())
-          }}
-          onToggleFiltra={() => setFiltraAttivo(v => !v)}
-          onToggleSelezione={() => {
-            setSelectionMode(v => !v)
-            if (selectionMode) setSelectedIds(new Set())
-          }}
-        />
-      </div>
+        }
+      />
 
       <div className="clienti-section__body">
         <ClientiLista

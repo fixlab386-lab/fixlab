@@ -12,6 +12,10 @@ type Props = {
   onToggleSelezione: () => void
 }
 
+function actionBtnClass(active?: boolean) {
+  return `gestionale-section-header__action-btn${active ? ' gestionale-section-header__action-btn--active' : ''}`
+}
+
 export default function ClientiTopBar({
   raggruppa,
   filtraAttivo,
@@ -34,14 +38,14 @@ export default function ClientiTopBar({
   }, [showRaggruppa])
 
   return (
-    <div className="clienti-topbar">
+    <>
       <div className="clienti-dropdown" ref={ref}>
         <button
           type="button"
-          className={`clienti-topbar__btn${raggruppa !== 'Nessuno' ? ' clienti-topbar__btn--active' : ''}`}
+          className={actionBtnClass(raggruppa !== 'Nessuno')}
           onClick={() => setShowRaggruppa(v => !v)}
         >
-          Raggruppa <span className="caret">▼</span>
+          Raggruppa ▼
         </button>
         {showRaggruppa ? (
           <div className="clienti-dropdown__menu clienti-dropdown__menu--down">
@@ -62,21 +66,13 @@ export default function ClientiTopBar({
           </div>
         ) : null}
       </div>
-      <button
-        type="button"
-        className={`clienti-topbar__btn${filtraAttivo ? ' clienti-topbar__btn--active' : ''}`}
-        onClick={onToggleFiltra}
-      >
+      <button type="button" className={actionBtnClass(filtraAttivo)} onClick={onToggleFiltra}>
         Filtra
       </button>
-      <button
-        type="button"
-        className={`clienti-topbar__btn${selectionMode ? ' clienti-topbar__btn--active' : ''}`}
-        onClick={onToggleSelezione}
-      >
+      <button type="button" className={actionBtnClass(selectionMode)} onClick={onToggleSelezione}>
         Seleziona
       </button>
       {colonneMenu}
-    </div>
+    </>
   )
 }

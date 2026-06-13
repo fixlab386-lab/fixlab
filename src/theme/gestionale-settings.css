@@ -160,15 +160,25 @@
 
 .gestionale-settings-row-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 14px;
-}
-
-.gestionale-settings-row-3 {
-  display: grid;
-  grid-template-columns: 120px minmax(0, 1fr) 80px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px 14px;
   align-items: start;
+}
+
+.gestionale-settings-row-2 > .gestionale-form-field {
+  min-width: 0;
+}
+
+.gestionale-settings-row-2--city {
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 160px);
+}
+
+.gestionale-settings-cap-field {
+  max-width: 220px;
+}
+
+.gestionale-settings-page .gestionale-form-field__control {
+  min-width: 0;
 }
 
 .gestionale-settings-page .gestionale-form-field {
@@ -496,8 +506,12 @@
   }
 
   .gestionale-settings-row-2,
-  .gestionale-settings-row-3 {
+  .gestionale-settings-row-2--city {
     grid-template-columns: 1fr;
+  }
+
+  .gestionale-settings-cap-field {
+    max-width: none;
   }
 }
 

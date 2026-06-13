@@ -12,6 +12,7 @@ import { buildFornitoriPrintHtml } from '../../../lib/fornitoriPrint'
 import { printHtmlInIframe } from '../../../lib/printDocument'
 import type { Supplier } from '../../../types'
 import { exportSuppliersExcel } from '../../lib/exportSuppliersExcel'
+import { SectionHeader } from '../../../components/ui'
 import { importSuppliersFromCsv } from '../../lib/importAnagraficaCsv'
 import FornitoriActionBar from './FornitoriActionBar'
 import FornitoriColonneMenu from './FornitoriColonneMenu'
@@ -365,39 +366,32 @@ export default function FornitoriSection({ onRegisterNuovo }: { onRegisterNuovo?
   if (loading) return <div className="clienti-empty">Caricamento fornitori…</div>
 
   return (
-    <div className={`clienti-section${editing ? ' clienti-section--scheda-open' : ''}`} data-tutorial="page-fornitori">
+    <div className={`gestionale-page clienti-section${editing ? ' clienti-section--scheda-open' : ''}`} data-tutorial="page-fornitori">
       {error ? <div className="clienti-section__banner">{error}</div> : null}
 
-      <div className="clienti-section-header">
-        <span className="clienti-section-header__title">Fornitori</span>
-        <div className="clienti-section-header__search">
-          <span className="clienti-section-header__search-icon">🔍</span>
-          <input
-            className="clienti-section-header__search-input"
-            placeholder="Cerca partita iva"
-            value={searchPiva}
-            onChange={e => setSearchPiva(e.target.value)}
+      <SectionHeader
+        title="Fornitori"
+        searchValue={searchPiva}
+        onSearchChange={setSearchPiva}
+        searchPlaceholder="Cerca partita iva, nome, città…"
+        actions={
+          <FornitoriTopBar
+            raggruppa={criterioRaggruppamento}
+            filtraAttivo={filtraAttivo || Object.keys(filtriColonna).length > 0}
+            selectionMode={selectionMode}
+            colonneMenu={<FornitoriColonneMenu visible={colonneVisibili} onChange={setColonneVisibili} />}
+            onRaggruppaChange={c => {
+              setCriterioRaggruppamento(c)
+              setCollapsedGroups(new Set())
+            }}
+            onToggleFiltra={() => setFiltraAttivo(v => !v)}
+            onToggleSelezione={() => {
+              setSelectionMode(v => !v)
+              if (selectionMode) setSelectedIds(new Set())
+            }}
           />
-          <button type="button" className="clienti-section-header__search-caret" title="Opzioni ricerca">
-            ▼
-          </button>
-        </div>
-        <FornitoriTopBar
-          raggruppa={criterioRaggruppamento}
-          filtraAttivo={filtraAttivo || Object.keys(filtriColonna).length > 0}
-          selectionMode={selectionMode}
-          colonneMenu={<FornitoriColonneMenu visible={colonneVisibili} onChange={setColonneVisibili} />}
-          onRaggruppaChange={c => {
-            setCriterioRaggruppamento(c)
-            setCollapsedGroups(new Set())
-          }}
-          onToggleFiltra={() => setFiltraAttivo(v => !v)}
-          onToggleSelezione={() => {
-            setSelectionMode(v => !v)
-            if (selectionMode) setSelectedIds(new Set())
-          }}
-        />
-      </div>
+        }
+      />
 
       <div className="clienti-section__body">
         <FornitoriLista

@@ -906,25 +906,26 @@ export default function Impostazioni() {
                   />
                 </FormField>
 
-                <div className="gestionale-settings-row-3">
-                  <FormField label="CAP" htmlFor="set-cap">
-                    <div className="gestionale-field-with-action">
-                      <input
-                        id="set-cap"
-                        className="gestionale-form-field__input gestionale-field-with-action__input"
-                        value={cap}
-                        onChange={e => setCap(e.target.value)}
-                      />
-                      <button
-                        type="button"
-                        className="gestionale-field-action-btn"
-                        title="Ricerca CAP / Città / Provincia"
-                        onClick={() => setShowCapPopup(true)}
-                      >
-                        🔍
-                      </button>
-                    </div>
-                  </FormField>
+                <FormField label="CAP" htmlFor="set-cap">
+                  <div className="gestionale-field-with-action gestionale-settings-cap-field">
+                    <input
+                      id="set-cap"
+                      className="gestionale-form-field__input gestionale-field-with-action__input"
+                      value={cap}
+                      onChange={e => setCap(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="gestionale-field-action-btn"
+                      title="Ricerca CAP / Città / Provincia"
+                      onClick={() => setShowCapPopup(true)}
+                    >
+                      🔍
+                    </button>
+                  </div>
+                </FormField>
+
+                <div className="gestionale-settings-row-2 gestionale-settings-row-2--city">
                   <FormField label="Città" htmlFor="set-city">
                     <input
                       id="set-city"
@@ -933,7 +934,7 @@ export default function Impostazioni() {
                       onChange={e => setCity(e.target.value)}
                     />
                   </FormField>
-                  <FormField label="Prov." htmlFor="set-prov">
+                  <FormField label="Prov." htmlFor="set-prov" labelWidth={52}>
                     <input
                       id="set-prov"
                       className="gestionale-form-field__input"
