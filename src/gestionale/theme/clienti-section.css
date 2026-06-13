@@ -614,6 +614,18 @@
   top: auto;
 }
 
+.clienti-dropdown__menu--fixed {
+  z-index: 10000;
+  max-height: min(320px, calc(100vh - 16px));
+  min-width: 280px;
+}
+
+.clienti-actionbar .clienti-dropdown__item {
+  white-space: normal;
+  line-height: 1.35;
+  padding: 7px 12px;
+}
+
 .clienti-anteprima {
   position: fixed;
   inset: 0;
