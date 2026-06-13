@@ -1,0 +1,243 @@
+rules_version = '2';
+
+// =============================================================================
+// FIXLab — Firestore Security Rules (database: "fixlab") — Fase 2 multi-archivio
+//
+// Isolamento tenant: campo `studioId` + membership memberships/{userId}_{studioId}.
+// Retrocompat: users/{uid}.studioId (archivio primario legacy) resta valido se la
+// membership non è ancora sincronizzata.
+//
+// Collezioni tenant: categories, products, repairs, clients, suppliers,
+// documents, payments, paymentResources, stockMovements, devices,
+// agents, warehouses, priceLists
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDocPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function userExists() {
+      return signedIn() && exists(userDocPath());
+    }
+
+    function memberStudioId() {
+      return get(userDocPath()).data.studioId;
+    }
+
+    function membershipDocPath(studioId) {
+      return /databases/$(database)/documents/memberships/$(request.auth.uid + '_' + studioId);
+    }
+
+    // Fase 2: membership esplicita user↔studio
+    function isMemberOfStudio(studioId) {
+      return signedIn() && exists(membershipDocPath(studioId));
+    }
+
+    // Fase 1 legacy: archivio primario (studioId = uid al signup)
+    function isLegacyPrimaryStudio(studioId) {
+      return userExists() && memberStudioId() == studioId;
+    }
+
+    function canAccessStudio(studioId) {
+      return isMemberOfStudio(studioId) || isLegacyPrimaryStudio(studioId);
+    }
+
+    function isOwnerUid(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function tenantDocAccessible() {
+      return resource.data.keys().hasAny(['studioId'])
+        && canAccessStudio(resource.data.studioId);
+    }
+
+    function tenantCreateAccessible() {
+      return request.resource.data.keys().hasAny(['studioId'])
+        && canAccessStudio(request.resource.data.studioId);
+    }
+
+    function tenantStudioIdUnchanged() {
+      return request.resource.data.studioId == resource.data.studioId;
+    }
+
+    function membershipIdMatches(membershipId) {
+      return membershipId == request.auth.uid + '_' + request.resource.data.studioId;
+    }
+
+    // Client può creare membership solo per:
+    // - archivio primario legacy (studioId == uid), oppure
+    // - studio di cui è ownerId (nuovo archivio creato dallo stesso utente).
+    // Unirsi a studi altrui → solo Cloud Function (Fase 2+).
+    function canSelfAssignMembership() {
+      return request.resource.data.studioId == request.auth.uid
+        || (
+          exists(/databases/$(database)/documents/studios/$(request.resource.data.studioId))
+          && get(/databases/$(database)/documents/studios/$(request.resource.data.studioId)).data.ownerId == request.auth.uid
+        );
+    }
+
+    // ---------- USERS ----------
+    match /users/{userId} {
+      allow read: if signedIn() && request.auth.uid == userId;
+      allow create: if isOwnerUid(userId)
+        && request.resource.data.studioId == userId
+        && request.resource.data.keys().hasAll(['studioId', 'email', 'name', 'role', 'lang']);
+      allow update: if isOwnerUid(userId)
+        && request.resource.data.studioId == resource.data.studioId
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.role == resource.data.role;
+      allow delete: if isOwnerUid(userId);
+    }
+
+    // ---------- MEMBERSHIPS ----------
+    match /memberships/{membershipId} {
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && membershipIdMatches(membershipId)
+        && request.resource.data.keys().hasAll(['userId', 'studioId', 'role'])
+        && request.resource.data.role in ['owner', 'admin', 'technician', 'cashier']
+        && canSelfAssignMembership();
+
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.studioId == resource.data.studioId;
+
+      allow delete: if signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // ---------- STUDIOS ----------
+    match /studios/{studioId} {
+      allow read: if canAccessStudio(studioId);
+
+      // Legacy signup: studios/{uid} senza ownerId. Nuovi archivi: ID auto + ownerId.
+      allow create: if signedIn() && (
+        (
+          isOwnerUid(studioId)
+          && request.resource.data.keys().hasAll(['name', 'email'])
+        )
+        || (
+          request.resource.data.ownerId == request.auth.uid
+          && request.resource.data.keys().hasAll(['name', 'email', 'ownerId'])
+        )
+      );
+
+      allow update: if canAccessStudio(studioId);
+
+      allow delete: if canAccessStudio(studioId)
+        && (
+          isLegacyPrimaryStudio(studioId)
+          || (
+            isMemberOfStudio(studioId)
+            && get(membershipDocPath(studioId)).data.role == 'owner'
+          )
+        );
+    }
+
+    match /studios/{studioId}/{subcollection}/{docId} {
+      allow read, write: if canAccessStudio(studioId);
+    }
+
+    // ---------- DATI TENANT (campo studioId sul documento) ----------
+
+    match /categories/{docId} {
+      allow read: if tenantDocAccessible();
+      allow create: if tenantCreateAccessible();
+      allow update: if tenantDocAccessible() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocAccessible();
+    }
+
+    match /products/{docId} {
+      allow read: if tenantDocAccessible();
+      allow create: if tenantCreateAccessible();
+      allow update: if tenantDocAccessible() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocAccessible();
+    }
+
+    match /repairs/{docId} {
+      allow read: if tenantDocAccessible();
+      allow create: if tenantCreateAccessible();
+      allow update: if tenantDocAccessible() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocAccessible();
+    }
+
+    match /clients/{docId} {
+      allow read: if tenantDocAccessible();
+      allow create: if tenantCreateAccessible();
+      allow update: if tenantDocAccessible() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocAccessible();
+    }
+
+    match /suppliers/{docId} {
+      allow read: if tenantDocAccessible();
+      allow create: if tenantCreateAccessible();
+      allow update: if tenantDocAccessible() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocAccessible();
+    }
+
+    match /documents/{docId} {
+      allow read: if tenantDocAccessible();
+      allow create: if tenantCreateAccessible();
+      allow update: if tenantDocAccessible() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocAccessible();
+    }
+
+    match /payments/{docId} {
+      allow read: if tenantDocAccessible();
+      allow create: if tenantCreateAccessible();
+      allow update: if tenantDocAccessible() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocAccessible();
+    }
+
+    match /paymentResources/{docId} {
+      allow read: if tenantDocAccessible();
+      allow create: if tenantCreateAccessible();
+      allow update: if tenantDocAccessible() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocAccessible();
+    }
+
+    match /stockMovements/{docId} {
+      allow read: if tenantDocAccessible();
+      allow create: if tenantCreateAccessible();
+      allow update: if tenantDocAccessible() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocAccessible();
+    }
+
+    match /devices/{docId} {
+      allow read: if tenantDocAccessible();
+      allow create: if tenantCreateAccessible();
+      allow update: if tenantDocAccessible() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocAccessible();
+    }
+
+    match /agents/{docId} {
+      allow read: if tenantDocAccessible();
+      allow create: if tenantCreateAccessible();
+      allow update: if tenantDocAccessible() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocAccessible();
+    }
+
+    match /warehouses/{docId} {
+      allow read: if tenantDocAccessible();
+      allow create: if tenantCreateAccessible();
+      allow update: if tenantDocAccessible() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocAccessible();
+    }
+
+    match /priceLists/{docId} {
+      allow read: if tenantDocAccessible();
+      allow create: if tenantCreateAccessible();
+      allow update: if tenantDocAccessible() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocAccessible();
+    }
+  }
+}

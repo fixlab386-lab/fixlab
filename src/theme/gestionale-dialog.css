@@ -1,0 +1,252 @@
+/* FIXLab — Dialog popup stile gestionale (onboarding compatto) */
+
+.gestionale-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 13000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: linear-gradient(135deg, rgba(78, 166, 214, 0.35) 0%, rgba(58, 155, 208, 0.2) 40%, rgba(200, 208, 218, 0.45) 100%);
+  backdrop-filter: blur(2px);
+}
+
+.gestionale-dialog-card {
+  width: min(480px, 100%);
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+}
+
+.gestionale-dialog-card--wide {
+  width: min(560px, 100%);
+}
+
+.gestionale-dialog-card__header {
+  flex-shrink: 0;
+  padding: 14px 18px;
+  background: linear-gradient(180deg, #4ea6d6 0%, #3a9bd0 100%);
+  color: #ffffff;
+}
+
+.gestionale-dialog-card__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.gestionale-dialog-card__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 18px;
+  background: #ffffff;
+}
+
+.gestionale-dialog-card__footer {
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px;
+  background: linear-gradient(180deg, #4ea6d6 0%, #3a9bd0 100%);
+}
+
+.gestionale-dialog-card__footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    #e74c3c 0%,
+    #f39c12 16%,
+    #f1c40f 32%,
+    #2ecc71 48%,
+    #3498db 64%,
+    #9b59b6 80%,
+    #e74c3c 100%
+  );
+}
+
+.gestionale-dialog-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a5fb4;
+  background: #ffffff;
+  border: 1px solid #c8d0da;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.gestionale-dialog-btn:hover:not(:disabled) {
+  background: #f0f7fc;
+}
+
+.gestionale-dialog-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.gestionale-dialog-btn--primary {
+  color: #ffffff;
+  background: linear-gradient(180deg, #3d8fc8 0%, #2b7ab5 100%);
+  border-color: #2569a0;
+}
+
+.gestionale-dialog-btn--primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #4a9ad4 0%, #3285c0 100%);
+}
+
+.gestionale-dialog-form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gestionale-dialog-results {
+  margin-top: 10px;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--gestionale-border, #c8d0da);
+  border-radius: 3px;
+}
+
+.gestionale-dialog-results__item {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 12px;
+  text-align: left;
+  color: var(--gestionale-text, #1a1a1a);
+  background: #ffffff;
+  border: none;
+  border-bottom: 1px solid #eef2f6;
+  cursor: pointer;
+}
+
+.gestionale-dialog-results__item:hover {
+  background: #eaf2fb;
+}
+
+.gestionale-dialog-results__item:last-child {
+  border-bottom: none;
+}
+
+.gestionale-dialog-comune-list {
+  margin-top: 4px;
+  max-height: 160px;
+  overflow-y: auto;
+  border: 1px solid var(--gestionale-input-border, #a8b4c0);
+  border-radius: 3px;
+  background: #ffffff;
+}
+
+.gestionale-dialog-comune-list__item {
+  display: block;
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 12px;
+  text-align: left;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.gestionale-dialog-comune-list__item:hover,
+.gestionale-dialog-comune-list__item--active {
+  background: #eaf2fb;
+}
+
+.gestionale-field-with-action {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.gestionale-field-with-action__input {
+  flex: 1;
+  min-width: 0;
+}
+
+.gestionale-field-action-btn {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+  color: #1a5fb4;
+  background: #f0f7fc;
+  border: 1px solid #c5ddf0;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.gestionale-field-action-btn:hover {
+  background: #dcebf7;
+}
+
+.gestionale-cap-picker {
+  position: absolute;
+  z-index: 10;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 2px;
+  max-height: 120px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #c8d0da;
+  border-radius: 3px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.gestionale-cap-picker__item {
+  display: block;
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 11px;
+  text-align: left;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.gestionale-cap-picker__item:hover {
+  background: #eaf2fb;
+}
+
+.gestionale-field-error {
+  font-size: 11px;
+  color: #b3261e;
+  margin-top: 2px;
+}
+
+.gestionale-dialog-error-banner {
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #8b1a1a;
+  background: #fde8e8;
+  border: 1px solid #f5b4b4;
+  border-radius: 3px;
+}
+
+.gestionale-dialog-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--gestionale-text-muted, #5a5a5a);
+  line-height: 1.45;
+}

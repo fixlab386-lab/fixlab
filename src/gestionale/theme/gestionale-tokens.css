@@ -1,0 +1,33 @@
+/**
+ * Token estetica gestionale enterprise — Windows desktop classico.
+ * Importare dopo gestionale.css nel layout.
+ */
+.gestionale-theme {
+  --gestionale-bg-app: #f0f0f0;
+  --gestionale-bg-panel: #ffffff;
+  --gestionale-bg-header-col: #e6e6e6;
+  --gestionale-border-header-col: #d0d0d0;
+  --gestionale-bg-group-row: #e6f2ff;
+  --gestionale-selection-bg: #0078d7;
+  --gestionale-selection-fg: #ffffff;
+  --gestionale-border-ui: #ccc;
+  --gestionale-border-cell: #e0e0e0;
+  --gestionale-tab-inactive-bg: #e1e1e1;
+  --gestionale-tab-inactive-fg: #666666;
+  --gestionale-link: #0056b3;
+  --gestionale-font-size-data: 12px;
+  --gestionale-font-size-label: 11px;
+  --gestionale-font-size-group: 13px;
+  --gestionale-grid-row-height: 22px;
+  --gestionale-grid-group-height: 26px;
+  --gestionale-radius-button: 2px;
+}
+
+.gestionale-section-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--gestionale-bg-app);
+  font-size: var(--gestionale-font-size-data);
+}

@@ -1,0 +1,157 @@
+rules_version = '2';
+
+// =============================================================================
+// FIXLab — Firestore Security Rules (database: "fixlab")
+//
+// Principio: ogni documento "tenant" ha campo `studioId` uguale allo studio
+// dell'utente (users/{uid}.studioId). Non duplichiamo elenchi di campi
+// dell'app: se aggiungi campi nel client, le regole restano valide.
+// Quando aggiungi una NUOVA collezione tenant, copia il blocco match qui sotto.
+//
+// Collezioni tenant gestite: categories, products, repairs, clients,
+// suppliers, documents, payments, paymentResources, stockMovements, devices
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDocPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function userExists() {
+      return signedIn() && exists(userDocPath());
+    }
+
+    function memberStudioId() {
+      return get(userDocPath()).data.studioId;
+    }
+
+    function isMemberOfPathStudio(studioId) {
+      return userExists() && memberStudioId() == studioId;
+    }
+
+    function isOwnerUid(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // Documenti con campo studioId (tutte le collezioni operative FIXLab)
+    function tenantDocBelongsToMember() {
+      return userExists()
+        && resource.data.keys().hasAny(['studioId'])
+        && resource.data.studioId == memberStudioId();
+    }
+
+    function tenantCreateBelongsToMember() {
+      return userExists()
+        && request.resource.data.keys().hasAny(['studioId'])
+        && request.resource.data.studioId == memberStudioId();
+    }
+
+    function tenantStudioIdUnchanged() {
+      return request.resource.data.studioId == resource.data.studioId;
+    }
+
+    // ---------- USERS (profilo; studioId = owner al signup) ----------
+    match /users/{userId} {
+      allow read: if signedIn() && request.auth.uid == userId;
+      allow create: if isOwnerUid(userId)
+        && request.resource.data.studioId == userId
+        && request.resource.data.keys().hasAll(['studioId', 'email', 'name', 'role', 'lang']);
+      allow update: if isOwnerUid(userId)
+        && request.resource.data.studioId == resource.data.studioId
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.role == resource.data.role;
+      allow delete: if isOwnerUid(userId);
+    }
+
+    // ---------- STUDIOS (id documento = uid owner; niente studioId nel body) ----------
+    match /studios/{studioId} {
+      allow read: if isMemberOfPathStudio(studioId);
+      allow create: if isOwnerUid(studioId)
+        && request.resource.data.keys().hasAll(['name', 'email']);
+      allow update: if isMemberOfPathStudio(studioId);
+      allow delete: if isOwnerUid(studioId);
+    }
+
+    match /studios/{studioId}/{subcollection}/{docId} {
+      allow read, write: if isMemberOfPathStudio(studioId);
+    }
+
+    // ---------- DATI TENANT (campo studioId sul documento) ----------
+
+    match /categories/{docId} {
+      allow read: if tenantDocBelongsToMember();
+      allow create: if tenantCreateBelongsToMember();
+      allow update: if tenantDocBelongsToMember() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocBelongsToMember();
+    }
+
+    match /products/{docId} {
+      allow read: if tenantDocBelongsToMember();
+      allow create: if tenantCreateBelongsToMember();
+      allow update: if tenantDocBelongsToMember() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocBelongsToMember();
+    }
+
+    match /repairs/{docId} {
+      allow read: if tenantDocBelongsToMember();
+      allow create: if tenantCreateBelongsToMember();
+      allow update: if tenantDocBelongsToMember() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocBelongsToMember();
+    }
+
+    match /clients/{docId} {
+      allow read: if tenantDocBelongsToMember();
+      allow create: if tenantCreateBelongsToMember();
+      allow update: if tenantDocBelongsToMember() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocBelongsToMember();
+    }
+
+    match /suppliers/{docId} {
+      allow read: if tenantDocBelongsToMember();
+      allow create: if tenantCreateBelongsToMember();
+      allow update: if tenantDocBelongsToMember() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocBelongsToMember();
+    }
+
+    match /documents/{docId} {
+      allow read: if tenantDocBelongsToMember();
+      allow create: if tenantCreateBelongsToMember();
+      allow update: if tenantDocBelongsToMember() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocBelongsToMember();
+    }
+
+    match /payments/{docId} {
+      allow read: if tenantDocBelongsToMember();
+      allow create: if tenantCreateBelongsToMember();
+      allow update: if tenantDocBelongsToMember() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocBelongsToMember();
+    }
+
+    match /paymentResources/{docId} {
+      allow read: if tenantDocBelongsToMember();
+      allow create: if tenantCreateBelongsToMember();
+      allow update: if tenantDocBelongsToMember() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocBelongsToMember();
+    }
+
+    match /stockMovements/{docId} {
+      allow read: if tenantDocBelongsToMember();
+      allow create: if tenantCreateBelongsToMember();
+      allow update: if tenantDocBelongsToMember() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocBelongsToMember();
+    }
+
+    match /devices/{docId} {
+      allow read: if tenantDocBelongsToMember();
+      allow create: if tenantCreateBelongsToMember();
+      allow update: if tenantDocBelongsToMember() && tenantStudioIdUnchanged();
+      allow delete: if tenantDocBelongsToMember();
+    }
+  }
+}

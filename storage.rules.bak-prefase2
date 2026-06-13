@@ -1,0 +1,29 @@
+rules_version = '2';
+
+// FIXLab — allineato ai path usati in app: studios/{studioId}/logo | repairs/.../photos | documents/.../attachments
+// Database Firestore di riferimento: fixlab (vedi firebase.ts). Se aggiungi path Storage, aggiorna questo file.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userStudioId() {
+      return firestore.get(/databases/fixlab/documents/users/$(request.auth.uid)).data.studioId;
+    }
+
+    function ownsStudioPath(studioId) {
+      return signedIn() && studioId == userStudioId();
+    }
+
+    // Logo, foto riparazioni, allegati documenti: studios/{studioId}/...
+    match /studios/{studioId}/{allPaths=**} {
+      allow read: if ownsStudioPath(studioId);
+      allow create, update: if ownsStudioPath(studioId)
+        && request.resource.size < 20 * 1024 * 1024;
+      allow delete: if ownsStudioPath(studioId);
+    }
+  }
+}

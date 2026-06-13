@@ -1,0 +1,138 @@
+/* FIXLab — Selettore archivi / multi-officina (stile gestionale) */
+
+.gestionale-app-chrome {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.gestionale-archive-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: #f4f8fc;
+  border-bottom: 1px solid var(--gestionale-border);
+  min-height: 34px;
+}
+
+.gestionale-archive-bar__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gestionale-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.gestionale-archive-select-wrap {
+  position: relative;
+  min-width: 180px;
+  max-width: 320px;
+}
+
+.gestionale-archive-select {
+  width: 100%;
+  height: 24px;
+  padding: 0 28px 0 8px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--gestionale-text);
+  background: #ffffff;
+  border: 1px solid var(--gestionale-input-border);
+  border-radius: var(--gestionale-radius-sm);
+  cursor: pointer;
+  appearance: none;
+}
+
+.gestionale-archive-select:focus {
+  outline: none;
+  border-color: var(--gestionale-row-selected);
+}
+
+.gestionale-archive-select-wrap::after {
+  content: '▾';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: var(--gestionale-text-muted);
+  pointer-events: none;
+}
+
+.gestionale-archive-bar__manage {
+  margin-left: auto;
+}
+
+.gestionale-archive-bar__warn {
+  font-size: 11px;
+  color: #7a5a00;
+  background: #fff8e6;
+  border: 1px solid #e8d49a;
+  border-radius: 3px;
+  padding: 2px 8px;
+}
+
+.gestionale-archives-list {
+  border: 1px solid var(--gestionale-border);
+  border-radius: 3px;
+  max-height: 280px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+
+.gestionale-archives-list__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid #eef2f6;
+  font-size: 12px;
+}
+
+.gestionale-archives-list__row:last-child {
+  border-bottom: none;
+}
+
+.gestionale-archives-list__row--active {
+  background: #eaf2fb;
+}
+
+.gestionale-archives-list__name {
+  font-weight: 600;
+}
+
+.gestionale-archives-list__meta {
+  font-size: 10px;
+  color: var(--gestionale-text-muted);
+  margin-top: 2px;
+}
+
+.gestionale-archives-list__actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.gestionale-archives-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.gestionale-archives-form {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--gestionale-border);
+}
+
+.gestionale-archives-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}

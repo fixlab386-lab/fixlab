@@ -1,0 +1,128 @@
+/* Menu «Nuovo» nella toolbar superiore (stile gestionale) */
+
+.gestionale-toolbar-strip {
+  display: flex;
+  align-items: stretch;
+  min-height: var(--gestionale-toolbar-height);
+  background: var(--gestionale-toolbar-bg);
+  border-bottom: var(--gestionale-border-width) solid var(--gestionale-border);
+  flex-shrink: 0;
+}
+
+.gestionale-toolbar--main {
+  flex: 1;
+  min-width: 0;
+  border-bottom: none;
+}
+
+.gestionale-toolbar-new {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+  padding: 4px 0 4px 6px;
+}
+
+.gestionale-toolbar-new__trigger {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 56px;
+  max-width: 72px;
+  padding: 4px 8px;
+  border: var(--gestionale-border-width) solid transparent;
+  border-radius: var(--gestionale-radius-md);
+  background: transparent;
+  color: var(--gestionale-text);
+  cursor: pointer;
+}
+
+.gestionale-toolbar-new__trigger:hover,
+.gestionale-toolbar-new__trigger--open {
+  background: rgba(255, 255, 255, 0.55);
+  border-color: var(--gestionale-border);
+}
+
+.gestionale-toolbar-new__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.gestionale-toolbar-new__label {
+  font-size: var(--gestionale-font-size-toolbar);
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.15;
+}
+
+.gestionale-toolbar-new__icon--sun {
+  color: #e6a800;
+  font-size: 26px;
+  text-shadow: 0 0 2px rgba(230, 168, 0, 0.5);
+}
+
+.gestionale-toolbar-new__section--divider {
+  border-top: 1px solid #c8d4de;
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+.gestionale-toolbar-new__menu {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 6px;
+  z-index: 14000;
+  min-width: 220px;
+  padding: 6px 0;
+  background: #fff;
+  border: 1px solid #a8c4dc;
+  border-radius: 4px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.gestionale-toolbar-new__group + .gestionale-toolbar-new__group {
+  border-top: 1px solid #e5ebf1;
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+.gestionale-toolbar-new__group-label {
+  padding: 4px 12px 2px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7c8f;
+}
+
+.gestionale-toolbar-new__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 12px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  color: #1a1a1a;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gestionale-toolbar-new__item:hover {
+  background: #eef4fa;
+  color: #1a5fb4;
+}
+
+.gestionale-toolbar-new__item-icon {
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}

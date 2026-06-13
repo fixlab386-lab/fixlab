@@ -1,0 +1,56 @@
+/* Modale Stampa — anteprima documento */
+
+.gestionale-dialog-card--print {
+  width: min(920px, 100%);
+  max-height: calc(100vh - 32px);
+}
+
+.print-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.print-dialog__label,
+.print-dialog__preview-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.print-dialog__select {
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 12px;
+  border: 1px solid #c8d0da;
+  border-radius: 3px;
+  background: #fff;
+  color: #1a1a1a;
+}
+
+.print-dialog__hint {
+  margin: 0;
+  font-size: 11px;
+  color: #b3261e;
+}
+
+.print-dialog__preview {
+  flex: 1;
+  min-height: 280px;
+  max-height: min(52vh, 520px);
+  overflow: auto;
+  margin-top: 4px;
+  padding: 14px;
+  background: #eef2f6;
+  border: 1px solid #c8d0da;
+  border-radius: 4px;
+}
+
+.print-dialog__preview .print-doc {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 18px 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 2px;
+}

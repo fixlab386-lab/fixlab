@@ -1,0 +1,219 @@
+/* Form documento — layout Vendita al banco (stile gestionale) */
+
+.gestionale-doc-form-header {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) 140px 120px;
+  gap: 10px;
+  align-items: end;
+  padding: 10px 14px;
+  background: #f4f8fc;
+  border: 1px solid var(--gestionale-border);
+  border-radius: var(--gestionale-radius-md);
+  margin-bottom: 10px;
+}
+
+.gestionale-doc-form-header--vendita {
+  grid-template-columns: minmax(200px, 2.2fr) 110px 120px 120px 72px 72px auto;
+}
+
+.gestionale-doc-form-header__followup {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--gestionale-text);
+  white-space: nowrap;
+  margin-bottom: 2px;
+}
+
+.gestionale-doc-form-section-title {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a5fb4;
+}
+
+.gestionale-doc-form-addresses {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.gestionale-doc-form-addresses__row3 {
+  display: grid;
+  grid-template-columns: 90px 1fr 70px;
+  gap: 8px;
+}
+
+.gestionale-doc-form-inline-num {
+  width: 48px;
+  display: inline-block;
+  margin: 0 4px;
+}
+
+.gestionale-vendita-banco-footer {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--gestionale-border);
+  border-radius: var(--gestionale-radius-md);
+  background: #f8fafc;
+}
+
+.gestionale-vendita-banco-footer__left {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.4fr) 72px 110px minmax(180px, 2fr);
+  gap: 10px;
+  align-items: end;
+}
+
+.gestionale-vendita-banco .gestionale-repair-sheet__header {
+  margin-bottom: 8px;
+}
+
+.gestionale-doc-lines__toolbar-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #4a5c6e;
+  margin-right: 4px;
+}
+
+.gestionale-doc-lines__code-cell {
+  display: flex;
+  gap: 2px;
+  align-items: stretch;
+}
+
+.gestionale-doc-lines__code-input {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.gestionale-doc-lines__code-search {
+  border: 1px solid #a8c4dc;
+  border-radius: 3px;
+  background: #fff;
+  padding: 0 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.gestionale-doc-lines__code-search:hover {
+  background: #eef4fa;
+}
+
+.gestionale-doc-form-header__client-wrap {
+  position: relative;
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.gestionale-doc-form-header__client-wrap .gestionale-form-field__input {
+  flex: 1;
+}
+
+.gestionale-doc-form-header__search-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  padding: 0 8px;
+  border: 1px solid #a8c4dc;
+  border-radius: 3px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.gestionale-doc-form-header__search-btn:hover {
+  background: #eef4fa;
+}
+
+.gestionale-doc-form-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  border-bottom: 1px solid var(--gestionale-border);
+  margin-bottom: 12px;
+  background: #f8fafc;
+}
+
+.gestionale-doc-form-tabs__btn {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gestionale-text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+
+.gestionale-doc-form-tabs__btn:hover {
+  color: var(--gestionale-text);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.gestionale-doc-form-tabs__btn--active {
+  color: var(--gestionale-detail-tab-active);
+  border-bottom-color: var(--gestionale-detail-tab-active);
+  background: #fff;
+}
+
+.gestionale-doc-form-tab-panel {
+  min-height: 280px;
+}
+
+.gestionale-doc-form-righe {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.gestionale-doc-form-righe__lines {
+  flex: 1;
+  min-width: 0;
+}
+
+.gestionale-doc-form-righe__totals {
+  width: 240px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 8px;
+}
+
+.gestionale-doc-form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 640px;
+}
+
+.gestionale-doc-form-stack--wide {
+  max-width: none;
+}
+
+@media (max-width: 900px) {
+  .gestionale-doc-form-header,
+  .gestionale-doc-form-header--vendita {
+    grid-template-columns: 1fr;
+  }
+
+  .gestionale-doc-form-righe {
+    flex-direction: column;
+  }
+
+  .gestionale-doc-form-righe__totals {
+    width: 100%;
+    position: static;
+  }
+
+  .gestionale-doc-form-addresses {
+    grid-template-columns: 1fr;
+  }
+
+  .gestionale-vendita-banco-footer__left {
+    grid-template-columns: 1fr 1fr;
+  }
+}

@@ -1,0 +1,307 @@
+/* Finestra MDI centrale stile gestionale enterprise */
+
+.gestionale-mdi-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 24px;
+  background: rgba(160, 170, 180, 0.5);
+}
+
+.gestionale-mdi-window {
+  display: flex;
+  flex-direction: column;
+  width: min(1240px, 100%);
+  height: min(820px, calc(100vh - 24px));
+  background: #ece9d8;
+  border: 1px solid #888;
+  box-shadow: 2px 2px 14px rgba(0, 0, 0, 0.4);
+  font-size: 11px;
+}
+
+.gestionale-mdi-window__titlebar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  height: 28px;
+  padding: 0 6px 0 8px;
+  background: linear-gradient(180deg, #f6f4ec 0%, #e4e0d4 50%, #d8d4c8 100%);
+  border-bottom: 1px solid #a8a8a8;
+  user-select: none;
+}
+
+.gestionale-mdi-window__title-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.gestionale-mdi-window__title-text {
+  flex: 1;
+  font-weight: 600;
+  font-size: 12px;
+  color: #1a1a1a;
+}
+
+.gestionale-mdi-window__title-btn {
+  width: 22px;
+  height: 20px;
+  border: 1px solid #a0a0a0;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #fff 0%, #e8e8e8 100%);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.gestionale-mdi-window__title-btn:hover {
+  background: #fff;
+}
+
+.gestionale-mdi-window__title-btn--close:hover {
+  background: #e81123;
+  border-color: #a00;
+  color: #fff;
+}
+
+.gestionale-mdi-window__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #f5f5f5;
+}
+
+.gestionale-mdi-window__banners {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 10px 0;
+}
+
+.gestionale-mdi-window__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.gestionale-mdi-window__header {
+  display: grid;
+  grid-template-columns: minmax(220px, 2.6fr) 96px 96px 124px 68px 68px;
+  grid-template-rows: auto auto;
+  gap: 6px 8px;
+  align-items: end;
+  padding: 8px 10px;
+  background: #f0f0f0;
+  border: 1px solid #c0c0c0;
+  margin-bottom: 6px;
+  flex-shrink: 0;
+}
+
+.gestionale-mdi-window__header-followup {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+}
+
+.gestionale-mdi-window__header .gestionale-form-field__label {
+  font-size: 10px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+}
+
+.gestionale-mdi-window__header .gestionale-form-field__input {
+  min-height: 22px;
+  font-size: 11px;
+}
+
+.gestionale-mdi-window__tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid #a8a8a8;
+  background: #e8e8e8;
+  flex-shrink: 0;
+}
+
+.gestionale-mdi-window__tab {
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #333;
+  background: #d4d0c8;
+  border: 1px solid #a8a8a8;
+  border-bottom: none;
+  margin-right: -1px;
+  cursor: pointer;
+}
+
+.gestionale-mdi-window__tab:hover {
+  background: #e8e4dc;
+}
+
+.gestionale-mdi-window__tab--active {
+  background: #f5f5f5;
+  border-bottom: 1px solid #f5f5f5;
+  margin-bottom: -1px;
+  z-index: 1;
+  color: #1a5fb4;
+}
+
+.gestionale-mdi-window__panel {
+  flex: 1;
+  min-height: 180px;
+  background: #f5f5f5;
+  padding: 8px 10px;
+  overflow: auto;
+}
+
+.gestionale-mdi-window__mid-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #f0f0f0;
+  border-top: 1px solid #c0c0c0;
+}
+
+.gestionale-mdi-window__mid-footer-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.2fr) 56px 96px minmax(200px, 2.4fr);
+  gap: 10px;
+  align-items: end;
+}
+
+.gestionale-mdi-window__mid-footer-row .gestionale-form-field__label {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  line-height: 1.2;
+  min-height: 1.2em;
+}
+
+.gestionale-mdi-window__mid-footer-row--totals {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.gestionale-mdi-window__totals-inline {
+  display: grid;
+  gap: 2px;
+  font-size: 11px;
+  text-align: right;
+  min-width: 200px;
+  padding: 4px 8px;
+  background: #fff;
+  border: 1px solid #c0c0c0;
+}
+
+.gestionale-mdi-window__totals-inline strong {
+  font-weight: 700;
+}
+
+.gestionale-mdi-window__totals-total {
+  font-size: 12px;
+  margin-top: 2px;
+  padding-top: 4px;
+  border-top: 1px solid #c0c0c0;
+}
+
+.gestionale-mdi-window__actionbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 6px 8px;
+  background: linear-gradient(180deg, #f0f0f0 0%, #e0e0e0 100%);
+  border-top: 1px solid #a0a0a0;
+}
+
+.gestionale-mdi-window__action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  min-height: 26px;
+  border: 1px solid #a0a0a0;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #fff 0%, #e8e8e8 100%);
+  font-size: 11px;
+  font-weight: 600;
+  color: #1a1a1a;
+  cursor: pointer;
+}
+
+.gestionale-mdi-window__action-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #fff 0%, #f0f0f0 100%);
+  border-color: #1a5fb4;
+  color: #1a5fb4;
+}
+
+.gestionale-mdi-window__action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gestionale-mdi-window__action-btn--close {
+  margin-left: auto;
+}
+
+.gestionale-mdi-window__banner {
+  padding: 6px 10px;
+  font-size: 11px;
+  border: 1px solid #c0c0c0;
+  border-radius: 2px;
+}
+
+.gestionale-mdi-window__banner--ok {
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.gestionale-mdi-window__banner--warn {
+  background: #fff8e6;
+  color: #92400e;
+}
+
+.gestionale-mdi-window__banner--error {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.gestionale-mdi-window .gestionale-doc-lines {
+  overflow-x: auto;
+}
+
+.gestionale-mdi-window .gestionale-datatable {
+  min-width: 920px;
+}
+
+.gestionale-mdi-window .gestionale-doc-lines__toolbar {
+  margin-bottom: 6px;
+}
+
+.gestionale-mdi-window .gestionale-form-field__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 900px) {
+  .gestionale-mdi-window__header {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .gestionale-mdi-window__mid-footer-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}

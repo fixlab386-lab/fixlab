@@ -1,0 +1,49 @@
+.gestionale-magazzino-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.gestionale-magazzino-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 12px;
+  background: var(--gestionale-toolbar-bg, #ece9d8);
+  border-bottom: 1px solid var(--gestionale-border, #aca899);
+}
+
+.gestionale-magazzino-tabs__tab {
+  padding: 6px 14px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+
+.gestionale-magazzino-tabs__tab--active {
+  background: var(--gestionale-page-bg, #fff);
+  border-color: var(--gestionale-border, #aca899);
+  font-weight: 600;
+}
+
+.gestionale-stock-status--esaurito,
+.gestionale-stock-status--sotto_scorta {
+  color: #b00020;
+  font-weight: 600;
+}
+
+.gestionale-stock-status--in_arrivo {
+  color: #1565c0;
+}
+
+.gestionale-stock-status--da_ordinare {
+  color: #e65100;
+}
+
+.gestionale-stock-status--regolare {
+  color: #2e7d32;
+}

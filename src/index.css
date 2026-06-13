@@ -1,0 +1,725 @@
+:root[data-theme="dark"] {
+  --bg-primary: #0B0C0F;
+  --bg-secondary: #12141A;
+  --bg-tertiary: #1A1D26;
+  --bg-hover: #222733;
+  --text-primary: #F4F5F7;
+  --text-secondary: #A8B0C0;
+  --text-tertiary: #6B7280;
+  --text-muted: #4B5563;
+  --border-primary: #2A2F3D;
+  --border-secondary: #363C4D;
+  --accent: #818CF8;
+  --accent-bg: rgba(129, 140, 248, 0.14);
+  --accent-border: rgba(129, 140, 248, 0.35);
+  --accent-border2: rgba(129, 140, 248, 0.5);
+  --accent-text: #0B0C0F;
+  --danger: #F87171;
+  --danger-bg: rgba(248, 113, 113, 0.12);
+  --danger-border: rgba(248, 113, 113, 0.35);
+  --warning: #FBBF24;
+  --warning-bg: rgba(251, 191, 36, 0.12);
+  --warning-border: rgba(251, 191, 36, 0.35);
+  --info: #60A5FA;
+  --info-bg: rgba(96, 165, 250, 0.12);
+  --info-border: rgba(96, 165, 250, 0.35);
+  --purple: #A78BFA;
+  --purple-bg: rgba(167, 139, 250, 0.14);
+  --whatsapp: #25D366;
+  --whatsapp-bg: #25D36610;
+  --whatsapp-border: #25D36620;
+  --shadow: rgba(0, 0, 0, 0.45);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-accent: 0 10px 36px rgba(129, 140, 248, 0.35);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 28px rgba(0, 0, 0, 0.35);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+  --nav-bg: #0E1016;
+  --nav-text: #9CA3AF;
+  --nav-text-active: #F9FAFB;
+  --nav-item-hover: rgba(255, 255, 255, 0.06);
+  --nav-item-active-bg: rgba(129, 140, 248, 0.18);
+  --nav-border: rgba(255, 255, 255, 0.06);
+}
+
+:root[data-theme="light"] {
+  --bg-primary: #ECEEF2;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary: #F4F6F9;
+  --bg-hover: #E8ECF2;
+  --text-primary: #111827;
+  --text-secondary: #4B5563;
+  --text-tertiary: #6B7280;
+  --text-muted: #9CA3AF;
+  --border-primary: #E5E7EB;
+  --border-secondary: #D1D5DB;
+  --accent: #4F46E5;
+  --accent-bg: rgba(79, 70, 229, 0.1);
+  --accent-border: rgba(79, 70, 229, 0.28);
+  --accent-border2: rgba(79, 70, 229, 0.42);
+  --accent-text: #FFFFFF;
+  --danger: #DC2626;
+  --danger-bg: rgba(220, 38, 38, 0.08);
+  --danger-border: rgba(220, 38, 38, 0.25);
+  --warning: #D97706;
+  --warning-bg: rgba(217, 119, 6, 0.1);
+  --warning-border: rgba(217, 119, 6, 0.28);
+  --info: #2563EB;
+  --info-bg: rgba(37, 99, 235, 0.08);
+  --info-border: rgba(37, 99, 235, 0.25);
+  --purple: #6366F1;
+  --purple-bg: rgba(99, 102, 241, 0.1);
+  --whatsapp: #128C3E;
+  --whatsapp-bg: #128C3E10;
+  --whatsapp-border: #128C3E20;
+  --shadow: rgba(15, 23, 42, 0.08);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 8px 30px rgba(15, 23, 42, 0.08);
+  --shadow-accent: 0 10px 36px rgba(79, 70, 229, 0.2);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 20px rgba(15, 23, 42, 0.06);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --nav-bg: #12141A;
+  --nav-text: #9CA3AF;
+  --nav-text-active: #FFFFFF;
+  --nav-item-hover: rgba(255, 255, 255, 0.06);
+  --nav-item-active-bg: rgba(79, 70, 229, 0.22);
+  --nav-border: rgba(255, 255, 255, 0.07);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  -webkit-font-smoothing: antialiased;
+}
+input, select, textarea, button { font-family: inherit; }
+::selection { background: var(--accent); color: var(--accent-text); }
+
+/* Intestazioni pagina — stesso linguaggio su tutta l’app */
+.fixlab-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+.fixlab-page-header__text {
+  flex: 1;
+  min-width: min(100%, 240px);
+}
+.fixlab-page-header__eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+.fixlab-page-header__title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.fixlab-page-header__title {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+.fixlab-page-header__subtitle {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  max-width: 52rem;
+}
+.fixlab-page-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.fixlab-icon-btn {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+}
+.fixlab-icon-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+.fixlab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: opacity 0.15s, background 0.15s;
+}
+.fixlab-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.fixlab-btn--primary {
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 700;
+}
+.fixlab-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+.fixlab-btn--secondary {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border-color: var(--border-primary);
+  box-shadow: var(--shadow-sm);
+}
+.fixlab-btn--secondary:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+}
+.fixlab-empty-hint {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  max-width: 28rem;
+  margin: 0 auto;
+}
+
+/* Sidebar — voci menu (hover / attivo senza inline background) */
+.layout-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  margin-bottom: 2px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--nav-text);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background 0.15s, color 0.15s;
+}
+.layout-nav-link:hover {
+  background: var(--nav-item-hover);
+  color: var(--nav-text-active);
+}
+.layout-nav-link--active {
+  font-weight: 600;
+  color: var(--nav-text-active);
+  background: var(--nav-item-active-bg);
+}
+.layout-nav-link--active:hover {
+  background: var(--nav-item-active-bg);
+  color: var(--nav-text-active);
+}
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-secondary); }
+::-webkit-scrollbar-thumb { background: var(--border-secondary); border-radius: 3px; }
+
+/* driver.js — coerente con tema FIXLab */
+.driver-popover {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+  box-shadow: 0 12px 40px var(--shadow) !important;
+}
+.driver-popover-title { color: var(--text-primary) !important; }
+.driver-popover-description { color: var(--text-secondary) !important; }
+.driver-popover-next-btn,
+.driver-popover-prev-btn {
+  text-shadow: none !important;
+  font-family: inherit !important;
+}
+.driver-popover-next-btn {
+  background: var(--accent) !important;
+  color: var(--accent-text) !important;
+  border: none !important;
+}
+.driver-popover-prev-btn {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid var(--border-secondary) !important;
+}
+.driver-popover-close-btn {
+  color: var(--text-tertiary) !important;
+}
+.driver-popover-progress-text { color: var(--text-tertiary) !important; }
+
+/* Pagina Clienti — hover righe senza JS, layout su schermi stretti */
+.fixlab-clienti-page tbody tr.fixlab-clienti-row {
+  cursor: pointer;
+  border-bottom: 1px solid var(--bg-tertiary);
+  background: transparent;
+}
+.fixlab-clienti-page tbody tr.fixlab-clienti-row:hover {
+  background: var(--bg-tertiary);
+}
+.fixlab-clienti-page tbody tr.fixlab-clienti-row[data-selected="true"] {
+  background: var(--accent-bg);
+}
+.fixlab-clienti-page tbody tr.fixlab-clienti-row[data-selected="true"]:hover {
+  background: var(--accent-bg);
+}
+@media (max-width: 960px) {
+  .fixlab-clienti-page {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: calc(100vh - 120px);
+  }
+  .fixlab-clienti-detail {
+    width: 100% !important;
+    max-height: min(480px, 55vh);
+  }
+  .fixlab-clienti-table-wrap {
+    max-height: min(50vh, 420px) !important;
+  }
+}
+
+/* Pagina Fornitori — come Clienti */
+.fixlab-fornitori-page tbody tr.fixlab-fornitori-row {
+  cursor: pointer;
+  border-bottom: 1px solid var(--bg-tertiary);
+  background: transparent;
+}
+.fixlab-fornitori-page tbody tr.fixlab-fornitori-row:hover {
+  background: var(--bg-tertiary);
+}
+.fixlab-fornitori-page tbody tr.fixlab-fornitori-row[data-selected="true"] {
+  background: var(--accent-bg);
+}
+.fixlab-fornitori-page tbody tr.fixlab-fornitori-row[data-selected="true"]:hover {
+  background: var(--accent-bg);
+}
+@media (max-width: 960px) {
+  .fixlab-fornitori-page {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: calc(100vh - 120px);
+  }
+  .fixlab-fornitori-detail {
+    width: 100% !important;
+    max-height: min(480px, 55vh);
+  }
+  .fixlab-fornitori-table-wrap {
+    max-height: min(50vh, 420px) !important;
+  }
+}
+
+/* Magazzino — righe prodotto e riga “Tutti” */
+.fixlab-magazzino-page .fixlab-mag-row {
+  cursor: pointer;
+  border-bottom: 1px solid var(--bg-tertiary);
+  background: transparent;
+}
+.fixlab-magazzino-page .fixlab-mag-row:hover {
+  background: var(--bg-tertiary);
+}
+.fixlab-magazzino-page .fixlab-mag-row[data-row-active="true"] {
+  background: var(--accent-bg);
+}
+.fixlab-magazzino-page .fixlab-mag-row[data-row-active="true"]:hover {
+  background: var(--accent-bg);
+}
+.fixlab-magazzino-page .fixlab-mag-cat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+.fixlab-magazzino-page .fixlab-mag-cat-row:hover:not([data-selected="true"]) {
+  background: var(--bg-tertiary);
+}
+.fixlab-magazzino-page .fixlab-mag-cat-row[data-selected="true"] {
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-weight: 600;
+}
+@media (max-width: 1100px) {
+  .fixlab-magazzino-page {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: calc(100vh - 120px);
+  }
+  .fixlab-magazzino-sidebar {
+    width: 100% !important;
+    max-height: min(280px, 38vh);
+  }
+  .fixlab-magazzino-detail {
+    width: 100% !important;
+    max-height: min(420px, 45vh);
+  }
+}
+
+/* Riparazioni — layout, sidebar, kanban, lista */
+.fixlab-riparazioni-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+  height: calc(100vh - 120px);
+}
+.fixlab-riparazioni-body {
+  display: flex;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+  margin-top: 16px;
+}
+.fixlab-repairs-sidebar {
+  width: 232px;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: 14px 12px;
+  max-height: calc(100vh - 220px);
+  position: sticky;
+  top: 8px;
+  overflow-y: auto;
+  box-shadow: var(--shadow-sm);
+}
+.fixlab-repairs-sidebar__label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 8px 10px;
+}
+.fixlab-repairs-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.fixlab-repairs-nav-item:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+.fixlab-repairs-nav-item[data-active='true'] {
+  font-weight: 600;
+}
+.fixlab-repairs-nav-item__count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  min-width: 1.5rem;
+  text-align: right;
+}
+.fixlab-repairs-nav-item[data-active='true'] .fixlab-repairs-nav-item__count {
+  color: inherit;
+  opacity: 0.85;
+}
+.fixlab-repairs-sidebar__divider {
+  height: 1px;
+  background: var(--border-primary);
+  margin: 10px 6px;
+}
+.fixlab-repairs-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.fixlab-repairs-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+  flex-shrink: 0;
+}
+.fixlab-repairs-search {
+  flex: 1;
+  min-width: min(100%, 200px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  box-shadow: var(--shadow-sm);
+}
+.fixlab-repairs-search input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  flex: 1;
+  min-width: 0;
+}
+.fixlab-repairs-select {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  min-width: 150px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+.fixlab-repairs-summary {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+.fixlab-repairs-filters-mobile {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.fixlab-repairs-filters-mobile::-webkit-scrollbar {
+  height: 4px;
+}
+.fixlab-repairs-chip {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+  color: var(--text-tertiary);
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.fixlab-repairs-chip.is-active {
+  background: var(--accent-bg);
+  border-color: var(--accent-border2);
+  color: var(--accent);
+}
+.fixlab-repairs-chip.is-active-muted {
+  background: var(--bg-tertiary);
+  border-color: var(--border-secondary);
+  color: var(--text-primary);
+}
+.fixlab-repairs-board-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.fixlab-repairs-list-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.fixlab-repairs-list-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+@media (min-width: 960px) {
+  .fixlab-repairs-explorer {
+    display: flex !important;
+  }
+  .fixlab-repairs-filters-mobile {
+    display: none !important;
+  }
+}
+@media (max-width: 959px) {
+  .fixlab-riparazioni-body {
+    flex-direction: column;
+    gap: 12px;
+    height: auto;
+    min-height: min(calc(100vh - 200px), 900px);
+  }
+  .fixlab-repairs-sidebar {
+    display: none !important;
+  }
+  .fixlab-riparazioni-layout {
+    height: auto;
+    min-height: calc(100vh - 120px);
+  }
+  .fixlab-repairs-main {
+    overflow: visible;
+  }
+  .fixlab-repairs-board-area {
+    min-height: 480px;
+  }
+}
+.fixlab-riparazioni-page .fixlab-repairs-row {
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-primary);
+  background: transparent;
+}
+.fixlab-riparazioni-page .fixlab-repairs-row:hover {
+  background: var(--bg-tertiary);
+}
+.fixlab-riparazioni-page .fixlab-repairs-row:last-child {
+  border-bottom: none;
+}
+
+/* Dispositivi — tabella scrollabile, hover righe */
+.fixlab-dispositivi-page .fixlab-dispositivi-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.fixlab-dispositivi-page .fixlab-dispositivi-table-wrap table {
+  min-width: 880px;
+}
+.fixlab-dispositivi-page tbody tr.fixlab-dispositivi-row {
+  cursor: pointer;
+  border-bottom: 1px solid var(--bg-tertiary);
+  background: transparent;
+}
+.fixlab-dispositivi-page tbody tr.fixlab-dispositivi-row:hover {
+  background: var(--bg-tertiary);
+}
+
+/* Documenti — layout responsive, tabella, menu Nuovo, righe elenco */
+.fixlab-documenti-page .fixlab-documenti-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.fixlab-documenti-page .fixlab-documenti-table-wrap table {
+  min-width: 720px;
+}
+.fixlab-documenti-page tbody tr.fixlab-documenti-row {
+  cursor: pointer;
+  border-bottom: 1px solid var(--bg-tertiary);
+  background: transparent;
+}
+.fixlab-documenti-page tbody tr.fixlab-documenti-row:hover {
+  background: var(--bg-tertiary);
+}
+.fixlab-documenti-page .fixlab-documenti-menu-item:hover {
+  background: var(--bg-tertiary);
+}
+@media (max-width: 900px) {
+  .fixlab-documenti-page {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 0;
+  }
+  .fixlab-documenti-page .fixlab-documenti-sidebar {
+    width: 100% !important;
+  }
+}
+
+/* Pagamenti — tabella scrollabile, hover righe, layout responsive */
+.fixlab-pagamenti-page .fixlab-pagamenti-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.fixlab-pagamenti-page .fixlab-pagamenti-table-wrap table {
+  min-width: 860px;
+}
+.fixlab-pagamenti-page tbody tr.fixlab-pagamenti-row {
+  border-bottom: 1px solid var(--bg-tertiary);
+  background: transparent;
+}
+.fixlab-pagamenti-page tbody tr.fixlab-pagamenti-row:hover {
+  background: var(--bg-tertiary);
+}
+@media (max-width: 900px) {
+  .fixlab-pagamenti-page {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 0;
+  }
+  .fixlab-pagamenti-page .fixlab-pagamenti-sidebar {
+    width: 100% !important;
+  }
+}
+
+/* Movimenti magazzino — tabella, hover righe, responsive */
+.fixlab-movimenti-page .fixlab-movimenti-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.fixlab-movimenti-page .fixlab-movimenti-table-wrap table {
+  min-width: 920px;
+}
+.fixlab-movimenti-page tbody tr.fixlab-movimenti-row {
+  border-bottom: 1px solid var(--bg-tertiary);
+  background: transparent;
+}
+.fixlab-movimenti-page tbody tr.fixlab-movimenti-row:hover {
+  background: var(--bg-tertiary);
+}
+@media (max-width: 900px) {
+  .fixlab-movimenti-page {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 0;
+  }
+  .fixlab-movimenti-page .fixlab-movimenti-sidebar {
+    width: 100% !important;
+  }
+}

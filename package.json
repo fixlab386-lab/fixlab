@@ -1,0 +1,109 @@
+{
+  "name": "fixlab",
+  "private": true,
+  "version": "1.0.0",
+  "description": "FIXLab — gestionale desktop per laboratori di riparazione",
+  "author": "FixLab",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/miserveapp-star/fixlab.git"
+  },
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "dev:desktop": "cross-env ELECTRON=true vite",
+    "build": "tsc -b && vite build",
+    "prebuild:desktop": "node scripts/generate-icon.mjs",
+    "build:desktop": "cross-env ELECTRON=true tsc -b && cross-env ELECTRON=true vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "pack:desktop": "npm run build:desktop && electron-builder --win",
+    "release:patch": "node scripts/release-desktop.mjs patch",
+    "release:minor": "node scripts/release-desktop.mjs minor",
+    "release:major": "node scripts/release-desktop.mjs major",
+    "deploy:hosting": "npm run build && firebase deploy --only hosting",
+    "deploy:functions": "firebase deploy --only functions",
+    "deploy:firestore": "firebase deploy --only firestore:indexes"
+  },
+  "dependencies": {
+    "driver.js": "^1.4.0",
+    "electron-updater": "^6.8.9",
+    "firebase": "^12.11.0",
+    "html5-qrcode": "^2.3.8",
+    "jspdf": "^4.2.1",
+    "jszip": "^3.10.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-router-dom": "^7.13.2",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/node": "^24.12.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^10.0.3",
+    "cross-env": "^10.1.0",
+    "electron": "^42.4.0",
+    "electron-builder": "^26.15.3",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.4.0",
+    "sharp": "^0.35.1",
+    "tailwindcss": "^4.2.2",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.57.0",
+    "vite": "^8.0.1",
+    "vite-plugin-electron": "^1.0.4",
+    "vite-plugin-pwa": "^1.3.0",
+    "wait-on": "^9.0.10",
+    "workbox-window": "^7.4.1"
+  },
+  "build": {
+    "appId": "com.fixlab.desktop",
+    "productName": "FixLab",
+    "copyright": "Copyright © FixLab",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "miserveapp-star",
+        "repo": "fixlab"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "FixLab-Setup-${version}.${ext}",
+      "forceCodeSigning": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "FixLab",
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}

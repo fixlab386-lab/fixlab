@@ -1,0 +1,35 @@
+rules_version = '2';
+
+// FIXLab — Storage rules — autorizzazione via JWT custom claims (studioIds).
+// NON usare firestore.get/exists: Storage non legge il database Firestore "fixlab".
+// Path: studios/{studioId}/logo | repairs/.../photos | documents/.../attachments
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isLegacyPrimaryStudio(studioId) {
+      return signedIn() && studioId == request.auth.uid;
+    }
+
+    function hasStudioClaim(studioId) {
+      return signedIn()
+        && request.auth.token.studioIds != null
+        && studioId in request.auth.token.studioIds;
+    }
+
+    function canAccessStudioStorage(studioId) {
+      return isLegacyPrimaryStudio(studioId) || hasStudioClaim(studioId);
+    }
+
+    match /studios/{studioId}/{allPaths=**} {
+      allow read: if canAccessStudioStorage(studioId);
+      allow create, update: if canAccessStudioStorage(studioId)
+        && request.resource.size < 20 * 1024 * 1024;
+      allow delete: if canAccessStudioStorage(studioId);
+    }
+  }
+}

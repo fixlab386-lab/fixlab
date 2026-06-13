@@ -1,0 +1,99 @@
+/* Modale ricerca cliente (stile gestionale) */
+
+.client-search-dialog {
+  width: min(820px, 100%);
+}
+
+.client-search-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.client-search-dialog__filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.client-search-dialog__search-btn {
+  align-self: end;
+  margin-bottom: 1px;
+  white-space: nowrap;
+}
+
+.client-search-dialog__hint {
+  margin: 0;
+  font-size: 11px;
+  color: #6b7c8f;
+}
+
+.client-search-dialog__table-wrap {
+  max-height: min(50vh, 360px);
+  overflow: auto;
+  border: 1px solid #c8d0da;
+  border-radius: 3px;
+}
+
+.client-search-dialog__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.client-search-dialog__table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #eef4fa;
+  color: #1a5fb4;
+  font-weight: 700;
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid #c8d0da;
+  white-space: nowrap;
+}
+
+.client-search-dialog__table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #e8edf2;
+  vertical-align: top;
+}
+
+.client-search-dialog__row {
+  cursor: pointer;
+}
+
+.client-search-dialog__row:hover {
+  background: #eef4fa;
+}
+
+.client-search-dialog__row:nth-child(even) {
+  background: #f8fafc;
+}
+
+.client-search-dialog__row:hover:nth-child(even) {
+  background: #eef4fa;
+}
+
+.client-search-dialog__empty {
+  text-align: center;
+  color: #6b7c8f;
+  padding: 18px 8px !important;
+}
+
+.client-search-dialog__footer {
+  justify-content: space-between;
+}
+
+@media (max-width: 760px) {
+  .client-search-dialog__filters {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .client-search-dialog__search-btn {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
