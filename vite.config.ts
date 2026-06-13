@@ -25,6 +25,13 @@ function emitVersionJson(version: string): Plugin {
 
 export default defineConfig({
   base: isElectron ? './' : '/',
+  resolve: isElectron
+    ? {
+        alias: {
+          'virtual:pwa-register': resolve(__dirname, 'src/lib/pwaRegister.stub.ts'),
+        },
+      }
+    : undefined,
   define: {
     'import.meta.env.VITE_ELECTRON': JSON.stringify(isElectron ? 'true' : 'false'),
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(pkg.version),
