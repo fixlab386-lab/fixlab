@@ -39,6 +39,33 @@ export const ACTIVE_DOCUMENT_LABELS: Record<ActiveDocumentType, string> = {
   arrivo_merce: 'Arrivo merce',
 }
 
+/** Titolo elenco (plurale) come Danea Easyfatt. */
+export const ACTIVE_DOCUMENT_LIST_LABELS: Record<ActiveDocumentType, string> = {
+  preventivo: 'Preventivi',
+  ordine_cliente: 'Ordini cliente',
+  ddt: 'Documenti di trasporto',
+  rapporto_intervento: "Rapporti d'intervento",
+  vendita_banco: 'Vendite al banco',
+  preventivo_fornitore: 'Preventivi fornitore',
+  ordine_fornitore: 'Ordini fornitore',
+  arrivo_merce: 'Arrivi merce',
+}
+
+export const DOCUMENT_HUB_GROUPS: { title: string; types: ActiveDocumentType[] }[] = [
+  {
+    title: 'Documenti clienti',
+    types: ['preventivo', 'ordine_cliente', 'rapporto_intervento', 'ddt', 'vendita_banco'],
+  },
+  {
+    title: 'Documenti fornitori',
+    types: ['preventivo_fornitore', 'ordine_fornitore', 'arrivo_merce'],
+  },
+]
+
+export function isActiveDocumentType(type: string): type is ActiveDocumentType {
+  return (ACTIVE_DOCUMENT_TYPES as readonly string[]).includes(type)
+}
+
 /** Etichette per tutti i tipi (inclusi legacy in archivio). */
 export const ALL_DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   preventivo: 'Preventivo',

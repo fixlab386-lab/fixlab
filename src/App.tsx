@@ -83,6 +83,7 @@ export default function App() {
                 <Route path="riparazioni/:id" element={<NuovaRiparazione />} />
                 <Route path="dispositivi" element={<Dispositivi />} />
                 <Route path="documenti" element={<Documenti />} />
+                <Route path="documenti/tipo/:type" element={<Documenti />} />
                 <Route path="documenti/nuovo" element={<NuovoDocumento />} />
                 <Route path="documenti/:id" element={<NuovoDocumento />} />
                 <Route path="pagamenti" element={<Pagamenti />} />

@@ -11,6 +11,7 @@ type Props = {
   onDateFromChange: (v: string) => void
   onDateToChange: (v: string) => void
   onClear: () => void
+  hideTypeFilter?: boolean
 }
 
 export default function DocumentFilterBar({
@@ -23,29 +24,37 @@ export default function DocumentFilterBar({
   onDateFromChange,
   onDateToChange,
   onClear,
+  hideTypeFilter = false,
 }: Props) {
   const active =
-    typeFilter !== 'all' || statusFilter !== 'all' || Boolean(dateFrom) || Boolean(dateTo)
+    (!hideTypeFilter && typeFilter !== 'all') ||
+    statusFilter !== 'all' ||
+    Boolean(dateFrom) ||
+    Boolean(dateTo)
 
   return (
     <div className="gestionale-page__filter-bar gestionale-page__filter-bar--stacked">
       <div className="gestionale-page__filter-bar">
-        <label className="gestionale-page__filter-label" htmlFor="doc-filter-type">
-          Tipo
-        </label>
-        <select
-          id="doc-filter-type"
-          className="gestionale-page__filter-select"
-          value={typeFilter}
-          onChange={e => onTypeFilterChange(e.target.value)}
-        >
-          <option value="all">Tutti i tipi</option>
-          {ACTIVE_DOCUMENT_TYPES.map(t => (
-            <option key={t} value={t}>
-              {ACTIVE_DOCUMENT_LABELS[t]}
-            </option>
-          ))}
-        </select>
+        {!hideTypeFilter ? (
+          <>
+            <label className="gestionale-page__filter-label" htmlFor="doc-filter-type">
+              Tipo
+            </label>
+            <select
+              id="doc-filter-type"
+              className="gestionale-page__filter-select"
+              value={typeFilter}
+              onChange={e => onTypeFilterChange(e.target.value)}
+            >
+              <option value="all">Tutti i tipi</option>
+              {ACTIVE_DOCUMENT_TYPES.map(t => (
+                <option key={t} value={t}>
+                  {ACTIVE_DOCUMENT_LABELS[t]}
+                </option>
+              ))}
+            </select>
+          </>
+        ) : null}
         <label className="gestionale-page__filter-label" htmlFor="doc-filter-status">
           Stato
         </label>

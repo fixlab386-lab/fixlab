@@ -3,8 +3,8 @@ import type { DocRecord } from '../../../types'
 import { DOCUMENT_STATUS_LABELS } from './constants'
 import { documentTypeLabel, formatDocDate } from './utils'
 
-export function createDocumentTableColumns(): DataTableColumn<DocRecord>[] {
-  return [
+export function createDocumentTableColumns(options?: { hideType?: boolean }): DataTableColumn<DocRecord>[] {
+  const cols: DataTableColumn<DocRecord>[] = [
     {
       id: 'type',
       header: 'Tipo',
@@ -55,4 +55,10 @@ export function createDocumentTableColumns(): DataTableColumn<DocRecord>[] {
       render: d => DOCUMENT_STATUS_LABELS[d.status] || d.status,
     },
   ]
+
+  if (options?.hideType) {
+    return cols.filter(c => c.id !== 'type')
+  }
+
+  return cols
 }

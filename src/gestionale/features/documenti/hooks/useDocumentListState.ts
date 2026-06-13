@@ -3,12 +3,12 @@ import type { DataTableSortDirection } from '../../../../components/ui'
 import { filterDocuments, type DocumentGroupByMode } from '../utils'
 import type { DocRecord } from '../../../../types'
 
-export function useDocumentListState(docs: DocRecord[]) {
+export function useDocumentListState(docs: DocRecord[], initialTypeFilter = 'all') {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<DocRecord | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<string[]>([])
   const [detailCollapsed, setDetailCollapsed] = useState(false)
-  const [typeFilter, setTypeFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState(initialTypeFilter)
   const [statusFilter, setStatusFilter] = useState('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -60,11 +60,11 @@ export function useDocumentListState(docs: DocRecord[]) {
   }, [])
 
   const resetFilters = useCallback(() => {
-    setTypeFilter('all')
+    setTypeFilter(initialTypeFilter)
     setStatusFilter('all')
     setDateFrom('')
     setDateTo('')
-  }, [])
+  }, [initialTypeFilter])
 
   return {
     search,

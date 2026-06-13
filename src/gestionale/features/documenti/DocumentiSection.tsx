@@ -6,8 +6,7 @@ import { getDocuments, deleteDocument, addDocument } from '../../../lib/firestor
 import type { DocRecord } from '../../../types'
 import { createStandardCrudActions } from '../../../components/anagrafica'
 import {
-  ACTIVE_DOCUMENT_LABELS,
-  ACTIVE_DOCUMENT_TYPES,
+  ACTIVE_DOCUMENT_LIST_LABELS,
   createDocumentTableColumns,
   DocumentFilterBar,
   DocumentSectionActions,
@@ -15,6 +14,7 @@ import {
   formatDocDate,
   sortDocumentRows,
   subjectLabelForType,
+  type ActiveDocumentType,
 } from './index'
 import {
   SectionHeader,
@@ -31,15 +31,21 @@ import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../../../firebase'
 import { useDocumentListState } from './hooks/useDocumentListState'
 import { invalidateDashboardCache } from '../start/dashboardCache'
+import DocumentListSidebar from './DocumentListSidebar'
+import { getPeriodDateRange, type DocumentPeriodPreset } from './utils'
 import '../../theme/gestionale-tokens.css'
+import '../../theme/documenti-hub.css'
 
-const allColumns = createDocumentTableColumns()
 const OPTIONAL_DOC_COLUMNS = [
   { id: 'total', label: 'Totale' },
   { id: 'status', label: 'Stato' },
 ] as const
 
-export default function DocumentiSection() {
+type Props = {
+  lockedType: ActiveDocumentType
+}
+
+export default function DocumentiSection({ lockedType }: Props) {
   const { loading: authLoading } = useAuth()
   const { studioId, activeArchive } = useActiveStudio()
   const navigate = useNavigate()
@@ -55,10 +61,14 @@ export default function DocumentiSection() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [showColumnsMenu, setShowColumnsMenu] = useState(false)
   const [hiddenColumnIds, setHiddenColumnIds] = useState<Set<string>>(new Set())
+  const [periodPreset, setPeriodPreset] = useState<DocumentPeriodPreset>('all')
+  const [sidebarSubjectFilter, setSidebarSubjectFilter] = useState('all')
+
+  const baseColumns = useMemo(() => createDocumentTableColumns({ hideType: true }), [])
 
   const visibleColumns = useMemo(
-    () => allColumns.filter(c => !hiddenColumnIds.has(c.id)),
-    [hiddenColumnIds],
+    () => baseColumns.filter(c => !hiddenColumnIds.has(c.id)),
+    [baseColumns, hiddenColumnIds],
   )
 
   const toggleColumn = useCallback((columnId: string) => {
@@ -70,14 +80,25 @@ export default function DocumentiSection() {
     })
   }, [])
 
+  const typeDocuments = useMemo(
+    () => documents.filter(d => d.type === lockedType),
+    [documents, lockedType],
+  )
+
   const scopedDocuments = useMemo(() => {
-    if (!subjectFilterId) return documents
-    return documents.filter(
+    if (!subjectFilterId) return typeDocuments
+    return typeDocuments.filter(
       d => d.subjectId === subjectFilterId && (!subjectFilterType || d.subjectType === subjectFilterType),
     )
-  }, [documents, subjectFilterId, subjectFilterType])
+  }, [typeDocuments, subjectFilterId, subjectFilterType])
 
-  const list = useDocumentListState(scopedDocuments)
+  const list = useDocumentListState(scopedDocuments, lockedType)
+
+  useEffect(() => {
+    const { from, to } = getPeriodDateRange(periodPreset)
+    list.setDateFrom(from)
+    list.setDateTo(to)
+  }, [periodPreset, list.setDateFrom, list.setDateTo])
 
   const refresh = useCallback(async () => {
     if (!studioId) return
@@ -89,13 +110,6 @@ export default function DocumentiSection() {
       setLoadError('Impossibile aggiornare l’elenco documenti.')
     }
   }, [studioId])
-
-  useEffect(() => {
-    const typeParam = searchParams.get('type')
-    if (typeParam && typeParam !== 'all') {
-      list.setTypeFilter(typeParam)
-    }
-  }, [searchParams, list.setTypeFilter])
 
   useEffect(() => {
     if (authLoading) return
@@ -120,35 +134,36 @@ export default function DocumentiSection() {
     }
   }, [authLoading, studioId])
 
+  const filteredRows = useMemo(() => {
+    if (sidebarSubjectFilter === 'all') return list.filtered
+    return list.filtered.filter(d => d.subjectId === sidebarSubjectFilter)
+  }, [list.filtered, sidebarSubjectFilter])
+
   const tableRows = useMemo(
     () =>
-      sortDocumentRows(list.filtered, {
-        groupBy: list.groupBy,
+      sortDocumentRows(filteredRows, {
+        groupBy: 'none',
         sortColumnId: list.sortColumnId,
         sortDirection: list.sortDirection,
         columns: visibleColumns,
       }),
-    [list.filtered, list.groupBy, list.sortColumnId, list.sortDirection, visibleColumns],
+    [filteredRows, list.sortColumnId, list.sortDirection, visibleColumns],
   )
 
   const hasActiveFilters =
-    list.typeFilter !== 'all' ||
     list.statusFilter !== 'all' ||
-    Boolean(list.dateFrom) ||
-    Boolean(list.dateTo)
+    periodPreset !== 'all' ||
+    sidebarSubjectFilter !== 'all'
 
-  const handleNew = useCallback(
-    (type = 'preventivo') => {
-      const base = `/documenti/nuovo?type=${type}`
-      const subjectParam = filterSupplierId
-        ? `&subjectId=${filterSupplierId}&subjectType=supplier`
-        : filterClientId
-          ? `&subjectId=${filterClientId}&subjectType=client`
-          : ''
-      navigate(base + subjectParam)
-    },
-    [navigate, filterClientId, filterSupplierId],
-  )
+  const handleNew = useCallback(() => {
+    const base = `/documenti/nuovo?type=${lockedType}`
+    const subjectParam = filterSupplierId
+      ? `&subjectId=${filterSupplierId}&subjectType=supplier`
+      : filterClientId
+        ? `&subjectId=${filterClientId}&subjectType=client`
+        : ''
+    navigate(base + subjectParam)
+  }, [navigate, filterClientId, filterSupplierId, lockedType])
 
   const handleOpen = useCallback(
     (docId: string) => {
@@ -171,7 +186,7 @@ export default function DocumentiSection() {
     } catch {
       setLoadError('Eliminazione non riuscita.')
     }
-  }, [list, documents, refresh])
+  }, [list, documents, refresh, studioId])
 
   const handleDuplicate = useCallback(async () => {
     if (!list.selected || !studioId) return
@@ -209,7 +224,7 @@ export default function DocumentiSection() {
   const actionBarActions: ActionBarAction[] = useMemo(
     () => [
       ...createStandardCrudActions({
-        onNew: () => handleNew('preventivo'),
+        onNew: handleNew,
         onDuplicate: () => void handleDuplicate(),
         onDelete: () => void handleDelete(),
         onExcel: handleExcel,
@@ -238,7 +253,7 @@ export default function DocumentiSection() {
 
   if (loadError && documents.length === 0) {
     return (
-      <div className="gestionale-page gestionale-datatable__empty" data-tutorial="page-documenti">
+      <div className="gestionale-page gestionale-datatable__empty" data-tutorial="page-documenti-lista">
         {loadError}
       </div>
     )
@@ -248,45 +263,61 @@ export default function DocumentiSection() {
     ? `Filtro attivo: documenti del ${subjectFilterType === 'supplier' ? 'fornitore' : 'cliente'} selezionato`
     : null
 
+  const listTitle = ACTIVE_DOCUMENT_LIST_LABELS[lockedType]
+
   return (
-    <div className="gestionale-page" data-tutorial="page-documenti">
+    <div className="gestionale-page" data-tutorial="page-documenti-lista">
       {loadError ? <div className="gestionale-page__banner gestionale-page__banner--error">{loadError}</div> : null}
       {filterBanner ? <div className="gestionale-page__banner">{filterBanner}</div> : null}
 
       <SectionHeader
-        title="Documenti"
+        title={listTitle}
         searchValue={list.search}
         onSearchChange={list.setSearch}
-        searchPlaceholder="Cerca numero, soggetto, tipo…"
+        searchPlaceholder="Cerca numero, cliente…"
         actions={
-          <DocumentSectionActions
-            groupBy={list.groupBy}
-            onToggleGroupBy={list.toggleGroupBy}
-            showFilterMenu={list.showFilterMenu}
-            hasActiveFilters={hasActiveFilters}
-            onToggleFilterMenu={list.toggleFilterMenu}
-            selectionMode={list.selectionMode}
-            onToggleSelectionMode={list.toggleSelectionMode}
-            showColumnsMenu={showColumnsMenu}
-            onToggleColumnsMenu={() => setShowColumnsMenu(v => !v)}
-            hiddenColumnIds={hiddenColumnIds}
-            onToggleColumn={toggleColumn}
-            optionalColumns={[...OPTIONAL_DOC_COLUMNS]}
-          />
+          <>
+            <button
+              type="button"
+              className="gestionale-section-header__action-btn"
+              onClick={() => navigate('/documenti')}
+            >
+              ← Tipi documento
+            </button>
+            <DocumentSectionActions
+              groupBy={list.groupBy}
+              onToggleGroupBy={list.toggleGroupBy}
+              showFilterMenu={list.showFilterMenu}
+              hasActiveFilters={hasActiveFilters}
+              onToggleFilterMenu={list.toggleFilterMenu}
+              selectionMode={list.selectionMode}
+              onToggleSelectionMode={list.toggleSelectionMode}
+              showColumnsMenu={showColumnsMenu}
+              onToggleColumnsMenu={() => setShowColumnsMenu(v => !v)}
+              hiddenColumnIds={hiddenColumnIds}
+              onToggleColumn={toggleColumn}
+              optionalColumns={[...OPTIONAL_DOC_COLUMNS]}
+            />
+          </>
         }
       />
 
       {list.showFilterMenu ? (
         <DocumentFilterBar
-          typeFilter={list.typeFilter}
+          typeFilter={lockedType}
           statusFilter={list.statusFilter}
           dateFrom={list.dateFrom}
           dateTo={list.dateTo}
-          onTypeFilterChange={list.setTypeFilter}
+          onTypeFilterChange={() => {}}
           onStatusFilterChange={list.setStatusFilter}
           onDateFromChange={list.setDateFrom}
           onDateToChange={list.setDateTo}
-          onClear={list.resetFilters}
+          onClear={() => {
+            list.resetFilters()
+            setPeriodPreset('all')
+            setSidebarSubjectFilter('all')
+          }}
+          hideTypeFilter
         />
       ) : null}
 
@@ -307,11 +338,11 @@ export default function DocumentiSection() {
                 if (d) list.selectItem(d)
               }
             }}
-            sortColumnId={list.groupBy === 'type' ? null : list.sortColumnId}
+            sortColumnId={list.sortColumnId}
             sortDirection={list.sortDirection}
             onSort={list.handleSort}
             onRowClick={item => list.selectItem(item)}
-            emptyMessage="Nessun documento. Usa «Nuovo» per crearne uno."
+            emptyMessage={`Nessun ${listTitle.toLowerCase()}. Usa «Nuovo» per crearne uno.`}
             virtualize
             virtualizeThreshold={50}
           />
@@ -324,7 +355,6 @@ export default function DocumentiSection() {
               activeTabId="riepilogo"
               onTabChange={() => {}}
               fields={[
-                { label: 'Tipo', value: documentTypeLabel(list.selected.type) },
                 { label: 'Numero', value: list.selected.fullNumber },
                 { label: 'Data', value: formatDocDate(list.selected.date) },
                 { label: subjectLabelForType(list.selected.type), value: list.selected.subjectName },
@@ -342,28 +372,19 @@ export default function DocumentiSection() {
               }
             />
           ) : (
-            <div className="gestionale-detail-panel gestionale-detail-panel--empty">
-              <p className="gestionale-detail-panel__empty-msg">
-                <strong>Nessun documento selezionato</strong>
-                Seleziona una riga o doppio clic per aprire. Nuovo documento:
-                {ACTIVE_DOCUMENT_TYPES.map(t => (
-                  <button
-                    key={t}
-                    type="button"
-                    className="gestionale-section-header__action-btn"
-                    style={{ margin: '4px 4px 0 0' }}
-                    onClick={() => handleNew(t)}
-                  >
-                    {ACTIVE_DOCUMENT_LABELS[t]}
-                  </button>
-                ))}
-              </p>
-            </div>
+            <DocumentListSidebar
+              documentType={lockedType}
+              periodPreset={periodPreset}
+              onPeriodChange={setPeriodPreset}
+              subjectFilter={sidebarSubjectFilter}
+              onSubjectFilterChange={setSidebarSubjectFilter}
+              documents={typeDocuments}
+            />
           )
         }
       />
 
-      <ActionBar count={list.filtered.length} countLabel="documenti" actions={actionBarActions} />
+      <ActionBar count={filteredRows.length} countLabel="documenti" actions={actionBarActions} />
     </div>
   )
 }

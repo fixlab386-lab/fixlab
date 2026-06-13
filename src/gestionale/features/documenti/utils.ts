@@ -4,6 +4,41 @@ import { ALL_DOCUMENT_TYPE_LABELS } from './constants'
 
 export type DocumentGroupByMode = 'none' | 'type'
 
+export type DocumentPeriodPreset = 'all' | 'current_month' | 'last_month' | 'current_year' | 'last_year'
+
+export function getPeriodDateRange(preset: DocumentPeriodPreset): { from: string; to: string } {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = now.getMonth()
+
+  if (preset === 'all') return { from: '', to: '' }
+
+  if (preset === 'current_month') {
+    const from = new Date(y, m, 1)
+    const to = new Date(y, m + 1, 0)
+    return { from: formatIsoDate(from), to: formatIsoDate(to) }
+  }
+
+  if (preset === 'last_month') {
+    const from = new Date(y, m - 1, 1)
+    const to = new Date(y, m, 0)
+    return { from: formatIsoDate(from), to: formatIsoDate(to) }
+  }
+
+  if (preset === 'current_year') {
+    return { from: `${y}-01-01`, to: `${y}-12-31` }
+  }
+
+  return { from: `${y - 1}-01-01`, to: `${y - 1}-12-31` }
+}
+
+function formatIsoDate(date: Date): string {
+  const y = date.getFullYear()
+  const mo = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${mo}-${d}`
+}
+
 export function documentTypeLabel(type: string): string {
   return ALL_DOCUMENT_TYPE_LABELS[type as keyof typeof ALL_DOCUMENT_TYPE_LABELS] || type
 }
