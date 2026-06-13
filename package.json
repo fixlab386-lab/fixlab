@@ -23,6 +23,7 @@
     "release:minor": "node scripts/release-desktop.mjs minor",
     "release:major": "node scripts/release-desktop.mjs major",
     "deploy:hosting": "npm run build && firebase deploy --only hosting",
+    "deploy:all": "npm run deploy:hosting && npm run release:patch",
     "deploy:functions": "firebase deploy --only functions",
     "deploy:firestore": "firebase deploy --only firestore:indexes"
   },

@@ -31,7 +31,7 @@ function DropdownBtn({
         <span className="caret">▼</span>
       </button>
       {open ? (
-        <div className="clienti-dropdown__menu">
+        <div className="clienti-dropdown__menu clienti-dropdown__menu--up">
           {items.map(item => (
             <button
               key={item}

@@ -180,6 +180,9 @@ html:has(.gestionale-shell) #root {
   color: var(--gestionale-header-text);
   border-bottom: var(--gestionale-border-width) solid #1a1a1a;
   flex-shrink: 0;
+  position: relative;
+  z-index: 20;
+  overflow: visible;
 }
 
 .gestionale-section-header__title {
@@ -222,6 +225,7 @@ html:has(.gestionale-shell) #root {
   flex-wrap: wrap;
   justify-content: flex-end;
   max-width: 100%;
+  overflow: visible;
 }
 
 .gestionale-section-header__action-btn {
