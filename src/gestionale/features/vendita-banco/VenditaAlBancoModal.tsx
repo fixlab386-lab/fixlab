@@ -47,7 +47,7 @@ import AnomalieMagazzinoDialog from './dialogs/AnomalieMagazzinoDialog'
 import AllegatiDialog from './dialogs/AllegatiDialog'
 import GeneraDocCollegatoDialog from './dialogs/GeneraDocCollegatoDialog'
 import EtichetteDialog from './dialogs/EtichetteDialog'
-import SelezioneClienteDialog, { clientModeFromNome } from './dialogs/SelezioneClienteDialog'
+import ClientSearchDialog from '../../../components/clients/ClientSearchDialog'
 import FooterTotals from './FooterTotals'
 import { findAnomalieMagazzino, type AnomaliaMagazzino } from './stockCheck'
 import { printVenditaBancoEtichette } from './venditaBancoEtichette'
@@ -1361,12 +1361,14 @@ export default function VenditaAlBancoModal() {
       </div>
 
       {studioReady && showSelezioneCliente ? (
-        <SelezioneClienteDialog
+        <ClientSearchDialog
           clients={clients}
-          currentMode={clientModeFromNome(docState.cliente.nome, Boolean(docState.cliente.id))}
-          onSelectExisting={selectClient}
-          onSelectNone={selectNoClient}
-          onNewClient={() => setShowClientForm(true)}
+          onSelect={selectClient}
+          onNoClient={selectNoClient}
+          onNewClient={() => {
+            setShowSelezioneCliente(false)
+            setShowClientForm(true)
+          }}
           onClose={() => setShowSelezioneCliente(false)}
         />
       ) : null}

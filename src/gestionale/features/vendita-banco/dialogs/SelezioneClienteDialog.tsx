@@ -24,6 +24,27 @@ export default function SelezioneClienteDialog({
   const [mode, setMode] = useState<'existing' | 'new' | 'none'>(currentMode === 'new' ? 'new' : currentMode)
   const [showSearch, setShowSearch] = useState(false)
 
+  if (showSearch) {
+    return (
+      <ClientSearchDialog
+        clients={clients}
+        onSelect={c => {
+          onSelectExisting(c)
+          onClose()
+        }}
+        onNoClient={() => {
+          onSelectNone()
+          onClose()
+        }}
+        onNewClient={() => {
+          onNewClient()
+          onClose()
+        }}
+        onClose={onClose}
+      />
+    )
+  }
+
   return (
     <>
       <div className="vb-dialog-overlay" role="dialog" aria-modal="true">
@@ -86,27 +107,6 @@ export default function SelezioneClienteDialog({
           </div>
         </div>
       </div>
-
-      {showSearch ? (
-        <ClientSearchDialog
-          clients={clients}
-          onSelect={c => {
-            onSelectExisting(c)
-            setShowSearch(false)
-            onClose()
-          }}
-          onNoClient={() => {
-            onSelectNone()
-            setShowSearch(false)
-          }}
-          onNewClient={() => {
-            setShowSearch(false)
-            onNewClient()
-            onClose()
-          }}
-          onClose={() => setShowSearch(false)}
-        />
-      ) : null}
     </>
   )
 }

@@ -570,6 +570,10 @@
 }
 
 /* Dialog interni vb */
+.vb-backdrop .gestionale-dialog-overlay {
+  z-index: 22000;
+}
+
 .vb-dialog-overlay {
   position: fixed;
   inset: 0;
