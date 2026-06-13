@@ -36,6 +36,12 @@ import { FormField, ToolButton } from '../components/ui'
 import CapLookupPopup from '../components/anagrafica/assist/CapLookupPopup'
 import { FEATURE_OPTIONS } from '../components/onboarding/constants'
 import { DEFAULT_STUDIO_FEATURES } from '../lib/studioOnboarding'
+import {
+  DEFAULT_DISCLAIMER,
+  DEFAULT_WA_TEMPLATE,
+  settingsFormToFirestorePatch,
+  studioDocToSettingsForm,
+} from '../lib/studioSettings'
 import { uploadStudioLogoFile } from '../lib/studioLogo'
 import { WhatsAppConnectionPanel } from '../WhatsAppSetup'
 import type { StudioFeatures } from '../types'
@@ -56,24 +62,12 @@ const RT_MODELS = [
   { value: 'none', label: 'Non ho un RT' },
 ]
 
-const DEFAULT_WA_TEMPLATE = `Ciao {{nome}}! 👋
-
-Il tuo *{{dispositivo}}* è pronto per il ritiro! 🎉
-
-Puoi passare a ritirarlo durante i nostri orari di apertura.
-
-Per info: {{telefono_negozio}}
-
-_{{nome_negozio}}_`
-
 const TEMPLATE_VARS = [
   { var: '{{nome}}', desc: 'Nome del cliente' },
   { var: '{{dispositivo}}', desc: 'Marca e modello dispositivo' },
   { var: '{{telefono_negozio}}', desc: 'Telefono del negozio' },
   { var: '{{nome_negozio}}', desc: 'Nome del negozio' },
 ]
-
-const DEFAULT_DISCLAIMER = `Ai sensi del D.Lgs. 196/2003 Vi informiamo che i Vs. dati saranno utilizzati esclusivamente per i fini connessi ai rapporti commerciali tra di noi in essere. Contributo CONAI assolto ove dovuto - Vi preghiamo di controllare i Vs. dati anagrafici, la P. IVA e il Cod. Fiscale. Non ci riteniamo responsabili di eventuali errori. Nell'eventualità in cui l'apparato, riparato o no, non sia ritirato entro 3 mesi, si autorizza il laboratorio alla demolizione o vendita del suddetto per il recupero delle spese gestionali.`
 
 type SettingsTab = 'officina' | 'moduli' | 'documenti' | 'whatsapp' | 'dati' | 'legale'
 
@@ -87,6 +81,33 @@ const TABS: { key: SettingsTab; label: string }[] = [
 ]
 
 const SAVE_TABS: SettingsTab[] = ['officina', 'moduli', 'documenti', 'whatsapp']
+
+const TAB_PANELS: Record<SettingsTab, { title: string; hint: string }> = {
+  officina: {
+    title: 'La mia officina',
+    hint: 'Dati anagrafici e logo che compaiono su documenti, PDF e comunicazioni ai clienti.',
+  },
+  moduli: {
+    title: 'Moduli e funzionalità',
+    hint: 'Attiva o disattiva le sezioni del gestionale e configura agenti, magazzini e listini.',
+  },
+  documenti: {
+    title: 'Documenti e stampa',
+    hint: 'Testi legali, piè di pagina riparazioni e configurazione registratore telematico.',
+  },
+  whatsapp: {
+    title: 'WhatsApp',
+    hint: 'Template messaggi e collegamento Evolution API per avvisare i clienti.',
+  },
+  dati: {
+    title: 'Dati e backup',
+    hint: 'Account, export dati, app desktop e checklist di verifica del laboratorio.',
+  },
+  legale: {
+    title: 'Legale e privacy',
+    hint: 'Documentazione privacy, cookie e preferenze di consenso.',
+  },
+}
 
 /** Checklist operativa: cosa controllare in laboratorio (stampa da browser se serve). */
 const VERIFICA_SECTIONS: { title: string; subtitle: string; items: string[] }[] = [
@@ -376,7 +397,7 @@ async function buildStudioExportZipBlob(params: {
 
 export default function Impostazioni() {
   const { userProfile } = useAuth()
-  const { studioId, legacyStudioId } = useActiveStudio()
+  const { studioId, legacyStudioId, loading: studioLoading } = useActiveStudio()
   const { reopenOnboarding } = useOnboardingContext()
   const { consent, openSettings: openCookieSettings } = useCookieConsent()
   const [searchParams] = useSearchParams()
@@ -392,6 +413,7 @@ export default function Impostazioni() {
       : 'officina'
 
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -448,39 +470,61 @@ export default function Impostazioni() {
   const [waTemplate, setWaTemplate] = useState(DEFAULT_WA_TEMPLATE)
 
   useEffect(() => {
-    if (!studioId || !userProfile?.id) return
-    setLoading(true)
-    const load = async () => {
-      const snap = await getDoc(doc(db, 'studios', studioId))
-      if (snap.exists()) {
-        const d = snap.data()
-        setShopName(d.name || '')
-        setSubtitle(d.subtitle || '')
-        setAddress(d.address || '')
-        setCity(d.city || '')
-        setProvince(d.province || '')
-        setCap(d.cap || '')
-        setPhone(d.phone || '')
-        setCellPhone(d.cellPhone || '')
-        setEmail(d.email || '')
-        setWebsite(d.website || '')
-        setVatNumber(d.vatNumber || '')
-        setFiscalCode(d.fiscalCode || '')
-        setLogoUrl(d.logoUrl || '')
-        setRtModel(d.rtModel || '')
-        setRtIp(d.rtIp || '')
-        setWarrantyText(d.warrantyText || 'Garanzia 90 giorni sulla riparazione.')
-        setFooterText(d.footerText || 'Grazie per aver scelto il nostro servizio!')
-        setDisclaimer(d.disclaimer || DEFAULT_DISCLAIMER)
-        setWaTemplate(d.waTemplate || DEFAULT_WA_TEMPLATE)
-        const loadedFeatures = d.features as StudioFeatures | undefined
-        setFeatures({ ...DEFAULT_STUDIO_FEATURES, ...loadedFeatures })
-      }
-      setUserName(userProfile.name || '')
+    if (studioLoading || !userProfile?.id) return
+
+    if (!studioId) {
       setLoading(false)
+      setLoadError('Nessun archivio selezionato.')
+      return
     }
-    load()
-  }, [studioId, userProfile?.name])
+
+    let cancelled = false
+    setLoading(true)
+    setLoadError('')
+
+    void (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'studios', studioId))
+        if (cancelled) return
+
+        if (snap.exists()) {
+          const loaded = studioDocToSettingsForm(snap.data(), userProfile.email || '')
+          setShopName(loaded.shopName)
+          setSubtitle(loaded.subtitle)
+          setAddress(loaded.address)
+          setCity(loaded.city)
+          setProvince(loaded.province)
+          setCap(loaded.cap)
+          setPhone(loaded.phone)
+          setCellPhone(loaded.cellPhone)
+          setEmail(loaded.email)
+          setWebsite(loaded.website)
+          setVatNumber(loaded.vatNumber)
+          setFiscalCode(loaded.fiscalCode)
+          setLogoUrl(loaded.logoUrl)
+          setRtModel(loaded.rtModel)
+          setRtIp(loaded.rtIp)
+          setWarrantyText(loaded.warrantyText)
+          setFooterText(loaded.footerText)
+          setDisclaimer(loaded.disclaimer)
+          setWaTemplate(loaded.waTemplate)
+          setFeatures(loaded.features)
+        } else {
+          setLoadError('Dati officina non trovati per questo archivio.')
+        }
+
+        setUserName(userProfile.name || '')
+      } catch {
+        if (!cancelled) setLoadError('Impossibile caricare le impostazioni.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [studioId, studioLoading, userProfile?.id, userProfile?.email, userProfile?.name])
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -507,28 +551,31 @@ export default function Impostazioni() {
     setSaving(true)
     setSaveError('')
     try {
-      await updateDoc(doc(db, 'studios', studioId), {
-        name: shopName.trim(),
-        subtitle: subtitle || undefined,
-        address,
-        city,
-        province,
-        cap,
-        phone,
-        cellPhone: cellPhone || undefined,
-        email,
-        website,
-        vatNumber,
-        fiscalCode,
-        logoUrl,
-        features,
-        rtModel,
-        rtIp,
-        warrantyText,
-        footerText,
-        disclaimer,
-        waTemplate,
-      })
+      await updateDoc(
+        doc(db, 'studios', studioId),
+        settingsFormToFirestorePatch({
+          shopName,
+          subtitle,
+          address,
+          city,
+          province,
+          cap,
+          phone,
+          cellPhone,
+          email,
+          website,
+          vatNumber,
+          fiscalCode,
+          logoUrl,
+          features,
+          rtModel,
+          rtIp,
+          warrantyText,
+          footerText,
+          disclaimer,
+          waTemplate,
+        }),
+      )
       await updateDoc(doc(db, 'users', userProfile.id), { name: userName.trim() })
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
@@ -731,58 +778,57 @@ export default function Impostazioni() {
           ? '✓ Salvato'
           : 'Salva impostazioni'
 
-  if (loading) {
+  if (loading || studioLoading) {
     return (
-      <div className="gestionale-page">
+      <div className="gestionale-page gestionale-settings-page">
         <div className="gestionale-detail-panel__empty-msg">Caricamento impostazioni…</div>
       </div>
     )
   }
 
+  const panel = TAB_PANELS[activeTab]
+
   return (
     <>
       <div className="gestionale-page gestionale-settings-page" data-tutorial="page-impostazioni">
-        <header className="gestionale-settings-header">
-          <div>
-            <h1 className="gestionale-settings-header__title">Impostazioni</h1>
-            <p className="gestionale-settings-header__subtitle">
-              Officina, moduli, stampa, WhatsApp, backup e privacy
-            </p>
-          </div>
-        </header>
+        <div className="gestionale-settings-layout">
+          <aside className="gestionale-settings-nav">
+            <div className="gestionale-settings-nav__head">
+              <h1 className="gestionale-settings-nav__title">Impostazioni</h1>
+              <p className="gestionale-settings-nav__subtitle">Configurazione FixLab</p>
+            </div>
+            <nav className="gestionale-settings-nav__list" role="tablist" aria-label="Sezioni impostazioni" data-tutorial="impostazioni-sidebar">
+              {TABS.map(tab => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  className={`gestionale-settings-nav__btn${activeTab === tab.key ? ' gestionale-settings-nav__btn--active' : ''}`}
+                  data-tutorial={tab.key === 'dati' ? 'impostazioni-tab-verifica' : undefined}
+                  aria-selected={activeTab === tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+          </aside>
 
-        <nav
-          className="gestionale-settings-tabs"
-          data-tutorial="impostazioni-sidebar"
-          role="tablist"
-          aria-label="Sezioni impostazioni"
-        >
-          {TABS.map(tab => (
-            <button
-              key={tab.key}
-              type="button"
-              role="tab"
-              className={`gestionale-settings-tabs__btn${activeTab === tab.key ? ' gestionale-settings-tabs__btn--active' : ''}`}
-              data-tutorial={tab.key === 'dati' ? 'impostazioni-tab-verifica' : undefined}
-              aria-selected={activeTab === tab.key}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-
-        <div className="gestionale-settings-body" data-tutorial="impostazioni-content" role="tabpanel">
+          <div className="gestionale-settings-main">
+            <div className="gestionale-settings-body" data-tutorial="impostazioni-content" role="tabpanel">
+              <div className="gestionale-settings-panel-head">
+                <h2 className="gestionale-settings-panel-head__title">{panel.title}</h2>
+                <p className="gestionale-settings-panel-head__hint">{panel.hint}</p>
+                {loadError ? (
+                  <div className="gestionale-settings-info-box gestionale-settings-info-box--danger" style={{ marginTop: 10 }}>
+                    {loadError}
+                  </div>
+                ) : null}
+              </div>
           {activeTab === 'officina' && (
-            <div className="gestionale-settings-form-stack">
+            <div className="gestionale-settings-stack gestionale-settings-stack--wide">
               <div className="gestionale-settings-card">
-                <div className="gestionale-settings-section">
-                  <h3 className="gestionale-settings-section__title">Dati studio</h3>
-                  <p className="gestionale-settings-section__hint">
-                    Informazioni che compaiono su documenti, PDF e comunicazioni ai clienti.
-                  </p>
-                </div>
-
+                <div className="gestionale-settings-fields">
                 <FormField label="Logo" htmlFor="set-logo">
                   <div className="gestionale-settings-logo-row">
                     {logoUrl ? (
@@ -812,7 +858,7 @@ export default function Impostazioni() {
                   </div>
                 </FormField>
 
-                <div className="gestionale-settings-form-grid">
+                <div className="gestionale-settings-row-2">
                   <FormField label="Cod. Fiscale" htmlFor="set-cf">
                     <input
                       id="set-cf"
@@ -860,8 +906,8 @@ export default function Impostazioni() {
                   />
                 </FormField>
 
-                <div className="gestionale-settings-form-grid gestionale-settings-form-grid--3">
-                  <FormField label="CAP" htmlFor="set-cap" labelWidth={80}>
+                <div className="gestionale-settings-row-3">
+                  <FormField label="CAP" htmlFor="set-cap">
                     <div className="gestionale-field-with-action">
                       <input
                         id="set-cap"
@@ -879,7 +925,7 @@ export default function Impostazioni() {
                       </button>
                     </div>
                   </FormField>
-                  <FormField label="Città" htmlFor="set-city" labelWidth={80}>
+                  <FormField label="Città" htmlFor="set-city">
                     <input
                       id="set-city"
                       className="gestionale-form-field__input"
@@ -887,7 +933,7 @@ export default function Impostazioni() {
                       onChange={e => setCity(e.target.value)}
                     />
                   </FormField>
-                  <FormField label="Prov." htmlFor="set-prov" labelWidth={80}>
+                  <FormField label="Prov." htmlFor="set-prov">
                     <input
                       id="set-prov"
                       className="gestionale-form-field__input"
@@ -898,7 +944,7 @@ export default function Impostazioni() {
                   </FormField>
                 </div>
 
-                <div className="gestionale-settings-form-grid">
+                <div className="gestionale-settings-row-2">
                   <FormField label="Tel." htmlFor="set-phone">
                     <input
                       id="set-phone"
@@ -937,23 +983,20 @@ export default function Impostazioni() {
                     onChange={e => setWebsite(e.target.value)}
                   />
                 </FormField>
-
+                </div>
               </div>
 
               <div className="gestionale-settings-card">
-                <div className="gestionale-settings-section">
-                  <h3 className="gestionale-settings-section__title">Configurazione guidata</h3>
-                  <p className="gestionale-settings-section__hint">
-                    Rilancia il wizard di primo avvio per rivedere moduli e tipi di riparazione.
-                  </p>
-                  <ToolButton label="Riapri configurazione guidata" onClick={reopenOnboarding} />
-                </div>
+                <ToolButton label="Riapri configurazione guidata" onClick={reopenOnboarding} />
+                <p className="gestionale-settings-section__hint" style={{ marginTop: 8, marginBottom: 0 }}>
+                  Rilancia il wizard di primo avvio per rivedere moduli e tipi di riparazione.
+                </p>
               </div>
             </div>
           )}
 
             {activeTab === 'moduli' && (
-              <div className="gestionale-settings-form-stack">
+              <div className="gestionale-settings-stack gestionale-settings-stack--wide">
                 <div className="gestionale-settings-card">
                 <div className="gestionale-settings-section">
                   <h3 className="gestionale-settings-section__title">Moduli attivi</h3>
@@ -979,7 +1022,7 @@ export default function Impostazioni() {
             )}
 
             {activeTab === 'documenti' && (
-              <div className="gestionale-settings-form-stack">
+              <div className="gestionale-settings-stack gestionale-settings-stack--wide">
                 <div className="gestionale-settings-card">
                 <div className="gestionale-settings-section">
                   <h3 className="gestionale-settings-section__title">Disclaimer legale</h3>
@@ -1092,7 +1135,7 @@ export default function Impostazioni() {
             )}
 
             {activeTab === 'whatsapp' && (
-              <div className="gestionale-settings-form-stack">
+              <div className="gestionale-settings-stack gestionale-settings-stack--wide">
                 <div className="gestionale-settings-card">
                 <div className="gestionale-settings-section">
                   <h3 className="gestionale-settings-section__title">Template messaggio</h3>
@@ -1150,7 +1193,7 @@ export default function Impostazioni() {
             )}
 
             {activeTab === 'dati' && (
-              <div className="gestionale-settings-form-stack">
+              <div className="gestionale-settings-stack gestionale-settings-stack--wide">
                 <div className="gestionale-settings-card">
                 <DesktopAppInfoSection />
                 </div>
@@ -1158,7 +1201,7 @@ export default function Impostazioni() {
                 <div className="gestionale-settings-card">
                 <div className="gestionale-settings-section">
                   <h3 className="gestionale-settings-section__title">Il tuo account</h3>
-                  <div className="gestionale-settings-form-stack">
+                  <div className="gestionale-settings-stack gestionale-settings-stack--wide">
                     <FormField label="Il tuo nome" htmlFor="set-username">
                       <input
                         id="set-username"
@@ -1264,7 +1307,7 @@ export default function Impostazioni() {
             )}
 
             {activeTab === 'legale' && (
-              <div className="gestionale-settings-form-stack">
+              <div className="gestionale-settings-stack gestionale-settings-stack--wide">
               <div className="gestionale-settings-card">
               <div className="gestionale-settings-legal-links">
                 <div className="gestionale-settings-section">
@@ -1307,29 +1350,31 @@ export default function Impostazioni() {
               </div>
               </div>
             )}
-          </div>
+            </div>
 
-          {showSaveFooter ? (
-            <footer className="gestionale-settings-footer">
-              <div
-                className={`gestionale-settings-footer__status${
-                  saveError ? ' gestionale-settings-footer__status--error' : saved ? ' gestionale-settings-footer__status--ok' : ''
-                }`}
-              >
-                {saveError || (saved ? 'Modifiche salvate correttamente.' : 'Le modifiche non sono ancora salvate.')}
-              </div>
-              <div className="gestionale-settings-footer__actions">
-                <button
-                  type="button"
-                  className="gestionale-dialog-btn gestionale-dialog-btn--primary"
-                  onClick={() => void handleSave()}
-                  disabled={saving}
+            {showSaveFooter ? (
+              <footer className="gestionale-settings-footer">
+                <div
+                  className={`gestionale-settings-footer__status${
+                    saveError ? ' gestionale-settings-footer__status--error' : saved ? ' gestionale-settings-footer__status--ok' : ''
+                  }`}
                 >
-                  {saveButtonLabel}
-                </button>
-              </div>
-            </footer>
-          ) : null}
+                  {saveError || (saved ? 'Modifiche salvate correttamente.' : 'Le modifiche non sono ancora salvate.')}
+                </div>
+                <div className="gestionale-settings-footer__actions">
+                  <button
+                    type="button"
+                    className="gestionale-dialog-btn gestionale-dialog-btn--primary"
+                    onClick={() => void handleSave()}
+                    disabled={saving || Boolean(loadError)}
+                  >
+                    {saveButtonLabel}
+                  </button>
+                </div>
+              </footer>
+            ) : null}
+          </div>
+        </div>
       </div>
 
       {showCapPopup ? (
