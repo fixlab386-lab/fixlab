@@ -21,15 +21,16 @@ La versione dell'app è letta dal campo `"version"` in `package.json`.
 
 - Crea (o usa) un repository GitHub per il codice dell'app desktop.
 - In `package.json`, sezione `build.publish`, verifica owner e repo GitHub:
-  - Attualmente: `fixlab386` / `fixlab` — modifica se il repository desktop è diverso.
+  - **FixLab desktop:** `fixlab386-lab` / `fixlab` (account GitHub FixLab — **non** miserveapp o altri account sul PC).
+  - Usa **solo** un `GH_TOKEN` creato sull’account GitHub corretto. Non riusare token/credential di altri progetti salvati in git.
 
-Esempio (se serve cambiare):
+Esempio (se il repo desktop ha nome diverso):
 
 ```json
 "publish": [
   {
     "provider": "github",
-    "owner": "fixlab386",
+    "owner": "fixlab386-lab",
     "repo": "fixlab-desktop"
   }
 ]
