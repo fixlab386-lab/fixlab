@@ -22,6 +22,8 @@ import PrivacyPolicy from './pages/PrivacyPolicy'
 import CookiePolicy from './pages/CookiePolicy'
 import GestionaleLayout from './components/GestionaleLayout'
 import { ActiveStudioProvider } from './contexts/ActiveStudioContext'
+import { AppUpdateProvider } from './contexts/AppUpdateContext'
+import AppUpdateBanner from './components/AppUpdateBanner'
 import CookieConsentBanner from './components/CookieConsentBanner'
 import WhatsAppSetup from './WhatsAppSetup'
 import DesignSystem from './pages/DesignSystem'
@@ -59,8 +61,10 @@ export default function App() {
     <CookieConsentProvider>
       <ThemeProvider>
         <CartProvider>
+          <AppUpdateProvider>
           <AppRouter>
             <ActiveStudioProvider>
+            <AppUpdateBanner />
             <CookieConsentBanner />
             <Routes>
               <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
@@ -91,6 +95,7 @@ export default function App() {
             </Routes>
             </ActiveStudioProvider>
           </AppRouter>
+          </AppUpdateProvider>
         </CartProvider>
       </ThemeProvider>
     </CookieConsentProvider>

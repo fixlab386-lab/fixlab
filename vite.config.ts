@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -8,6 +8,20 @@ import { resolve } from 'path'
 
 const isElectron = process.env.ELECTRON === 'true'
 const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as { version: string }
+
+function emitVersionJson(version: string): Plugin {
+  return {
+    name: 'emit-version-json',
+    apply: 'build',
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'version.json',
+        source: JSON.stringify({ version }),
+      })
+    },
+  }
+}
 
 export default defineConfig({
   base: isElectron ? './' : '/',
@@ -19,7 +33,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     ...(isElectron ? [] : [VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['favicon.svg'],
       manifest: {
         name: 'FIXLab',
@@ -39,7 +53,7 @@ export default defineConfig({
         navigateFallback: '/index.html',
       },
       devOptions: { enabled: false },
-    })]),
+    }), emitVersionJson(pkg.version)]),
     ...(isElectron
       ? [
           electron({
