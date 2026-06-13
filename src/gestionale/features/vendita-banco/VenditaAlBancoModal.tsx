@@ -826,8 +826,16 @@ export default function VenditaAlBancoModal() {
   const protetto = docState.protetto
 
   return createPortal(
-    <div className="vb-modal" role="dialog" aria-modal="true" aria-labelledby="vb-title">
-      <div className={`gestionale-mdi-window gestionale-mdi-window--fullscreen${minimized ? ' gestionale-mdi-window--minimized' : ''}`}>
+    <div
+      className="gestionale-mdi-backdrop vb-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="vb-title"
+    >
+      <div
+        className={`gestionale-mdi-window gestionale-mdi-window--vendita-banco vb-window${minimized ? ' gestionale-mdi-window--minimized' : ''}`}
+        onMouseDown={event => event.stopPropagation()}
+      >
         <div className="gestionale-mdi-window__titlebar">
           <span className="gestionale-mdi-window__title-icon" aria-hidden="true">
             €

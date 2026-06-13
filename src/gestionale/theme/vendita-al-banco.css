@@ -1,7 +1,5 @@
-/* Vendita al banco — gestionale enterprise Enterprise (Windows desktop denso) */
-@import "tailwindcss";
-
-.vb-modal {
+/* Vendita al banco — finestra MDI centrata (non fullscreen) */
+.vb-backdrop {
   --win-bg: #F0F0F0;
   --win-panel-bg: #FFFFFF;
   --win-focus-blue: #0078D7;
@@ -13,37 +11,21 @@
   --row-flash-green: #D4EDDA;
   --tab-active-accent: #D2691E;
 
-  position: fixed;
-  inset: 0;
   z-index: 20000;
-  display: flex;
-  flex-direction: column;
-  background: var(--win-bg);
   font-family: "Segoe UI", Tahoma, sans-serif;
   font-size: 12px;
   color: var(--win-text-main);
   box-sizing: border-box;
 }
 
-.vb-modal *,
-.vb-modal *::before,
-.vb-modal *::after {
+.vb-backdrop *,
+.vb-backdrop *::before,
+.vb-backdrop *::after {
   box-sizing: border-box;
 }
 
-.gestionale-mdi-window--fullscreen {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  max-height: none;
-  border: none;
-  box-shadow: none;
+.gestionale-mdi-window--vendita-banco {
   background: var(--win-bg);
-  border-radius: 0;
 }
 
 .gestionale-mdi-window--minimized {
@@ -53,7 +35,7 @@
   overflow: hidden;
 }
 
-.gestionale-mdi-window--fullscreen .gestionale-mdi-window__header {
+.gestionale-mdi-window--vendita-banco .gestionale-mdi-window__header {
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: end;
@@ -72,13 +54,13 @@
 
 .gestionale-mdi-window__field--agente { width: 120px; }
 
-.gestionale-mdi-window--fullscreen .gestionale-mdi-window__panel {
+.gestionale-mdi-window--vendita-banco .gestionale-mdi-window__panel {
   display: flex;
   flex-direction: column;
   min-height: 280px;
 }
 
-.gestionale-mdi-window--fullscreen .gestionale-mdi-window__scroll {
+.gestionale-mdi-window--vendita-banco .gestionale-mdi-window__scroll {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -709,8 +691,8 @@
   white-space: nowrap;
 }
 
-/* Override tab FIXLab dentro vb-modal */
-.vb-modal .gestionale-mdi-window__tab {
+/* Override tab FIXLab dentro vendita al banco */
+.vb-backdrop .gestionale-mdi-window__tab {
   background: var(--tab-inactive-bg);
   color: #555;
   border-radius: 0;
@@ -718,38 +700,38 @@
   height: 24px;
 }
 
-.vb-modal .gestionale-mdi-window__tab--active {
+.vb-backdrop .gestionale-mdi-window__tab--active {
   background: var(--win-panel-bg);
   color: var(--win-text-main);
   border-top: 2px solid var(--tab-active-accent);
   font-weight: 600;
 }
 
-.vb-modal .gestionale-mdi-window__panel {
+.vb-backdrop .gestionale-mdi-window__panel {
   background: var(--win-panel-bg);
   border-radius: 0;
 }
 
-.vb-modal .vb-input,
-.vb-modal .vb-select,
-.vb-modal .vb-textarea,
-.vb-modal .vb-btn,
-.vb-modal .vb-dialog {
+.vb-backdrop .vb-input,
+.vb-backdrop .vb-select,
+.vb-backdrop .vb-textarea,
+.vb-backdrop .vb-btn,
+.vb-backdrop .vb-dialog {
   border-radius: 0;
 }
 
-.vb-modal .gestionale-mdi-window__action-btn {
+.vb-backdrop .gestionale-mdi-window__action-btn {
   border-radius: 3px;
   font-weight: 600;
   height: 24px;
 }
 
-.vb-modal .vb-field__label {
+.vb-backdrop .vb-field__label {
   font-weight: 700;
   color: var(--win-text-muted);
 }
 
-.vb-modal .vb-link {
+.vb-backdrop .vb-link {
   color: var(--win-link);
   background: none;
   border: none;

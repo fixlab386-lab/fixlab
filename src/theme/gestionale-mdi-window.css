@@ -27,6 +27,11 @@
   height: min(860px, calc(100vh - 32px));
 }
 
+.gestionale-mdi-window--vendita-banco {
+  width: min(1320px, 100%);
+  height: min(880px, calc(100vh - 32px));
+}
+
 .gestionale-mdi-window__titlebar {
   display: flex;
   align-items: center;
