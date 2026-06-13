@@ -394,6 +394,7 @@ export default function Impostazioni() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab)
   const [showCapPopup, setShowCapPopup] = useState(false)
@@ -498,33 +499,44 @@ export default function Impostazioni() {
 
   const handleSave = async () => {
     if (!studioId || !userProfile?.id) return
+    if (!shopName.trim()) {
+      setSaveError('Inserisci la denominazione dell\'officina prima di salvare.')
+      return
+    }
+
     setSaving(true)
-    await updateDoc(doc(db, 'studios', studioId), {
-      name: shopName,
-      subtitle: subtitle || undefined,
-      address,
-      city,
-      province,
-      cap,
-      phone,
-      cellPhone: cellPhone || undefined,
-      email,
-      website,
-      vatNumber,
-      fiscalCode,
-      logoUrl,
-      features,
-      rtModel,
-      rtIp,
-      warrantyText,
-      footerText,
-      disclaimer,
-      waTemplate,
-    })
-    await updateDoc(doc(db, 'users', userProfile.id), { name: userName })
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    setSaveError('')
+    try {
+      await updateDoc(doc(db, 'studios', studioId), {
+        name: shopName.trim(),
+        subtitle: subtitle || undefined,
+        address,
+        city,
+        province,
+        cap,
+        phone,
+        cellPhone: cellPhone || undefined,
+        email,
+        website,
+        vatNumber,
+        fiscalCode,
+        logoUrl,
+        features,
+        rtModel,
+        rtIp,
+        warrantyText,
+        footerText,
+        disclaimer,
+        waTemplate,
+      })
+      await updateDoc(doc(db, 'users', userProfile.id), { name: userName.trim() })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Salvataggio non riuscito. Riprova.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleExportData = async () => {
@@ -703,6 +715,22 @@ export default function Impostazioni() {
   const roleLabel =
     userProfile?.role === 'admin' ? 'Amministratore' : userProfile?.role === 'technician' ? 'Tecnico' : 'Cassiere'
 
+  const showSaveFooter =
+    SAVE_TABS.includes(activeTab) || (activeTab === 'dati' && userName !== (userProfile?.name || ''))
+
+  const saveButtonLabel =
+    activeTab === 'dati' && !SAVE_TABS.includes(activeTab)
+      ? saving
+        ? 'Salvataggio…'
+        : saved
+          ? '✓ Nome salvato'
+          : 'Salva nome utente'
+      : saving
+        ? 'Salvataggio…'
+        : saved
+          ? '✓ Salvato'
+          : 'Salva impostazioni'
+
   if (loading) {
     return (
       <div className="gestionale-page">
@@ -714,38 +742,40 @@ export default function Impostazioni() {
   return (
     <>
       <div className="gestionale-page gestionale-settings-page" data-tutorial="page-impostazioni">
-        <div className="gestionale-settings-shell">
-          <header className="gestionale-settings-shell__header">
-            <h1 className="gestionale-settings-shell__title">Opzioni applicazione</h1>
-            <p className="gestionale-settings-shell__subtitle">
-              Configurazione officina, moduli, stampa, WhatsApp, backup e privacy — come in gestionale enterprise, adattato al laboratorio.
+        <header className="gestionale-settings-header">
+          <div>
+            <h1 className="gestionale-settings-header__title">Impostazioni</h1>
+            <p className="gestionale-settings-header__subtitle">
+              Officina, moduli, stampa, WhatsApp, backup e privacy
             </p>
-          </header>
+          </div>
+        </header>
 
-          <nav
-            className="gestionale-settings-tabs"
-            data-tutorial="impostazioni-sidebar"
-            role="tablist"
-            aria-label="Sezioni impostazioni"
-          >
-            {TABS.map(tab => (
-              <button
-                key={tab.key}
-                type="button"
-                role="tab"
-                className={`gestionale-settings-tabs__btn${activeTab === tab.key ? ' gestionale-settings-tabs__btn--active' : ''}`}
-                data-tutorial={tab.key === 'dati' ? 'impostazioni-tab-verifica' : undefined}
-                aria-selected={activeTab === tab.key}
-                onClick={() => setActiveTab(tab.key)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
+        <nav
+          className="gestionale-settings-tabs"
+          data-tutorial="impostazioni-sidebar"
+          role="tablist"
+          aria-label="Sezioni impostazioni"
+        >
+          {TABS.map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              className={`gestionale-settings-tabs__btn${activeTab === tab.key ? ' gestionale-settings-tabs__btn--active' : ''}`}
+              data-tutorial={tab.key === 'dati' ? 'impostazioni-tab-verifica' : undefined}
+              aria-selected={activeTab === tab.key}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
 
-          <div className="gestionale-settings-body" data-tutorial="impostazioni-content" role="tabpanel">
-            {activeTab === 'officina' && (
-              <div className="gestionale-settings-form-stack">
+        <div className="gestionale-settings-body" data-tutorial="impostazioni-content" role="tabpanel">
+          {activeTab === 'officina' && (
+            <div className="gestionale-settings-form-stack">
+              <div className="gestionale-settings-card">
                 <div className="gestionale-settings-section">
                   <h3 className="gestionale-settings-section__title">Dati studio</h3>
                   <p className="gestionale-settings-section__hint">
@@ -908,17 +938,23 @@ export default function Impostazioni() {
                   />
                 </FormField>
 
-                <div className="gestionale-settings-section" style={{ marginTop: 8 }}>
-                  <ToolButton label="Riapri configurazione guidata" onClick={reopenOnboarding} />
-                  <p className="gestionale-settings-section__hint" style={{ marginTop: 8 }}>
+              </div>
+
+              <div className="gestionale-settings-card">
+                <div className="gestionale-settings-section">
+                  <h3 className="gestionale-settings-section__title">Configurazione guidata</h3>
+                  <p className="gestionale-settings-section__hint">
                     Rilancia il wizard di primo avvio per rivedere moduli e tipi di riparazione.
                   </p>
+                  <ToolButton label="Riapri configurazione guidata" onClick={reopenOnboarding} />
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
             {activeTab === 'moduli' && (
-              <div>
+              <div className="gestionale-settings-form-stack">
+                <div className="gestionale-settings-card">
                 <div className="gestionale-settings-section">
                   <h3 className="gestionale-settings-section__title">Moduli attivi</h3>
                   <p className="gestionale-settings-section__hint">
@@ -937,12 +973,14 @@ export default function Impostazioni() {
                     </label>
                   ))}
                 </div>
+                </div>
                 <EnterpriseConfigSection />
               </div>
             )}
 
             {activeTab === 'documenti' && (
               <div className="gestionale-settings-form-stack">
+                <div className="gestionale-settings-card">
                 <div className="gestionale-settings-section">
                   <h3 className="gestionale-settings-section__title">Disclaimer legale</h3>
                   <p className="gestionale-settings-section__hint">
@@ -958,7 +996,9 @@ export default function Impostazioni() {
                     rows={6}
                   />
                 </div>
+                </div>
 
+                <div className="gestionale-settings-card">
                 <div className="gestionale-settings-section">
                   <h3 className="gestionale-settings-section__title">Numerazione documenti</h3>
                   <p className="gestionale-settings-section__hint">
@@ -970,7 +1010,9 @@ export default function Impostazioni() {
                     Per le riparazioni, numero e anno si gestiscono nella scheda ticket (campo progressivo/anno).
                   </div>
                 </div>
+                </div>
 
+                <div className="gestionale-settings-card">
                 <div className="gestionale-settings-section">
                   <h3 className="gestionale-settings-section__title">Testi scheda riparazione</h3>
                   <FormField label="Testo garanzia" htmlFor="set-warranty">
@@ -990,7 +1032,9 @@ export default function Impostazioni() {
                     />
                   </FormField>
                 </div>
+                </div>
 
+                <div className="gestionale-settings-card">
                 <div className="gestionale-settings-section">
                   <h3 className="gestionale-settings-section__title">Anteprima piè di pagina</h3>
                   <div className="gestionale-settings-preview">
@@ -1000,7 +1044,9 @@ export default function Impostazioni() {
                     </div>
                   </div>
                 </div>
+                </div>
 
+                <div className="gestionale-settings-card">
                 <div className="gestionale-settings-section">
                   <h3 className="gestionale-settings-section__title">Registratore telematico (RT)</h3>
                   <div className="gestionale-settings-info-box">
@@ -1041,11 +1087,13 @@ export default function Impostazioni() {
                     <p className="gestionale-settings-section__hint">Seleziona un modello per configurare l&apos;indirizzo IP.</p>
                   )}
                 </div>
+                </div>
               </div>
             )}
 
             {activeTab === 'whatsapp' && (
               <div className="gestionale-settings-form-stack">
+                <div className="gestionale-settings-card">
                 <div className="gestionale-settings-section">
                   <h3 className="gestionale-settings-section__title">Template messaggio</h3>
                   <p className="gestionale-settings-section__hint">
@@ -1077,12 +1125,16 @@ export default function Impostazioni() {
                     style={{ marginTop: 6 }}
                   />
                 </div>
+                </div>
 
+                <div className="gestionale-settings-card">
                 <div className="gestionale-settings-section">
                   <h3 className="gestionale-settings-section__title">Anteprima</h3>
                   <div className="gestionale-settings-preview gestionale-settings-preview--wa">{previewMessage}</div>
                 </div>
+                </div>
 
+                <div className="gestionale-settings-card">
                 <div className="gestionale-settings-section">
                   <h3 className="gestionale-settings-section__title">Collegamento Evolution API</h3>
                   <p className="gestionale-settings-section__hint">
@@ -1093,13 +1145,17 @@ export default function Impostazioni() {
                   </p>
                   <WhatsAppConnectionPanel compact />
                 </div>
+                </div>
               </div>
             )}
 
             {activeTab === 'dati' && (
-              <div>
+              <div className="gestionale-settings-form-stack">
+                <div className="gestionale-settings-card">
                 <DesktopAppInfoSection />
+                </div>
 
+                <div className="gestionale-settings-card">
                 <div className="gestionale-settings-section">
                   <h3 className="gestionale-settings-section__title">Il tuo account</h3>
                   <div className="gestionale-settings-form-stack">
@@ -1123,12 +1179,13 @@ export default function Impostazioni() {
                       <input id="set-user-role" className="gestionale-form-field__input" value={roleLabel} disabled />
                     </FormField>
                     <p className="gestionale-settings-section__hint">
-                      Nome e ruolo: salva con il pulsante in fondo (scheda La mia officina o altre con campi modificabili) — il nome utente
-                      viene aggiornato insieme alle impostazioni studio.
+                      Il nome utente viene salvato insieme alle altre impostazioni con il pulsante in fondo.
                     </p>
                   </div>
                 </div>
+                </div>
 
+                <div className="gestionale-settings-card">
                 <div className="gestionale-settings-section">
                   <h3 className="gestionale-settings-section__title">Export dati</h3>
                   <p className="gestionale-settings-section__hint">
@@ -1155,7 +1212,9 @@ export default function Impostazioni() {
                     />
                   </div>
                 </div>
+                </div>
 
+                <div className="gestionale-settings-card">
                 <div className="gestionale-settings-section">
                   <h3 className="gestionale-settings-section__title">Import dati</h3>
                   <div className="gestionale-settings-import-placeholder">
@@ -1165,7 +1224,9 @@ export default function Impostazioni() {
                     </span>
                   </div>
                 </div>
+                </div>
 
+                <div className="gestionale-settings-card">
                 <div className="gestionale-settings-section">
                   <h3 className="gestionale-settings-section__title">Zona pericolosa</h3>
                   <div className="gestionale-settings-info-box gestionale-settings-info-box--danger">
@@ -1174,7 +1235,9 @@ export default function Impostazioni() {
                   </div>
                   <ToolButton label="Elimina account e tutti i dati" variant="danger" onClick={openDeleteModal} />
                 </div>
+                </div>
 
+                <div className="gestionale-settings-card">
                 <div className="gestionale-settings-section" data-tutorial="impostazioni-verifica">
                   <h3 className="gestionale-settings-section__title">Checklist di verifica</h3>
                   <p className="gestionale-settings-section__hint">
@@ -1196,10 +1259,13 @@ export default function Impostazioni() {
                     </div>
                   ))}
                 </div>
+                </div>
               </div>
             )}
 
             {activeTab === 'legale' && (
+              <div className="gestionale-settings-form-stack">
+              <div className="gestionale-settings-card">
               <div className="gestionale-settings-legal-links">
                 <div className="gestionale-settings-section">
                   <h3 className="gestionale-settings-section__title">Documentazione legale</h3>
@@ -1238,35 +1304,32 @@ export default function Impostazioni() {
                   <ToolButton label="Gestisci" onClick={openCookieSettings} />
                 </div>
               </div>
+              </div>
+              </div>
             )}
           </div>
 
-          {SAVE_TABS.includes(activeTab) ? (
+          {showSaveFooter ? (
             <footer className="gestionale-settings-footer">
-              <button
-                type="button"
-                className="gestionale-dialog-btn gestionale-dialog-btn--primary"
-                onClick={handleSave}
-                disabled={saving}
+              <div
+                className={`gestionale-settings-footer__status${
+                  saveError ? ' gestionale-settings-footer__status--error' : saved ? ' gestionale-settings-footer__status--ok' : ''
+                }`}
               >
-                {saving ? 'Salvataggio…' : saved ? '✓ Salvato!' : 'Salva impostazioni'}
-              </button>
+                {saveError || (saved ? 'Modifiche salvate correttamente.' : 'Le modifiche non sono ancora salvate.')}
+              </div>
+              <div className="gestionale-settings-footer__actions">
+                <button
+                  type="button"
+                  className="gestionale-dialog-btn gestionale-dialog-btn--primary"
+                  onClick={() => void handleSave()}
+                  disabled={saving}
+                >
+                  {saveButtonLabel}
+                </button>
+              </div>
             </footer>
           ) : null}
-
-          {activeTab === 'dati' && userName !== (userProfile?.name || '') ? (
-            <footer className="gestionale-settings-footer">
-              <button
-                type="button"
-                className="gestionale-dialog-btn gestionale-dialog-btn--primary"
-                onClick={handleSave}
-                disabled={saving}
-              >
-                {saving ? 'Salvataggio…' : saved ? '✓ Salvato!' : 'Salva nome utente'}
-              </button>
-            </footer>
-          ) : null}
-        </div>
       </div>
 
       {showCapPopup ? (
