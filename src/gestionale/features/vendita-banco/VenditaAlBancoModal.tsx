@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
@@ -16,6 +16,12 @@ import {
 } from '../../../lib/firestore'
 import { callCommitDocument, isCommitFunctionUnavailable } from '../../../lib/commitDocument'
 import { omitUndefined } from '../../../lib/firestoreSanitize'
+import {
+  attachmentUrls,
+  deleteDocumentAttachment,
+  uploadDocumentAttachment,
+  type DocumentAttachment,
+} from '../../../lib/documentAttachments'
 import { GENERIC_CLIENT_LABEL } from '../../../lib/clientSearch'
 import { sendFiscalReceiptToRt, documentRowsToRtItems, rtItemsGrossTotal, rtShouldSkipLanPrint } from '../../../lib/rtPrinter'
 import { buildVenditaBancoFIXLabPrintBody, VENDITA_BANCO_PRINT_CSS } from '../../../lib/venditaBancoPrint'
@@ -30,7 +36,8 @@ import { emitPaymentsForDocumentIfNeeded } from '../../lib/paymentSchedule'
 import { invalidateDashboardCache } from '../start/dashboardCache'
 import type { Category, Client, DocRecord, DocumentType } from '../../../types'
 import ClientFormModal from '../../../components/ClientFormModal'
-import { LISTINI, NUMERAZIONI, VENDITA_BANCO_TABS } from './constants'
+import { LISTINI, NUMERAZIONI, VENDITA_BANCO_TABS, TIPI_SPESE, IVA_ALIQUOTE, COMMENTI_INTERNI_PREDEFINITI } from './constants'
+import { getCustomCommentiInterni, addCustomCommentoInterno } from '../../../lib/userPrefs'
 import { useAgentOptions } from '../../hooks/useAgentOptions'
 import StampaDialog from './dialogs/StampaDialog'
 import AnteprimaStampaDialog, { type AnteprimaStampaMeta } from './dialogs/AnteprimaStampaDialog'
@@ -60,8 +67,10 @@ import {
   rigaToDocumentRow,
   documentRowToRiga,
   calcRiga,
+  evalCalcolata,
 } from './utils'
 import { WinField, WinIconBtn, WinInput, WinSelect } from './WinControls'
+import WinDropdownMenu from './WinDropdownMenu'
 import '../../../theme/gestionale-mdi-window.css'
 import '../../../theme/gestionale-document-form.css'
 import '../../theme/vendita-al-banco.css'
@@ -109,12 +118,16 @@ export default function VenditaAlBancoModal() {
   const [showIncludiDoc, setShowIncludiDoc] = useState(false)
   const [includiDocs, setIncludiDocs] = useState<DocRecord[]>([])
   const [includiLoading, setIncludiLoading] = useState(false)
-  const [allegati, setAllegati] = useState<string[]>([])
+  const [allegati, setAllegati] = useState<DocumentAttachment[]>([])
+  const [allegatiUploading, setAllegatiUploading] = useState(false)
+  const draftStorageKeyRef = useRef(crypto.randomUUID())
   const [showAllegati, setShowAllegati] = useState(false)
   const [showEtichette, setShowEtichette] = useState(false)
   const [showGeneraDoc, setShowGeneraDoc] = useState(false)
   const [anomalie, setAnomalie] = useState<AnomaliaMagazzino[] | null>(null)
   const [pendingEmetti, setPendingEmetti] = useState(false)
+  const [includiDocAvailable, setIncludiDocAvailable] = useState(false)
+  const dateInputRef = useRef<HTMLInputElement>(null)
 
   const patchDoc = useCallback((patch: Partial<DocumentoVenditaBanco>) => {
     setDocState(prev => ({ ...prev, ...patch }))
@@ -138,6 +151,8 @@ export default function VenditaAlBancoModal() {
     setShowIncludiDoc(false)
     setIncludiDocs([])
     setAllegati([])
+    setAllegatiUploading(false)
+    draftStorageKeyRef.current = crypto.randomUUID()
     setShowAllegati(false)
     setShowEtichette(false)
     setShowGeneraDoc(false)
@@ -183,12 +198,68 @@ export default function VenditaAlBancoModal() {
     )
   }, [venditaBancoOpen, studioId, patchDoc])
 
+  useEffect(() => {
+    if (!studioId || !docState.cliente.id) {
+      setIncludiDocAvailable(false)
+      return
+    }
+    void getDocuments(studioId).then(all => {
+      setIncludiDocAvailable(
+        all.some(
+          d =>
+            d.subjectId === docState.cliente.id &&
+            d.id !== savedDocumentId &&
+            d.type !== 'vendita_banco' &&
+            d.status !== 'cancelled',
+        ),
+      )
+    })
+  }, [studioId, docState.cliente.id, savedDocumentId])
+
+  const handleRecalcTotals = useCallback(() => {
+    setActionMessage('Totali ricalcolati.')
+  }, [])
+
+  const handleCalculator = useCallback(() => {
+    const expr = window.prompt('Calcolatrice — inserisci espressione (es. 20+211):')
+    if (!expr) return
+    const val = evalCalcolata(expr)
+    if (val === null) {
+      alert('Espressione non valida.')
+      return
+    }
+    alert(`Risultato: € ${val.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
+  }, [])
+
+  const commentiItems = useMemo(
+    () => [...COMMENTI_INTERNI_PREDEFINITI.slice(0, -1), ...getCustomCommentiInterni(), 'Personalizza…'],
+    [docState.commentoInterno],
+  )
+
+  const handleNumerazioneChange = useCallback(
+    (numerazione: string) => {
+      if (docState.protetto) {
+        patchDoc({ numerazione })
+        return
+      }
+      patchDoc({ numerazione })
+      if (!studioId) return
+      void getNextDocumentNumber(studioId, 'vendita_banco', documentYearFromDate(docState.data)).then(num =>
+        patchDoc({ numero: num, numerazione }),
+      )
+    },
+    [studioId, docState.data, docState.protetto, patchDoc],
+  )
+
   const activeRighe = useMemo(
     () => docState.righe.filter(r => r.descrizione.trim()),
     [docState.righe],
   )
 
-  const totals = useMemo(() => documentTotalsFromRighe(activeRighe), [activeRighe])
+  const totals = useMemo(
+    () => documentTotalsFromRighe(activeRighe, docState.speseImporto, docState.speseIva),
+    [activeRighe, docState.speseImporto, docState.speseIva],
+  )
 
   const docWithTotals = useMemo(
     (): DocumentoVenditaBanco => ({
@@ -213,11 +284,13 @@ export default function VenditaAlBancoModal() {
         docState.campiLiberi[2] ? `Libero 3: ${docState.campiLiberi[2]}` : '',
         docState.campiLiberi[3] ? `Libero 4: ${docState.campiLiberi[3]}` : '',
         docState.noteFine ? `Note a fine documento:\n${docState.noteFine}` : '',
-        docState.spese ? `Spese: ${docState.spese}` : '',
-        allegati.length ? `Allegati: ${allegati.join(', ')}` : '',
+        docState.rinnovo.attivo ? `Rinnovo: ${docState.rinnovo.mesi} mesi` : '',
+        docState.codLotteria ? `Cod. lotteria: ${docState.codLotteria}` : '',
       ]
         .filter(Boolean)
         .join('\n')
+
+      const agentName = docState.agente && docState.agente !== '(Nessuno)' ? docState.agente : undefined
 
       return {
         studioId: studioId!,
@@ -240,7 +313,11 @@ export default function VenditaAlBancoModal() {
         totalNet: totals.totNetto,
         totalVat: totals.totIva,
         totalDocument: totals.totaleDocumento,
+        shippingCost: docState.speseImporto > 0 ? docState.speseImporto : undefined,
+        shippingVatRate: docState.speseImporto > 0 ? docState.speseIva : undefined,
+        shippingDescription: docState.speseTipo || undefined,
         priceList: listinoToPriceList(docState.listino),
+        agentName,
         internalNotes: internalNotes || undefined,
         paymentMethod: docState.tipoPagamento || undefined,
         followUpDoc: docState.seguiraDocVendita || undefined,
@@ -250,6 +327,7 @@ export default function VenditaAlBancoModal() {
         deliveryCap: docState.destinazione.cap || undefined,
         status: saveStatus,
         stockCommitted,
+        attachments: allegati.length ? attachmentUrls(allegati) : undefined,
       }
     },
     [studioId, docState, activeRighe, documentYear, totals, stockCommitted, allegati],
@@ -580,18 +658,64 @@ export default function VenditaAlBancoModal() {
     setShowAllegati(true)
   }, [])
 
+  const documentStorageKey = savedDocumentId || `draft-${draftStorageKeyRef.current}`
+
+  const uploadAllegatiFiles = useCallback(
+    async (files: FileList | File[]) => {
+      if (!studioId) {
+        alert('Archivio non disponibile.')
+        return
+      }
+      const list = Array.from(files)
+      if (!list.length) return
+      setAllegatiUploading(true)
+      try {
+        const uploaded: DocumentAttachment[] = []
+        for (const file of list) {
+          uploaded.push(await uploadDocumentAttachment(studioId, documentStorageKey, file))
+        }
+        setAllegati(prev => [...prev, ...uploaded])
+        setActionMessage(`${uploaded.length} allegato/i caricato/i su cloud.`)
+      } catch (err) {
+        alert(err instanceof Error ? err.message : 'Caricamento allegati non riuscito.')
+      } finally {
+        setAllegatiUploading(false)
+      }
+    },
+    [studioId, documentStorageKey],
+  )
+
   const handleAllegatiImport = useCallback(() => {
     const input = document.createElement('input')
     input.type = 'file'
     input.multiple = true
     input.onchange = () => {
-      const names = Array.from(input.files || []).map(f => f.name)
-      if (names.length) {
-        setAllegati(prev => [...prev, ...names])
-        setActionMessage(`${names.length} allegato/i importato/i.`)
-      }
+      if (input.files?.length) void uploadAllegatiFiles(input.files)
     }
     input.click()
+  }, [uploadAllegatiFiles])
+
+  const handleAllegatiScan = useCallback(() => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.multiple = true
+    input.accept = 'image/*,application/pdf'
+    input.onchange = () => {
+      if (input.files?.length) void uploadAllegatiFiles(input.files)
+    }
+    input.click()
+    setActionMessage('Seleziona il file acquisito dallo scanner (immagine o PDF).')
+  }, [uploadAllegatiFiles])
+
+  const handleAllegatiDelete = useCallback(async (item: DocumentAttachment) => {
+    if (!confirm(`Eliminare l'allegato "${item.name}"?`)) return
+    await deleteDocumentAttachment(item)
+    setAllegati(prev => prev.filter(a => a.path !== item.path))
+    setActionMessage(`Allegato "${item.name}" eliminato.`)
+  }, [])
+
+  const handleAllegatiOpen = useCallback((item: DocumentAttachment) => {
+    window.open(item.url, '_blank', 'noopener,noreferrer')
   }, [])
 
   const handleAllegatiSmartphone = useCallback(() => {
@@ -680,7 +804,11 @@ export default function VenditaAlBancoModal() {
           totalNet: totals.totNetto,
           totalVat: totals.totIva,
           totalDocument: totals.totaleDocumento,
+          shippingCost: docState.speseImporto > 0 ? docState.speseImporto : undefined,
+          shippingVatRate: docState.speseImporto > 0 ? docState.speseIva : undefined,
+          shippingDescription: docState.speseTipo || undefined,
           priceList: listinoToPriceList(docState.listino),
+          agentName: docState.agente && docState.agente !== '(Nessuno)' ? docState.agente : undefined,
           paymentMethod: docState.tipoPagamento || undefined,
           linkedDocumentId: venditaId,
           linkedDocumentType: 'vendita_banco' as DocumentType,
@@ -892,29 +1020,58 @@ export default function VenditaAlBancoModal() {
                 ) : null}
 
                 <div className="gestionale-mdi-window__scroll">
-                  <div className="gestionale-mdi-window__header">
-                    <div className="gestionale-mdi-window__header-left">
-                      <WinField label="Cliente" htmlFor="vb-cliente">
-                        <div className="vb-row">
-                          <WinInput
-                            id="vb-cliente"
-                            className="vb-input--flex"
-                            value={docState.cliente.nome}
-                            readOnly
-                            disabled={protetto}
-                            placeholder="Seleziona cliente…"
-                          />
-                          <WinIconBtn title="Ricerca clienti" onClick={() => !protetto && setShowSelezioneCliente(true)}>
-                            <span className="vb-icon-search">🔍</span>
-                          </WinIconBtn>
-                          <WinIconBtn title="Anagrafica cliente" onClick={() => !protetto && setShowSelezioneCliente(true)}>
-                            <span className="vb-icon-user">👤</span>
-                          </WinIconBtn>
-                        </div>
-                      </WinField>
-                      <WinField label="Agente" htmlFor="vb-agente" className="gestionale-mdi-window__field--agente">
+                  <div className="vb-header-row">
+                    <WinField label="Cliente" htmlFor="vb-cliente" className="vb-header-field--cliente">
+                      <div className="vb-row">
+                        <WinInput
+                          id="vb-cliente"
+                          className="vb-input--flex"
+                          value={docState.cliente.nome}
+                          readOnly
+                          disabled={protetto}
+                          placeholder="Seleziona cliente…"
+                        />
+                        <WinIconBtn
+                          title="Ricerca clienti"
+                          className="vb-icon-btn--binocular"
+                          onClick={() => !protetto && setShowSelezioneCliente(true)}
+                        >
+                          🔭
+                        </WinIconBtn>
+                      </div>
+                    </WinField>
+
+                    <WinField label="Listino" htmlFor="vb-listino" className="vb-header-field--listino">
+                      <div className="vb-row">
+                        <WinSelect
+                          id="vb-listino"
+                          className="vb-input--flex"
+                          value={docState.listino}
+                          disabled={protetto}
+                          onChange={e => handleListinoChange(e.target.value)}
+                        >
+                          {LISTINI.map(l => (
+                            <option key={l} value={l}>
+                              {l}
+                            </option>
+                          ))}
+                        </WinSelect>
+                        <WinIconBtn
+                          title="Aggiorna listino"
+                          className="vb-icon-btn--refresh"
+                          disabled={protetto}
+                          onClick={refreshListinoFromCatalog}
+                        >
+                          ↻
+                        </WinIconBtn>
+                      </div>
+                    </WinField>
+
+                    <WinField label="Agente" htmlFor="vb-agente" className="vb-header-field--agente">
+                      <div className="vb-row">
                         <WinSelect
                           id="vb-agente"
+                          className="vb-input--flex"
                           value={docState.agente || agenti[0]}
                           disabled={protetto}
                           onChange={e => patchDoc({ agente: e.target.value })}
@@ -925,83 +1082,78 @@ export default function VenditaAlBancoModal() {
                             </option>
                           ))}
                         </WinSelect>
-                      </WinField>
-                      <WinField label="Listino" htmlFor="vb-listino" className="gestionale-mdi-window__field--listino">
-                        <div className="vb-row">
-                          <WinSelect
-                            id="vb-listino"
-                            className="vb-input--flex"
-                            value={docState.listino}
-                            disabled={protetto}
-                            onChange={e => handleListinoChange(e.target.value)}
-                          >
-                            {LISTINI.map(l => (
-                              <option key={l} value={l}>
-                                {l}
-                              </option>
-                            ))}
-                          </WinSelect>
-                          <WinIconBtn title="Aggiorna listino" disabled={protetto} onClick={refreshListinoFromCatalog}>
-                            ↻
-                          </WinIconBtn>
-                        </div>
-                      </WinField>
-                    </div>
+                        <WinIconBtn title="Scheda agente" disabled={protetto}>
+                          📄
+                        </WinIconBtn>
+                      </div>
+                    </WinField>
 
-                    <div className="gestionale-mdi-window__header-fields">
-                      <WinField label="Data" htmlFor="vb-data" className="gestionale-mdi-window__field--data">
-                        <div className="vb-row">
-                          <WinInput
-                            id="vb-data"
-                            value={formatDataIt(docState.data)}
-                            disabled={protetto}
-                            onChange={e => {
-                              const iso = parseDataIt(e.target.value)
-                              if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) patchDoc({ data: iso })
-                            }}
-                            placeholder="gg/mm/aaaa"
-                          />
-                          <WinIconBtn title="Calendario">📅</WinIconBtn>
-                        </div>
-                      </WinField>
-
-                      <WinField label="Numero" htmlFor="vb-numero" className="gestionale-mdi-window__field--numero">
+                    <WinField label="Data" htmlFor="vb-data" className="vb-header-field--data">
+                      <div className="vb-row">
                         <WinInput
-                          id="vb-numero"
-                          type="number"
-                          min={1}
-                          value={docState.numero}
+                          id="vb-data"
+                          value={formatDataIt(docState.data)}
                           disabled={protetto}
-                          onChange={e => patchDoc({ numero: parseInt(e.target.value, 10) || 1 })}
+                          onChange={e => {
+                            const iso = parseDataIt(e.target.value)
+                            if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) patchDoc({ data: iso })
+                          }}
+                          placeholder="gg/mm/aaaa"
                         />
-                      </WinField>
-
-                      <WinField label="Numeraz." htmlFor="vb-numeraz" className="gestionale-mdi-window__field--numeraz">
-                        <WinSelect
-                          id="vb-numeraz"
-                          value={docState.numerazione}
-                          disabled={protetto}
-                          onChange={e => patchDoc({ numerazione: e.target.value })}
-                        >
-                          <option value="">—</option>
-                          {NUMERAZIONI.filter(n => n).map(n => (
-                            <option key={n} value={n}>
-                              {n}
-                            </option>
-                          ))}
-                        </WinSelect>
-                      </WinField>
-
-                      <label className="vb-check-label">
                         <input
-                          type="checkbox"
-                          checked={docState.seguiraDocVendita}
+                          ref={dateInputRef}
+                          type="date"
+                          className="vb-date-native"
+                          value={docState.data}
                           disabled={protetto}
-                          onChange={e => patchDoc({ seguiraDocVendita: e.target.checked })}
+                          onChange={e => patchDoc({ data: e.target.value })}
                         />
-                        Seguirà doc. di vendita
-                      </label>
-                    </div>
+                        <WinIconBtn
+                          title="Calendario"
+                          disabled={protetto}
+                          onClick={() => dateInputRef.current?.showPicker?.() ?? dateInputRef.current?.click()}
+                        >
+                          📅
+                        </WinIconBtn>
+                      </div>
+                    </WinField>
+
+                    <WinField label="Numero" htmlFor="vb-numero" className="vb-header-field--numero">
+                      <WinInput
+                        id="vb-numero"
+                        type="number"
+                        min={1}
+                        value={docState.numero}
+                        disabled={protetto}
+                        onChange={e => patchDoc({ numero: parseInt(e.target.value, 10) || 1 })}
+                      />
+                    </WinField>
+
+                    <WinField label="Numeraz." htmlFor="vb-numeraz" className="vb-header-field--numeraz">
+                      <WinSelect
+                        id="vb-numeraz"
+                        value={docState.numerazione}
+                        disabled={protetto}
+                        onChange={e => handleNumerazioneChange(e.target.value)}
+                      >
+                        <option value="">—</option>
+                        {NUMERAZIONI.filter(n => n).map(n => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                      </WinSelect>
+                    </WinField>
+
+                    <label className="vb-check-label vb-header-field--followup">
+                      <input
+                        type="checkbox"
+                        checked={docState.seguiraDocVendita}
+                        disabled={protetto}
+                        onChange={e => patchDoc({ seguiraDocVendita: e.target.checked })}
+                      />
+                      Seguirà doc. di vendita
+                    </label>
                   </div>
 
                   <div className="gestionale-mdi-window__tabs" role="tablist">
@@ -1030,6 +1182,7 @@ export default function VenditaAlBancoModal() {
                         onChange={patchDoc}
                         onProductsChange={() => void refreshProducts()}
                         onToast={setActionMessage}
+                        onIncludiDoc={() => void handleIncludiDoc()}
                       />
                     ) : null}
                     {activeTab === 'pagamento' ? <TabPagamento doc={docWithTotals} protetto={protetto} onChange={patchDoc} /> : null}
@@ -1040,20 +1193,56 @@ export default function VenditaAlBancoModal() {
                 </div>
 
                 <div className="vb-footer-row">
-                  <div className="gestionale-mdi-window__footer-fields">
-                    <WinField label="Spese" htmlFor="vb-spese">
+                  <div className="vb-footer-fields">
+                    <WinField label="Spese" htmlFor="vb-spese-tipo">
                       <div className="vb-row">
-                        <WinInput
-                          id="vb-spese"
+                        <WinSelect
+                          id="vb-spese-tipo"
                           className="vb-input--flex"
-                          value={docState.spese}
+                          value={docState.speseTipo}
                           disabled={protetto}
-                          onChange={e => patchDoc({ spese: e.target.value })}
-                        />
-                        <WinIconBtn title="Tipi spese">▼</WinIconBtn>
+                          onChange={e =>
+                            patchDoc({
+                              speseTipo: e.target.value === '(Nessuna)' ? '' : e.target.value,
+                            })
+                          }
+                        >
+                          {TIPI_SPESE.map(t => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </WinSelect>
+                        <WinIconBtn title="Tipi spese">📄</WinIconBtn>
                       </div>
                     </WinField>
-                    <WinField label="Commento ad uso interno" htmlFor="vb-commento">
+                    <WinField label="Iva" htmlFor="vb-spese-iva">
+                      <WinSelect
+                        id="vb-spese-iva"
+                        value={docState.speseIva}
+                        disabled={protetto}
+                        onChange={e => patchDoc({ speseIva: parseInt(e.target.value, 10) || 22 })}
+                      >
+                        {IVA_ALIQUOTE.map(v => (
+                          <option key={v} value={v}>
+                            {v}
+                          </option>
+                        ))}
+                      </WinSelect>
+                    </WinField>
+                    <WinField label="Importo ivato" htmlFor="vb-spese-importo">
+                      <WinInput
+                        id="vb-spese-importo"
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        className="vb-input--right"
+                        value={docState.speseImporto || ''}
+                        disabled={protetto}
+                        onChange={e => patchDoc({ speseImporto: parseFloat(e.target.value) || 0 })}
+                      />
+                    </WinField>
+                    <WinField label="Commento ad uso interno" htmlFor="vb-commento" className="vb-footer-field--commento">
                       <div className="vb-row">
                         <WinInput
                           id="vb-commento"
@@ -1062,17 +1251,31 @@ export default function VenditaAlBancoModal() {
                           disabled={protetto}
                           onChange={e => patchDoc({ commentoInterno: e.target.value })}
                         />
-                        <WinIconBtn title="Commenti predefiniti">▼</WinIconBtn>
+                        <WinDropdownMenu
+                          disabled={protetto}
+                          label="▼"
+                          items={commentiItems.map(label => ({
+                            id: label,
+                            label,
+                            onClick: () => {
+                              if (label === 'Personalizza…') {
+                                const text = window.prompt('Commento predefinito:')
+                                if (!text?.trim()) return
+                                addCustomCommentoInterno(text)
+                                patchDoc({ commentoInterno: text.trim() })
+                                return
+                              }
+                              patchDoc({ commentoInterno: label })
+                            },
+                          }))}
+                        />
                       </div>
                     </WinField>
                   </div>
-                  <FooterTotals doc={docWithTotals} vociCount={activeRighe.length} />
+                  <FooterTotals doc={docWithTotals} vociCount={activeRighe.length} onRefresh={handleRecalcTotals} />
                 </div>
 
                 <div className="gestionale-mdi-window__actionbar">
-                  <button type="button" className="gestionale-mdi-window__action-btn gestionale-mdi-window__action-btn--primary" onClick={() => void handleEmetti()} disabled={saving || protetto}>
-                    💾↗ Emetti
-                  </button>
                   <button type="button" className="gestionale-mdi-window__action-btn" onClick={handleScontrino} disabled={saving}>
                     🧾 Scontrino (F6)
                   </button>
@@ -1092,7 +1295,7 @@ export default function VenditaAlBancoModal() {
                     className="gestionale-mdi-window__action-btn"
                     onClick={handleAllegati}
                     disabled={saving}
-                    title={allegati.length ? allegati.join(', ') : undefined}
+                    title={allegati.length ? allegati.map(a => a.name).join(', ') : undefined}
                   >
                     📎 Allegati…{allegati.length ? ` (${allegati.length})` : ''}
                   </button>
@@ -1100,8 +1303,14 @@ export default function VenditaAlBancoModal() {
                     type="button"
                     className="gestionale-mdi-window__action-btn"
                     onClick={() => void handleIncludiDoc()}
-                    disabled={!docState.cliente.id || saving}
-                    title={!docState.cliente.id ? 'Seleziona un cliente registrato' : undefined}
+                    disabled={!docState.cliente.id || !includiDocAvailable || saving}
+                    title={
+                      !docState.cliente.id
+                        ? 'Seleziona un cliente registrato'
+                        : !includiDocAvailable
+                          ? 'Nessun documento da includere per questo cliente'
+                          : undefined
+                    }
                   >
                     📄 Includi doc.
                   </button>
@@ -1113,8 +1322,28 @@ export default function VenditaAlBancoModal() {
                   >
                     📋 Genera doc.
                   </button>
+                  <button
+                    type="button"
+                    className="gestionale-mdi-window__action-btn gestionale-mdi-window__action-btn--primary"
+                    onClick={() => void handleEmetti()}
+                    disabled={saving || protetto}
+                    title="Conferma documento e scarica magazzino"
+                  >
+                    💾↗ Emetti
+                  </button>
                   <div className="gestionale-mdi-window__action-spacer" />
-                  <button type="button" className="gestionale-mdi-window__action-btn" onClick={() => setActionMessage('Guida vendita al banco: Emetti conferma e scarica magazzino; F6 scontrino; F11 sblocca documento emesso.')}>
+                  <button type="button" className="gestionale-mdi-window__action-btn" onClick={handleCalculator} title="Calcolatrice">
+                    🧮
+                  </button>
+                  <button
+                    type="button"
+                    className="gestionale-mdi-window__action-btn"
+                    onClick={() =>
+                      setActionMessage(
+                        'Guida: Emetti conferma e scarica magazzino; F6 scontrino; F11 sblocca documento emesso; Esc chiude.',
+                      )
+                    }
+                  >
                     ?
                   </button>
                   <button
@@ -1206,9 +1435,13 @@ export default function VenditaAlBancoModal() {
 
       {showAllegati ? (
         <AllegatiDialog
+          attachments={allegati}
+          uploading={allegatiUploading}
           onSmartphone={handleAllegatiSmartphone}
-          onScan={() => setActionMessage('Nessuno scanner rilevato. Usa Importa o Da smartphone/e-mail.')}
+          onScan={handleAllegatiScan}
           onImport={handleAllegatiImport}
+          onOpen={handleAllegatiOpen}
+          onDelete={item => void handleAllegatiDelete(item)}
           onClose={() => setShowAllegati(false)}
         />
       ) : null}

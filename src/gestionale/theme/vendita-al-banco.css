@@ -67,6 +67,127 @@
   min-height: 0;
 }
 
+/* Testata Danea: Cliente → Listino → Agente → Data → Numero → Numeraz. → checkbox */
+.vb-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 10px;
+  padding: 6px 10px;
+  background: var(--win-bg);
+  border-bottom: 1px solid var(--win-border);
+  flex-shrink: 0;
+}
+
+.vb-header-field--cliente { flex: 1 1 200px; min-width: 180px; }
+.vb-header-field--listino { flex: 0 0 130px; }
+.vb-header-field--agente { flex: 0 0 150px; }
+.vb-header-field--data { flex: 0 0 130px; }
+.vb-header-field--numero { flex: 0 0 64px; }
+.vb-header-field--numeraz { flex: 0 0 72px; }
+.vb-header-field--followup {
+  flex: 0 0 auto;
+  font-size: 11px;
+  white-space: nowrap;
+  margin-bottom: 4px;
+}
+
+.vb-icon-btn--binocular { color: #2e7d32; }
+.vb-icon-btn--refresh { color: #1565c0; }
+
+.vb-date-native {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.vb-footer-fields {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.2fr) 56px 100px minmax(200px, 2fr);
+  gap: 8px;
+  align-items: end;
+}
+
+.vb-footer-field--commento {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 900px) {
+  .vb-footer-field--commento {
+    grid-column: auto;
+  }
+
+  .vb-footer-fields {
+    grid-template-columns: minmax(120px, 1fr) 56px 96px minmax(220px, 2.4fr);
+  }
+}
+
+.vb-footer-totals__refresh {
+  margin-left: 4px;
+  border: none;
+  background: none;
+  color: var(--win-link);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 2px;
+}
+
+.vb-righe__sort-header {
+  border: none;
+  background: none;
+  color: var(--win-link);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.vb-righe__sort-header--active {
+  color: #004578;
+}
+
+.vb-righe__table thead th {
+  background: var(--win-panel-bg);
+  border: 1px solid var(--win-border);
+  padding: 3px 6px;
+  font-size: 11px;
+}
+
+.vb-righe__row--selected td {
+  background: var(--win-focus-blue) !important;
+  color: #fff;
+}
+
+.vb-righe__row--selected .vb-input,
+.vb-righe__row--selected .vb-righe__amount {
+  color: #fff;
+}
+
+.vb-righe__nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: var(--win-bg);
+  border-top: 1px solid var(--win-border);
+}
+
+.vb-righe__voci {
+  font-size: 11px;
+  color: var(--win-text-muted);
+  margin-left: 4px;
+}
+
+.vb-righe__colonne-link {
+  margin-left: auto;
+}
+
+.vb-righe__toolbar-spacer {
+  flex: 1;
+}
 
 .gestionale-mdi-window__header-fields {
   display: flex;
@@ -890,6 +1011,49 @@
 .vb-allegati__btn {
   justify-content: flex-start;
   width: 100%;
+}
+
+.vb-allegati__list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 1px solid var(--win-border);
+  background: var(--win-panel-bg);
+  max-height: 160px;
+  overflow: auto;
+}
+
+.vb-allegati__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--win-border);
+}
+
+.vb-allegati__item:last-child {
+  border-bottom: none;
+}
+
+.vb-allegati__open {
+  flex: 1;
+  text-align: left;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+}
+
+.vb-allegati__delete {
+  border: 1px solid var(--win-border);
+  background: var(--win-panel-bg);
+  cursor: pointer;
+  width: 22px;
+  height: 20px;
+  font-size: 11px;
+  line-height: 1;
 }
 
 .vb-radio {

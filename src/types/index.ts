@@ -336,6 +336,7 @@ export interface DocumentRow {
   vatRate: number           // aliquota IVA (22, 10, 4, 0)
   totalNet: number          // prezzo netto riga
   total: number             // totale con IVA
+  campoFE?: string          // codice campo fattura elettronica
 }
 
 export interface DocRecord {

@@ -4,9 +4,10 @@ import type { DocumentoVenditaBanco } from './types'
 type Props = {
   doc: DocumentoVenditaBanco
   vociCount: number
+  onRefresh?: () => void
 }
 
-export default function FooterTotals({ doc, vociCount }: Props) {
+export default function FooterTotals({ doc, vociCount, onRefresh }: Props) {
   return (
     <div className="vb-footer-totals">
       <div className="vb-footer-totals__voci">{vociCount} voci</div>
@@ -20,7 +21,14 @@ export default function FooterTotals({ doc, vociCount }: Props) {
           <strong>{formatEuro(doc.totIva)}</strong>
         </div>
         <div className="vb-footer-totals__row vb-footer-totals__row--total">
-          <span>Totale documento</span>
+          <span>
+            Totale documento
+            {onRefresh ? (
+              <button type="button" className="vb-footer-totals__refresh" title="Ricalcola totali" onClick={onRefresh}>
+                ↻
+              </button>
+            ) : null}
+          </span>
           <strong>{formatEuro(doc.totaleDocumento)}</strong>
         </div>
       </div>

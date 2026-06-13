@@ -71,6 +71,24 @@ export const CAMPI_FE_ITEMS = [
   'Personalizza…',
 ] as const
 
+export const TIPI_SPESE = [
+  '(Nessuna)',
+  'Spese di spedizione',
+  'Spese di imballo',
+  'Spese bancarie',
+  'Spese di trasporto',
+  'Altro',
+] as const
+
+export const IVA_ALIQUOTE = [0, 4, 5, 10, 22] as const
+
+export const COMMENTI_INTERNI_PREDEFINITI = [
+  'Urgente',
+  'Da verificare',
+  'Cliente abituale',
+  'Personalizza…',
+] as const
+
 export const UTILITA_MENU_ITEMS = [
   'Scorpora totale',
   'Ruota totale a…',

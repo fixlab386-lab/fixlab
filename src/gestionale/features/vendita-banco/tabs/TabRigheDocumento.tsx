@@ -14,10 +14,22 @@ import {
   UTILITA_MENU_ITEMS,
 } from '../constants'
 import {
+  addPercentualeRiga,
+  addSubtotaleRiga,
+  confrontaPrezziCatalogo,
+  exportRigheExcel,
+  importRigheFromExcel,
+  moveRiga,
+  ruotaTotaleIva,
+  scorporaTotaleRighe,
+  sortRighe,
+} from '../righeUtilita'
+import {
   COLONNE_RIGHE_DEFAULT,
   type ColonnaRigheId,
   type DocumentoVenditaBanco,
   type RigaDocumento,
+  type SortableColonnaRigheId,
 } from '../types'
 import { calcRiga, emptyRiga, evalCalcolata, formatEuro, productListGrossPrice } from '../utils'
 
@@ -30,9 +42,20 @@ type Props = {
   onChange: (patch: Partial<DocumentoVenditaBanco>) => void
   onProductsChange?: () => void
   onToast?: (msg: string) => void
+  onIncludiDoc?: () => void
 }
 
-export default function TabRigheDocumento({ doc, products, categories, studioId, protetto, onChange, onProductsChange, onToast }: Props) {
+export default function TabRigheDocumento({
+  doc,
+  products,
+  categories,
+  studioId,
+  protetto,
+  onChange,
+  onProductsChange,
+  onToast,
+  onIncludiDoc,
+}: Props) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [showColonne, setShowColonne] = useState(false)
   const [showRicerca, setShowRicerca] = useState(false)
@@ -40,16 +63,20 @@ export default function TabRigheDocumento({ doc, products, categories, studioId,
   const [showBarcodePanel, setShowBarcodePanel] = useState(false)
   const [barcode, setBarcode] = useState('')
   const [colonne, setColonne] = useState(COLONNE_RIGHE_DEFAULT)
+  const [sortCol, setSortCol] = useState<SortableColonnaRigheId | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [prefsVersion, setPrefsVersion] = useState(0)
   const barcodeRef = useRef<HTMLInputElement>(null)
+  const importRef = useRef<HTMLInputElement>(null)
 
   const notaItems = [...NOTA_MENU_ITEMS.slice(0, -1), ...getCustomNotaTemplates(), 'Personalizza…']
-  const gruppiItems = [...getCustomGruppi(), '(Nessuna voce)', 'Personalizza…']
+  const gruppiItems = [...GRUPPI_MENU_ITEMS.slice(0, -1), ...getCustomGruppi(), 'Personalizza…']
   const campiFeItems = [...CAMPI_FE_ITEMS.slice(0, -1), ...getCustomCampiFE(), 'Personalizza…']
   void prefsVersion
 
   const righe = doc.righe
   const disabled = protetto
+  const vociCount = righe.filter(r => r.descrizione.trim()).length
 
   const updateRighe = (next: RigaDocumento[]) => {
     const withEmpty =
@@ -57,6 +84,7 @@ export default function TabRigheDocumento({ doc, products, categories, studioId,
         ? [...next, emptyRiga()]
         : next
     onChange({ righe: withEmpty })
+    setSortCol(null)
   }
 
   const updateRow = (index: number, patch: Partial<RigaDocumento>) => {
@@ -91,6 +119,38 @@ export default function TabRigheDocumento({ doc, products, categories, studioId,
     onToast?.('1 voce inserita nel documento.')
   }
 
+  const toggleSort = (column: SortableColonnaRigheId) => {
+    if (sortCol === column) {
+      if (sortDir === 'asc') {
+        setSortDir('desc')
+        updateRighe(sortRighe(righe, column, 'desc'))
+      } else {
+        setSortCol(null)
+        onChange({ righe: doc.righe })
+      }
+      return
+    }
+    setSortCol(column)
+    setSortDir('asc')
+    updateRighe(sortRighe(righe, column, 'asc'))
+  }
+
+  const sortHeader = (id: SortableColonnaRigheId, label: string) => {
+    if (!colonne[id]) return null
+    const active = sortCol === id
+    return (
+      <th key={id}>
+        <button
+          type="button"
+          className={`vb-righe__sort-header${active ? ' vb-righe__sort-header--active' : ''}`}
+          onClick={() => toggleSort(id)}
+        >
+          {label} {active ? (sortDir === 'asc' ? '▲' : '▼') : '▼'}
+        </button>
+      </th>
+    )
+  }
+
   const col = (id: ColonnaRigheId, header: string) => {
     if (!colonne[id]) return null
     return <th key={id}>{header}</th>
@@ -102,6 +162,27 @@ export default function TabRigheDocumento({ doc, products, categories, studioId,
   }
 
   const addNotaRiga = (label: string) => {
+    if (label === 'Subtotale') {
+      updateRighe(addSubtotaleRiga(righe))
+      return
+    }
+    if (label === 'Calcola INPS 4%') {
+      updateRighe(addPercentualeRiga(righe, 'Contributo INPS 4%', 4))
+      return
+    }
+    if (label === 'Contributo integrativo 4%') {
+      updateRighe(addPercentualeRiga(righe, 'Contributo integrativo 4%', 4))
+      return
+    }
+    if (label === 'Spese di trasporto') {
+      onChange({ speseTipo: 'Spese di trasporto', speseImporto: doc.speseImporto || 0 })
+      onToast?.('Imposta l\'importo spese nel riquadro in basso.')
+      return
+    }
+    if (label === 'Pagamento in contrassegno 2%') {
+      updateRighe(addPercentualeRiga(righe, 'Contrassegno 2%', 2))
+      return
+    }
     const row = calcRiga({ ...emptyRiga(), descrizione: label, tipoRiga: 'nota', qta: 0, prezzoIvato: 0 })
     updateRighe([...righe.filter(r => r.descrizione.trim()), row])
   }
@@ -135,14 +216,66 @@ export default function TabRigheDocumento({ doc, products, categories, studioId,
     onToast?.(`Campo FE ${code.trim()} aggiunto ai preferiti.`)
   }
 
+  const applyCampoFe = (code: string) => {
+    if (selectedIndex === null) {
+      alert('Seleziona una riga a cui applicare il campo FE.')
+      return
+    }
+    updateRow(selectedIndex, { campoFE: code })
+    onToast?.(`Campo FE ${code} applicato alla riga selezionata.`)
+  }
+
+  const handleUtilita = (label: string) => {
+    switch (label) {
+      case 'Scorpora totale':
+        alert(scorporaTotaleRighe(righe))
+        break
+      case 'Ruota totale a…': {
+        const raw = window.prompt('Nuova aliquota IVA da applicare a tutte le righe (es. 22):', '22')
+        if (!raw) return
+        const iva = parseFloat(raw)
+        if (!Number.isFinite(iva)) {
+          alert('Aliquota non valida.')
+          return
+        }
+        updateRighe(ruotaTotaleIva(righe, iva))
+        onToast?.(`IVA ${iva}% applicata a tutte le righe.`)
+        break
+      }
+      case 'Confronta con ultimi prezzi applicati':
+        alert(confrontaPrezziCatalogo(righe, products, doc.listino))
+        break
+      case 'Copia righe da altro documento':
+        onIncludiDoc?.()
+        break
+      case 'Importa da terminale lettore':
+        setShowBarcodePanel(true)
+        setTimeout(() => barcodeRef.current?.focus(), 50)
+        onToast?.('Terminale lettore attivo — inquadra o digita il codice.')
+        break
+      case 'Esporta con Excel/OpenOffice/LibreOffice':
+        exportRigheExcel(righe)
+        onToast?.('Esportazione Excel completata.')
+        break
+      case 'Importa con Excel/OpenOffice/LibreOffice':
+        importRef.current?.click()
+        break
+      default:
+        break
+    }
+  }
+
+  const moveSelected = (direction: -1 | 1) => {
+    if (selectedIndex === null) {
+      alert('Seleziona una riga da spostare.')
+      return
+    }
+    updateRighe(moveRiga(righe, selectedIndex, direction))
+    setSelectedIndex(selectedIndex + direction)
+  }
+
   return (
     <div className="vb-righe">
-      <div className="vb-righe__colonne">
-        <button type="button" className="vb-link" onClick={() => setShowColonne(true)}>
-          Colonne…
-        </button>
-      </div>
-
       <div className="vb-righe__grid-wrap">
         <table className="vb-righe__table">
           <thead>
@@ -152,10 +285,10 @@ export default function TabRigheDocumento({ doc, products, categories, studioId,
               {col('tagliaColore', 'Taglia/Colore')}
               {col('qta', 'Q.tà')}
               {col('um', 'U.m.')}
-              {col('prezzoIvato', 'Prezzo ivato ▼')}
-              {col('sconto', 'Scont▼')}
-              {col('iva', 'Iva▼')}
-              {col('scaricaMag', 'Scarica ma…')}
+              {sortHeader('prezzoIvato', 'Prezzo ivato')}
+              {sortHeader('sconto', 'Sconti')}
+              {sortHeader('iva', 'Iva')}
+              {sortHeader('scaricaMag', 'Scarica mag')}
               {col('importoIvato', 'Importo ivato')}
             </tr>
           </thead>
@@ -257,7 +390,7 @@ export default function TabRigheDocumento({ doc, products, categories, studioId,
                       <input
                         type="checkbox"
                         checked={r.scaricaMagazzino}
-                        disabled={disabled || !r.productId}
+                        disabled={disabled}
                         onChange={e => updateRow(i, { scaricaMagazzino: e.target.checked })}
                       />
                     </div>,
@@ -268,6 +401,16 @@ export default function TabRigheDocumento({ doc, products, categories, studioId,
             })}
           </tbody>
         </table>
+      </div>
+
+      <div className="vb-righe__nav">
+        <WinIconBtn title="Sposta riga su" disabled={disabled} onClick={() => moveSelected(-1)}>
+          ▲
+        </WinIconBtn>
+        <WinIconBtn title="Sposta riga giù" disabled={disabled} onClick={() => moveSelected(1)}>
+          ▼
+        </WinIconBtn>
+        <span className="vb-righe__voci">{vociCount} voci</span>
       </div>
 
       {showBarcodePanel ? (
@@ -296,6 +439,26 @@ export default function TabRigheDocumento({ doc, products, categories, studioId,
           />
         </div>
       ) : null}
+
+      <input
+        ref={importRef}
+        type="file"
+        accept=".xlsx,.xls,.csv"
+        style={{ display: 'none' }}
+        onChange={e => {
+          const file = e.target.files?.[0]
+          if (!file) return
+          void importRigheFromExcel(file).then(imported => {
+            if (!imported.length) {
+              alert('Nessuna riga valida nel file.')
+              return
+            }
+            updateRighe([...righe.filter(r => r.descrizione.trim()), ...imported])
+            onToast?.(`${imported.length} righe importate da Excel.`)
+          })
+          e.target.value = ''
+        }}
+      />
 
       <div className="vb-righe__toolbar">
         <span className="vb-righe__toolbar-label">Aggiungi riga:</span>
@@ -338,11 +501,7 @@ export default function TabRigheDocumento({ doc, products, categories, studioId,
 
         <WinDropdownMenu
           disabled={disabled}
-          label={
-            <>
-              📝 Nota
-            </>
-          }
+          label="📝 Nota"
           items={notaItems.map(label => ({
             id: label,
             label,
@@ -358,7 +517,6 @@ export default function TabRigheDocumento({ doc, products, categories, studioId,
             label,
             onClick: () => {
               if (label === 'Personalizza…') personalizzaGruppo()
-              else if (label === '(Nessuna voce)') onToast?.('Nessun gruppo disponibile.')
               else addGruppoRiga(label)
             },
           }))}
@@ -378,32 +536,31 @@ export default function TabRigheDocumento({ doc, products, categories, studioId,
           🗑 Elimina
         </WinButton>
 
-        <div className="vb-righe__toolbar-spacer" />
-
         <WinDropdownMenu
           disabled={disabled}
           label="Campi fatt. elettr."
           items={campiFeItems.map(code => ({
             id: code,
             label: code,
-            onClick: () =>
-              code === 'Personalizza…' ? personalizzaCampoFe() : onToast?.(`Campo FE ${code} applicato alla riga.`),
+            onClick: () => (code === 'Personalizza…' ? personalizzaCampoFe() : applyCampoFe(code)),
           }))}
         />
 
         <WinDropdownMenu
           disabled={disabled}
-          label={
-            <>
-              ⚡ Utilità
-            </>
-          }
+          label="⚡ Utilità"
           items={UTILITA_MENU_ITEMS.map(label => ({
             id: label,
             label,
-            onClick: () => onToast?.(`${label} — funzione disponibile.`),
+            onClick: () => handleUtilita(label),
           }))}
         />
+
+        <div className="vb-righe__toolbar-spacer" />
+
+        <button type="button" className="vb-link vb-righe__colonne-link" onClick={() => setShowColonne(true)}>
+          Colonne…
+        </button>
       </div>
 
       {showColonne ? (

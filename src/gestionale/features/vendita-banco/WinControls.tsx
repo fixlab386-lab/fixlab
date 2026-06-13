@@ -7,9 +7,12 @@ export const WinInput = forwardRef<HTMLInputElement, React.InputHTMLAttributes<H
   return <input ref={ref} {...props} className={`vb-input${className ? ` ${className}` : ''}`} />
 })
 
-export function WinSelect({ className, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={`vb-select${className ? ` ${className}` : ''}`} />
-}
+export const WinSelect = forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(function WinSelect(
+  { className, ...props },
+  ref,
+) {
+  return <select ref={ref} {...props} className={`vb-select${className ? ` ${className}` : ''}`} />
+})
 
 export function WinTextarea({ className, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea {...props} className={`vb-textarea${className ? ` ${className}` : ''}`} />
@@ -58,14 +61,16 @@ export function WinIconBtn({
   children,
   onClick,
   disabled,
+  className,
 }: {
   title: string
   children: ReactNode
   onClick?: () => void
   disabled?: boolean
+  className?: string
 }) {
   return (
-    <button type="button" title={title} onClick={onClick} disabled={disabled} className="vb-icon-btn">
+    <button type="button" title={title} onClick={onClick} disabled={disabled} className={`vb-icon-btn${className ? ` ${className}` : ''}`}>
       {children}
     </button>
   )

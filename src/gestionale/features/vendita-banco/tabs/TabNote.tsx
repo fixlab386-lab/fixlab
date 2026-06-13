@@ -1,4 +1,7 @@
-import { WinField, WinIconBtn, WinInput, WinTextarea } from '../WinControls'
+import { useMemo, useState } from 'react'
+import { getCustomNoteDocumento, addCustomNotaDocumento } from '../../../../lib/userPrefs'
+import WinDropdownMenu from '../WinDropdownMenu'
+import { WinField, WinInput, WinTextarea } from '../WinControls'
 import type { DocumentoVenditaBanco } from '../types'
 
 type Props = {
@@ -8,10 +11,31 @@ type Props = {
 }
 
 export default function TabNote({ doc, protetto, onChange }: Props) {
+  const [prefsVersion, setPrefsVersion] = useState(0)
+  const notePresets = useMemo(
+    () => [...getCustomNoteDocumento(), 'Personalizza…'],
+    [prefsVersion],
+  )
+  void prefsVersion
+
   const setLibero = (index: number, value: string) => {
     const campi = [...doc.campiLiberi] as DocumentoVenditaBanco['campiLiberi']
     campi[index] = value
     onChange({ campiLiberi: campi })
+  }
+
+  const pickPreset = (target: 'libero' | 'fine', index?: number) => (label: string) => {
+    if (label === 'Personalizza…') {
+      const text = window.prompt('Testo predefinito:')
+      if (!text?.trim()) return
+      addCustomNotaDocumento(text)
+      setPrefsVersion(v => v + 1)
+      if (target === 'fine') onChange({ noteFine: text.trim() })
+      else if (index !== undefined) setLibero(index, text.trim())
+      return
+    }
+    if (target === 'fine') onChange({ noteFine: label })
+    else if (index !== undefined) setLibero(index, label)
   }
 
   return (
@@ -27,7 +51,15 @@ export default function TabNote({ doc, protetto, onChange }: Props) {
               disabled={protetto}
               onChange={e => setLibero(i, e.target.value)}
             />
-            <WinIconBtn title="Valori predefiniti">▼</WinIconBtn>
+            <WinDropdownMenu
+              disabled={protetto}
+              label="▼"
+              items={notePresets.map(label => ({
+                id: `${i}-${label}`,
+                label,
+                onClick: () => pickPreset('libero', i)(label),
+              }))}
+            />
           </div>
         </WinField>
       ))}
@@ -42,7 +74,15 @@ export default function TabNote({ doc, protetto, onChange }: Props) {
             disabled={protetto}
             onChange={e => onChange({ noteFine: e.target.value })}
           />
-          <WinIconBtn title="Note predefinite">▼</WinIconBtn>
+          <WinDropdownMenu
+            disabled={protetto}
+            label="▼"
+            items={notePresets.map(label => ({
+              id: `fine-${label}`,
+              label,
+              onClick: () => pickPreset('fine')(label),
+            }))}
+          />
         </div>
       </WinField>
     </div>

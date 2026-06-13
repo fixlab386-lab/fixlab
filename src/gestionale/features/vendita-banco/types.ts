@@ -13,6 +13,8 @@ export interface RigaDocumento {
   scaricaMagazzino: boolean
   importoIvato: number
   productId?: string
+  /** Codice campo fattura elettronica (Natura/ESigibilità) */
+  campoFE?: string
   /** Riga nota o calcolata */
   tipoRiga?: 'normale' | 'nota' | 'calcolata'
 }
@@ -54,7 +56,9 @@ export interface DocumentoVenditaBanco {
   dataOraStampa: string
   codLotteria: string
   rinnovo: RinnovoDocumento
-  spese: string
+  speseTipo: string
+  speseIva: number
+  speseImporto: number
   commentoInterno: string
   totNetto: number
   totIva: number
@@ -86,7 +90,7 @@ export type ColonnaRigheId =
 export const COLONNE_RIGHE_DEFAULT: Record<ColonnaRigheId, boolean> = {
   cod: true,
   descrizione: true,
-  tagliaColore: true,
+  tagliaColore: false,
   qta: true,
   um: true,
   prezzoIvato: true,
@@ -95,3 +99,5 @@ export const COLONNE_RIGHE_DEFAULT: Record<ColonnaRigheId, boolean> = {
   scaricaMag: true,
   importoIvato: true,
 }
+
+export type SortableColonnaRigheId = 'prezzoIvato' | 'sconto' | 'iva' | 'scaricaMag'

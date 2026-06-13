@@ -50,13 +50,17 @@ export function emptyRiga(): RigaDocumento {
     prezzoIvato: 0,
     sconto: 0,
     iva: 22,
-    scaricaMagazzino: false,
+    scaricaMagazzino: true,
     importoIvato: 0,
     tipoRiga: 'normale',
   })
 }
 
-export function documentTotalsFromRighe(righe: RigaDocumento[]): {
+export function documentTotalsFromRighe(
+  righe: RigaDocumento[],
+  speseImporto = 0,
+  speseIva = 22,
+): {
   totNetto: number
   totIva: number
   totaleDocumento: number
@@ -75,6 +79,15 @@ export function documentTotalsFromRighe(righe: RigaDocumento[]): {
     netSum += net
     vatSum += rowVat
     vatByRate.set(r.iva, (vatByRate.get(r.iva) || 0) + rowVat)
+  }
+
+  const shipGross = speseImporto || 0
+  if (shipGross > 0) {
+    const shipNet = netFromGross(shipGross, speseIva)
+    const shipVat = Math.round((shipGross - shipNet) * 100) / 100
+    netSum += shipNet
+    vatSum += shipVat
+    vatByRate.set(speseIva, (vatByRate.get(speseIva) || 0) + shipVat)
   }
 
   return {
@@ -104,7 +117,9 @@ export function createInitialDocumento(): DocumentoVenditaBanco {
     dataOraStampa: '',
     codLotteria: '',
     rinnovo: { attivo: false, mesi: 12 },
-    spese: '',
+    speseTipo: '',
+    speseIva: 22,
+    speseImporto: 0,
     commentoInterno: '',
     totNetto: 0,
     totIva: 0,
@@ -230,6 +245,7 @@ export function rigaToDocumentRow(r: RigaDocumento): DocumentRow {
     totalNet: Math.round((lineNet) * 100) / 100,
     total: r.importoIvato,
     ...(r.tagliaColore ? { tagliaColore: r.tagliaColore } : {}),
+    ...(r.campoFE ? { campoFE: r.campoFE } : {}),
   } as DocumentRow
 }
 
@@ -252,5 +268,6 @@ export function documentRowToRiga(row: DocumentRow): RigaDocumento {
     scaricaMagazzino: Boolean(row.productId),
     importoIvato: row.total,
     tipoRiga: 'normale',
+    campoFE: (row as DocumentRow & { campoFE?: string }).campoFE,
   })
 }

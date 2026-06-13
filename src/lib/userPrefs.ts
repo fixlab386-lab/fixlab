@@ -85,3 +85,27 @@ export function addCustomCampoFE(code: string): string[] {
   writeJson('campi_fe', next)
   return next
 }
+
+export function getCustomCommentiInterni(): string[] {
+  return readJson<string[]>('commenti_interni', [])
+}
+
+export function addCustomCommentoInterno(label: string): string[] {
+  const trimmed = label.trim()
+  if (!trimmed) return getCustomCommentiInterni()
+  const next = [...new Set([...getCustomCommentiInterni(), trimmed])]
+  writeJson('commenti_interni', next)
+  return next
+}
+
+export function getCustomTipiPagamento(): string[] {
+  return readJson<string[]>('tipi_pagamento', [])
+}
+
+export function addCustomTipoPagamento(label: string): string[] {
+  const trimmed = label.trim()
+  if (!trimmed) return getCustomTipiPagamento()
+  const next = [...new Set([...getCustomTipiPagamento(), trimmed])]
+  writeJson('tipi_pagamento', next)
+  return next
+}
