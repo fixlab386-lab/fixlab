@@ -9,7 +9,7 @@ const LINKS = [
 
 export default function StartQuickLinks() {
   return (
-    <aside className="gestionale-start-sidebar">
+    <aside className="gestionale-start-sidebar gestionale-start-sidebar--footer">
       <h2 className="gestionale-start-sidebar__title">Collegamenti utili</h2>
       <ul className="gestionale-start-sidebar__list">
         {LINKS.map(link => (

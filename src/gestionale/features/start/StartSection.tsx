@@ -94,26 +94,29 @@ export default function StartSection() {
   return (
     <div className="gestionale-page gestionale-start-page" data-tutorial="page-dashboard">
       <header className="gestionale-start-header">
-        <div>
+        <div className="gestionale-start-header__intro">
           <h1 className="gestionale-start-header__title">{displayName}</h1>
           <p className="gestionale-start-header__subtitle">Panoramica commerciale — vendite, scadenze, magazzino e officina</p>
         </div>
-        <time className="gestionale-start-header__date" dateTime={new Date().toISOString().slice(0, 10)}>
-          {todayLabel}
-        </time>
-        <button type="button" className="gestionale-section-header__action-btn" onClick={handleRefresh} title="Aggiorna dati">
-          ↻ Aggiorna
-        </button>
+        <div className="gestionale-start-header__meta">
+          <time className="gestionale-start-header__date" dateTime={new Date().toISOString().slice(0, 10)}>
+            {todayLabel}
+          </time>
+          <button type="button" className="gestionale-start-header__refresh" onClick={handleRefresh} title="Aggiorna dati">
+            ↻ Aggiorna
+          </button>
+        </div>
       </header>
 
-      <div className="gestionale-start-layout">
-        <div className="gestionale-start-layout__main">
-          <StartActivityPanel links={activityLinks} />
-          <StartKpiCards kpis={kpis} />
-          <StartAnalyticsSection repairs={repairs} products={products} />
-        </div>
-        <StartQuickLinks />
+      <div className="gestionale-start-body">
+        <StartActivityPanel links={activityLinks} />
+        <StartKpiCards kpis={kpis} />
+        <StartAnalyticsSection repairs={repairs} products={products} />
       </div>
+
+      <footer className="gestionale-start-footer">
+        <StartQuickLinks />
+      </footer>
     </div>
   )
 }

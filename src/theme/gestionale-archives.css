@@ -3,7 +3,10 @@
 .gestionale-app-chrome {
   display: flex;
   flex-direction: column;
+  flex: 0 0 auto;
   flex-shrink: 0;
+  z-index: 100;
+  background: var(--gestionale-panel-bg);
 }
 
 .gestionale-archive-bar {
