@@ -7,6 +7,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 let mainWindow: BrowserWindow | null = null
 
+function resolveAppIcon(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'icon.png')
+  }
+  return path.join(__dirname, '../build/icon.png')
+}
+
 function getMainWindow(): BrowserWindow | null {
   return mainWindow
 }
@@ -19,6 +26,7 @@ function createWindow(): void {
     minHeight: 680,
     show: false,
     title: 'FixLab',
+    icon: resolveAppIcon(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
       contextIsolation: true,

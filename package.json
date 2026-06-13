@@ -53,6 +53,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
+    "png-to-ico": "^3.0.1",
     "sharp": "^0.35.1",
     "tailwindcss": "^4.2.2",
     "typescript": "~5.9.3",
@@ -76,6 +77,12 @@
       "dist-electron/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      }
+    ],
     "publish": [
       {
         "provider": "github",
@@ -92,7 +99,7 @@
           ]
         }
       ],
-      "icon": "build/icon.png",
+      "icon": "build/icon.ico",
       "artifactName": "FixLab-Setup-${version}.${ext}",
       "forceCodeSigning": false
     },
