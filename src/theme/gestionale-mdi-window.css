@@ -22,6 +22,11 @@
   font-size: 11px;
 }
 
+.gestionale-mdi-window--documenti {
+  width: min(1280px, 100%);
+  height: min(860px, calc(100vh - 32px));
+}
+
 .gestionale-mdi-window__titlebar {
   display: flex;
   align-items: center;

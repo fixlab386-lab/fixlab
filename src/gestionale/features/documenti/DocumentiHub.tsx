@@ -2,16 +2,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../hooks/useAuth'
 import { useActiveStudio } from '../../../hooks/useActiveStudio'
+import { useAppWindows } from '../../../contexts/AppWindowsContext'
 import { getDocuments } from '../../../lib/firestore'
 import type { DocRecord } from '../../../types'
-import { SectionHeader } from '../../../components/ui'
 import {
   ACTIVE_DOCUMENT_LABELS,
   ACTIVE_DOCUMENT_TYPES,
   DOCUMENT_HUB_GROUPS,
   type ActiveDocumentType,
 } from './constants'
-import '../../theme/documenti-hub.css'
 
 function countByType(documents: DocRecord[]): Record<ActiveDocumentType, number> {
   const counts = Object.fromEntries(ACTIVE_DOCUMENT_TYPES.map(t => [t, 0])) as Record<ActiveDocumentType, number>
@@ -21,10 +20,15 @@ function countByType(documents: DocRecord[]): Record<ActiveDocumentType, number>
   return counts
 }
 
-export default function DocumentiHub() {
+type Props = {
+  embedded?: boolean
+}
+
+export default function DocumentiHub({ embedded = false }: Props) {
   const { loading: authLoading } = useAuth()
   const { studioId } = useActiveStudio()
   const navigate = useNavigate()
+  const { openDocumentiType } = useAppWindows()
   const [documents, setDocuments] = useState<DocRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -55,19 +59,25 @@ export default function DocumentiHub() {
   const counts = useMemo(() => countByType(documents), [documents])
   const total = documents.length
 
+  const handleSelect = (type: ActiveDocumentType) => {
+    if (embedded) {
+      openDocumentiType(type)
+      return
+    }
+    navigate(`/documenti/tipo/${type}`)
+  }
+
   if (authLoading || loading) {
-    return <div className="gestionale-page gestionale-datatable__empty">Caricamento documenti…</div>
+    return <div className="documenti-hub__loading">Caricamento documenti…</div>
   }
 
   if (!studioId) {
-    return <div className="gestionale-page gestionale-datatable__empty">Studio non disponibile.</div>
+    return <div className="documenti-hub__loading">Studio non disponibile.</div>
   }
 
   return (
-    <div className="gestionale-page documenti-hub" data-tutorial="page-documenti">
-      {error ? <div className="gestionale-page__banner gestionale-page__banner--error">{error}</div> : null}
-
-      <SectionHeader title="Documenti" showSearch={false} />
+    <div className={`documenti-hub${embedded ? ' documenti-hub--embedded' : ''}`} data-tutorial="page-documenti">
+      {error ? <div className="documenti-hub__error">{error}</div> : null}
 
       <div className="documenti-hub__intro">
         <p>
@@ -85,7 +95,7 @@ export default function DocumentiHub() {
                   key={type}
                   type="button"
                   className="documenti-hub__tile"
-                  onClick={() => navigate(`/documenti/tipo/${type}`)}
+                  onClick={() => handleSelect(type)}
                 >
                   <span className="documenti-hub__tile-label">{ACTIVE_DOCUMENT_LABELS[type]}</span>
                   <span className="documenti-hub__tile-count">

@@ -43,9 +43,11 @@ const OPTIONAL_DOC_COLUMNS = [
 
 type Props = {
   lockedType: ActiveDocumentType
+  embedded?: boolean
+  onBack?: () => void
 }
 
-export default function DocumentiSection({ lockedType }: Props) {
+export default function DocumentiSection({ lockedType, embedded = false, onBack }: Props) {
   const { loading: authLoading } = useAuth()
   const { studioId, activeArchive } = useActiveStudio()
   const navigate = useNavigate()
@@ -266,41 +268,70 @@ export default function DocumentiSection({ lockedType }: Props) {
   const listTitle = ACTIVE_DOCUMENT_LIST_LABELS[lockedType]
 
   return (
-    <div className="gestionale-page" data-tutorial="page-documenti-lista">
+    <div
+      className={embedded ? 'documenti-section--embedded' : 'gestionale-page'}
+      data-tutorial="page-documenti-lista"
+    >
       {loadError ? <div className="gestionale-page__banner gestionale-page__banner--error">{loadError}</div> : null}
       {filterBanner ? <div className="gestionale-page__banner">{filterBanner}</div> : null}
 
-      <SectionHeader
-        title={listTitle}
-        searchValue={list.search}
-        onSearchChange={list.setSearch}
-        searchPlaceholder="Cerca numero, cliente…"
-        actions={
-          <>
-            <button
-              type="button"
-              className="gestionale-section-header__action-btn"
-              onClick={() => navigate('/documenti')}
-            >
-              ← Tipi documento
-            </button>
-            <DocumentSectionActions
-              groupBy={list.groupBy}
-              onToggleGroupBy={list.toggleGroupBy}
-              showFilterMenu={list.showFilterMenu}
-              hasActiveFilters={hasActiveFilters}
-              onToggleFilterMenu={list.toggleFilterMenu}
-              selectionMode={list.selectionMode}
-              onToggleSelectionMode={list.toggleSelectionMode}
-              showColumnsMenu={showColumnsMenu}
-              onToggleColumnsMenu={() => setShowColumnsMenu(v => !v)}
-              hiddenColumnIds={hiddenColumnIds}
-              onToggleColumn={toggleColumn}
-              optionalColumns={[...OPTIONAL_DOC_COLUMNS]}
-            />
-          </>
-        }
-      />
+      {!embedded ? (
+        <SectionHeader
+          title={listTitle}
+          searchValue={list.search}
+          onSearchChange={list.setSearch}
+          searchPlaceholder="Cerca numero, cliente…"
+          actions={
+            <>
+              <button
+                type="button"
+                className="gestionale-section-header__action-btn"
+                onClick={() => (onBack ? onBack() : navigate('/documenti'))}
+              >
+                ← Tipi documento
+              </button>
+              <DocumentSectionActions
+                groupBy={list.groupBy}
+                onToggleGroupBy={list.toggleGroupBy}
+                showFilterMenu={list.showFilterMenu}
+                hasActiveFilters={hasActiveFilters}
+                onToggleFilterMenu={list.toggleFilterMenu}
+                selectionMode={list.selectionMode}
+                onToggleSelectionMode={list.toggleSelectionMode}
+                showColumnsMenu={showColumnsMenu}
+                onToggleColumnsMenu={() => setShowColumnsMenu(v => !v)}
+                hiddenColumnIds={hiddenColumnIds}
+                onToggleColumn={toggleColumn}
+                optionalColumns={[...OPTIONAL_DOC_COLUMNS]}
+              />
+            </>
+          }
+        />
+      ) : (
+        <div className="documenti-section-embedded__toolbar">
+          <input
+            type="search"
+            className="documenti-section-embedded__search"
+            value={list.search}
+            onChange={e => list.setSearch(e.target.value)}
+            placeholder="Cerca numero, cliente…"
+          />
+          <DocumentSectionActions
+            groupBy={list.groupBy}
+            onToggleGroupBy={list.toggleGroupBy}
+            showFilterMenu={list.showFilterMenu}
+            hasActiveFilters={hasActiveFilters}
+            onToggleFilterMenu={list.toggleFilterMenu}
+            selectionMode={list.selectionMode}
+            onToggleSelectionMode={list.toggleSelectionMode}
+            showColumnsMenu={showColumnsMenu}
+            onToggleColumnsMenu={() => setShowColumnsMenu(v => !v)}
+            hiddenColumnIds={hiddenColumnIds}
+            onToggleColumn={toggleColumn}
+            optionalColumns={[...OPTIONAL_DOC_COLUMNS]}
+          />
+        </div>
+      )}
 
       {list.showFilterMenu ? (
         <DocumentFilterBar

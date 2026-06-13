@@ -3,18 +3,19 @@ import '../theme/gestionale.css'
 import '../gestionale/theme/gestionale-tokens.css'
 import '../theme/gestionale-archives.css'
 import { OnboardingProvider } from '../contexts/OnboardingContext'
-import { AppWindowsProvider } from '../contexts/AppWindowsContext'
+import { AppWindowsProvider, useAppWindows } from '../contexts/AppWindowsContext'
 import { OnboardingGate } from './onboarding'
 import { ArchiveSelector } from './archives'
 import ToolbarNewMenu from './navigation/ToolbarNewMenu'
 import VenditaAlBancoModal from '../gestionale/features/vendita-banco/VenditaAlBancoModal'
+import DocumentiWindow from '../gestionale/features/documenti/DocumentiWindow'
 import { ToolbarTop, type ToolbarTopItem } from './ui'
+
 type NavDef = {
   id: string
   label: string
   path: string
   icon: string
-  /** Match exact path only (e.g. Start / dashboard) */
   exact?: boolean
 }
 
@@ -37,35 +38,49 @@ function isNavActive(item: NavDef, pathname: string): boolean {
   return pathname === item.path || pathname.startsWith(`${item.path}/`)
 }
 
-export default function GestionaleLayout() {
+function GestionaleShell() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { documentiOpen, openDocumenti } = useAppWindows()
 
   const toolbarItems: ToolbarTopItem[] = NAV_ITEMS.map(item => ({
     id: item.id,
     label: item.label,
     icon: item.icon,
-    active: isNavActive(item, location.pathname),
-    onClick: () => navigate(item.path),
+    active: item.id === 'documenti' ? documentiOpen : isNavActive(item, location.pathname),
+    onClick: () => {
+      if (item.id === 'documenti') {
+        openDocumenti()
+        return
+      }
+      navigate(item.path)
+    },
   }))
 
   return (
+    <div className="gestionale-theme gestionale-shell">
+      <div className="gestionale-app-chrome">
+        <div className="gestionale-toolbar-strip">
+          <ToolbarNewMenu />
+          <ToolbarTop items={toolbarItems} className="gestionale-toolbar--main" aria-label="Navigazione principale FIXLab" />
+        </div>
+        <ArchiveSelector />
+      </div>
+      <main className="gestionale-workspace">
+        <Outlet />
+      </main>
+      <VenditaAlBancoModal />
+      <DocumentiWindow />
+      <OnboardingGate />
+    </div>
+  )
+}
+
+export default function GestionaleLayout() {
+  return (
     <OnboardingProvider>
       <AppWindowsProvider>
-        <div className="gestionale-theme gestionale-shell">
-          <div className="gestionale-app-chrome">
-            <div className="gestionale-toolbar-strip">
-              <ToolbarNewMenu />
-              <ToolbarTop items={toolbarItems} className="gestionale-toolbar--main" aria-label="Navigazione principale FIXLab" />
-            </div>
-            <ArchiveSelector />
-          </div>
-          <main className="gestionale-workspace">
-            <Outlet />
-          </main>
-          <VenditaAlBancoModal />
-          <OnboardingGate />
-        </div>
+        <GestionaleShell />
       </AppWindowsProvider>
     </OnboardingProvider>
   )
