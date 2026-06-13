@@ -1,14 +1,13 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppWindows } from '../../../contexts/AppWindowsContext'
-import DocumentiHub from './DocumentiHub'
 import DocumentiSection from './DocumentiSection'
 import { ACTIVE_DOCUMENT_LIST_LABELS } from './constants'
 import '../../../theme/gestionale-mdi-window.css'
 import '../../theme/documenti-hub.css'
 
 export default function DocumentiWindow() {
-  const { documentiOpen, documentiType, closeDocumenti, backDocumentiHub } = useAppWindows()
+  const { documentiOpen, documentiType, closeDocumenti } = useAppWindows()
 
   useEffect(() => {
     if (!documentiOpen) return
@@ -19,9 +18,9 @@ export default function DocumentiWindow() {
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [documentiOpen, closeDocumenti])
 
-  if (!documentiOpen) return null
+  if (!documentiOpen || !documentiType) return null
 
-  const title = documentiType ? ACTIVE_DOCUMENT_LIST_LABELS[documentiType] : 'Documenti'
+  const title = ACTIVE_DOCUMENT_LIST_LABELS[documentiType]
 
   return createPortal(
     <div
@@ -39,20 +38,9 @@ export default function DocumentiWindow() {
         onMouseDown={event => event.stopPropagation()}
       >
         <div className="gestionale-mdi-window__titlebar">
-          {documentiType ? (
-            <button
-              type="button"
-              className="gestionale-mdi-window__title-btn documenti-window__back"
-              onClick={backDocumentiHub}
-              title="Torna ai tipi documento"
-            >
-              ←
-            </button>
-          ) : (
-            <span className="gestionale-mdi-window__title-icon" aria-hidden="true">
-              📄
-            </span>
-          )}
+          <span className="gestionale-mdi-window__title-icon" aria-hidden="true">
+            📄
+          </span>
           <span id="documenti-window-title" className="gestionale-mdi-window__title-text">
             {title}
           </span>
@@ -68,11 +56,7 @@ export default function DocumentiWindow() {
         </div>
 
         <div className="gestionale-mdi-window__body documenti-window__body">
-          {documentiType ? (
-            <DocumentiSection lockedType={documentiType} embedded onBack={backDocumentiHub} />
-          ) : (
-            <DocumentiHub embedded />
-          )}
+          <DocumentiSection lockedType={documentiType} embedded />
         </div>
       </div>
     </div>,

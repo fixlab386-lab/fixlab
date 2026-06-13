@@ -126,3 +126,15 @@
   text-align: center;
   flex-shrink: 0;
 }
+
+/* Menu a tendina «Documenti» integrato nella toolbar */
+.gestionale-toolbar-doc {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+.gestionale-toolbar-doc__trigger {
+  height: 100%;
+}

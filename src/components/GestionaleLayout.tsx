@@ -7,9 +7,10 @@ import { AppWindowsProvider, useAppWindows } from '../contexts/AppWindowsContext
 import { OnboardingGate } from './onboarding'
 import { ArchiveSelector } from './archives'
 import ToolbarNewMenu from './navigation/ToolbarNewMenu'
+import ToolbarDocumentiMenu from './navigation/ToolbarDocumentiMenu'
 import VenditaAlBancoModal from '../gestionale/features/vendita-banco/VenditaAlBancoModal'
 import DocumentiWindow from '../gestionale/features/documenti/DocumentiWindow'
-import { ToolbarTop, type ToolbarTopItem } from './ui'
+import { type ToolbarTopItem } from './ui'
 
 type NavDef = {
   id: string
@@ -24,7 +25,6 @@ const NAV_ITEMS: NavDef[] = [
   { id: 'clienti', label: 'Clienti', path: '/clienti', icon: '👤' },
   { id: 'fornitori', label: 'Fornitori', path: '/fornitori', icon: '🏭' },
   { id: 'prodotti', label: 'Prodotti', path: '/magazzino', icon: '📦' },
-  { id: 'documenti', label: 'Documenti', path: '/documenti', icon: '📄' },
   { id: 'pagamenti', label: 'Pagamenti', path: '/pagamenti', icon: '💳' },
   { id: 'magazzino', label: 'Magazzino', path: '/movimenti', icon: '📋' },
   { id: 'riparazioni', label: 'Riparazioni', path: '/riparazioni', icon: '🔧' },
@@ -41,28 +41,37 @@ function isNavActive(item: NavDef, pathname: string): boolean {
 function GestionaleShell() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { documentiOpen, openDocumenti } = useAppWindows()
+  const { documentiOpen } = useAppWindows()
 
-  const toolbarItems: ToolbarTopItem[] = NAV_ITEMS.map(item => ({
-    id: item.id,
-    label: item.label,
-    icon: item.icon,
-    active: item.id === 'documenti' ? documentiOpen : isNavActive(item, location.pathname),
-    onClick: () => {
-      if (item.id === 'documenti') {
-        openDocumenti()
-        return
-      }
-      navigate(item.path)
-    },
-  }))
+  const renderNavButton = (item: NavDef) => (
+    <button
+      key={item.id}
+      type="button"
+      className={`gestionale-toolbar__item${isNavActive(item, location.pathname) ? ' gestionale-toolbar__item--active' : ''}`}
+      onClick={() => navigate(item.path)}
+      title={item.label}
+      aria-pressed={isNavActive(item, location.pathname)}
+    >
+      <span className="gestionale-toolbar__icon" aria-hidden="true">
+        {item.icon}
+      </span>
+      <span className="gestionale-toolbar__label">{item.label}</span>
+    </button>
+  )
+
+  const beforeDocumenti = NAV_ITEMS.slice(0, 4)
+  const afterDocumenti = NAV_ITEMS.slice(4)
 
   return (
     <div className="gestionale-theme gestionale-shell">
       <div className="gestionale-app-chrome">
         <div className="gestionale-toolbar-strip">
           <ToolbarNewMenu />
-          <ToolbarTop items={toolbarItems} className="gestionale-toolbar--main" aria-label="Navigazione principale FIXLab" />
+          <nav className="gestionale-toolbar gestionale-toolbar--main" aria-label="Navigazione principale FIXLab">
+            {beforeDocumenti.map(renderNavButton)}
+            <ToolbarDocumentiMenu active={documentiOpen} />
+            {afterDocumenti.map(renderNavButton)}
+          </nav>
         </div>
         <ArchiveSelector />
       </div>

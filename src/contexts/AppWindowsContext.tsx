@@ -24,8 +24,10 @@ export function AppWindowsProvider({ children }: { children: ReactNode }) {
   const closeVenditaBanco = useCallback(() => setVenditaBancoOpen(false), [])
 
   const openDocumenti = useCallback((type?: ActiveDocumentType | null) => {
-    setDocumentiType(type ?? null)
-    setDocumentiOpen(true)
+    if (type) {
+      setDocumentiType(type)
+      setDocumentiOpen(true)
+    }
   }, [])
 
   const closeDocumenti = useCallback(() => {
