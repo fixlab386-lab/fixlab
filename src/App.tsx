@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import { CartProvider } from './contexts/CartContext'
 import { ThemeProvider } from './contexts/ThemeContext'
@@ -26,19 +26,31 @@ import CookieConsentBanner from './components/CookieConsentBanner'
 import WhatsAppSetup from './WhatsAppSetup'
 import DesignSystem from './pages/DesignSystem'
 
-function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
-  if (loading) return (
+function AuthLoading() {
+  return (
     <div style={{ background: 'var(--bg-primary)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ color: 'var(--accent)', fontFamily: 'monospace', fontSize: '14px' }}>FIXLab...</div>
     </div>
   )
+}
+
+function AppRouter({ children }: { children: React.ReactNode }) {
+  const isDesktop = window.fixlabDesktop?.isElectron === true
+  if (isDesktop) {
+    return <HashRouter>{children}</HashRouter>
+  }
+  return <BrowserRouter>{children}</BrowserRouter>
+}
+
+function PrivateRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth()
+  if (loading) return <AuthLoading />
   return user ? <>{children}</> : <Navigate to="/login" />
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
-  if (loading) return null
+  if (loading) return <AuthLoading />
   return !user ? <>{children}</> : <Navigate to="/" />
 }
 
@@ -47,7 +59,7 @@ export default function App() {
     <CookieConsentProvider>
       <ThemeProvider>
         <CartProvider>
-          <BrowserRouter>
+          <AppRouter>
             <ActiveStudioProvider>
             <CookieConsentBanner />
             <Routes>
@@ -78,7 +90,7 @@ export default function App() {
               </Route>
             </Routes>
             </ActiveStudioProvider>
-          </BrowserRouter>
+          </AppRouter>
         </CartProvider>
       </ThemeProvider>
     </CookieConsentProvider>
