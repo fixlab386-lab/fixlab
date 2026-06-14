@@ -19,7 +19,9 @@ import RepairSection from '../components/repair/RepairSection'
 import RepairLineItemsSection from '../components/repair/RepairLineItemsSection'
 import RepairTotalsSection from '../components/repair/RepairTotalsSection'
 import { normalizeRepairLine, sumLineTotals } from '../components/repair/repairLineUtils'
-import { generateRepairPDF } from '../lib/generatePDF'
+import { generateRepairPDF, buildRepairConfermaOrdineHtml } from '../lib/generatePDF'
+import { buildConfermaOrdineViewModel, confermaOrdineFilename } from '../lib/confermaOrdineTemplate'
+import ConfermaOrdineAnteprimaDialog from '../components/repair/ConfermaOrdineAnteprimaDialog'
 import { ActionBar, ToolButton, type ActionBarAction } from '../components/ui'
 import '../theme/gestionale-dialog.css'
 
@@ -81,6 +83,7 @@ type StudioDoc = Record<string, unknown> & {
   logoUrl?: string
   disclaimer?: string
   waTemplate?: string
+  appOptions?: { azienda?: { nation?: string } }
 }
 
 export default function NuovaRiparazione() {
@@ -99,6 +102,8 @@ export default function NuovaRiparazione() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [studioData, setStudioData] = useState<StudioDoc | null>(null)
   const [savedRepairId, setSavedRepairId] = useState<string | undefined>(id)
+  const [anteprimaHtml, setAnteprimaHtml] = useState<string | null>(null)
+  const [anteprimaMeta, setAnteprimaMeta] = useState<{ title: string; filename: string; repairId: string } | null>(null)
 
   const isEdit = !!id
 
@@ -311,28 +316,46 @@ export default function NuovaRiparazione() {
     return ref.id
   }, [savedRepairId, buildRepairPayload, linkRepairToDevice, ticketNumber])
 
+  const studioForPrint = useMemo(
+    () =>
+      studioData
+        ? {
+            name: studioData.name || 'FIXLab',
+            address: studioData.address,
+            city: studioData.city,
+            province: studioData.province,
+            cap: studioData.cap,
+            nation: studioData.appOptions?.azienda?.nation || 'Italy',
+            vatNumber: studioData.vatNumber,
+            phone: studioData.phone,
+            cellPhone: studioData.cellPhone,
+            email: studioData.email,
+            logoUrl: studioData.logoUrl,
+            disclaimer: studioData.disclaimer,
+          }
+        : undefined,
+    [studioData],
+  )
+
+  const openConfermaOrdineAnteprima = useCallback(
+    (repairId: string, ticket?: string) => {
+      const repair = buildRepairForPdf(repairId, ticket)
+      const model = buildConfermaOrdineViewModel(repair, studioForPrint)
+      setAnteprimaHtml(buildRepairConfermaOrdineHtml(repair, studioForPrint))
+      setAnteprimaMeta({
+        title: `Conferma d'ordine ${model.orderNumber}`,
+        filename: confermaOrdineFilename(repair),
+        repairId,
+      })
+    },
+    [buildRepairForPdf, studioForPrint],
+  )
+
   const handlePrintPDF = useCallback(
     (repairId: string) => {
-      void generateRepairPDF(
-        buildRepairForPdf(repairId),
-        studioData
-          ? {
-              name: studioData.name || 'FIXLab',
-              address: studioData.address,
-              city: studioData.city,
-              province: studioData.province,
-              cap: studioData.cap,
-              vatNumber: studioData.vatNumber,
-              phone: studioData.phone,
-              cellPhone: studioData.cellPhone,
-              email: studioData.email,
-              logoUrl: studioData.logoUrl,
-              disclaimer: studioData.disclaimer,
-            }
-          : undefined,
-      )
+      void generateRepairPDF(buildRepairForPdf(repairId), studioForPrint)
     },
-    [buildRepairForPdf, studioData],
+    [buildRepairForPdf, studioForPrint],
   )
 
   const handlePrintLabel = useCallback(
@@ -388,7 +411,7 @@ export default function NuovaRiparazione() {
       setSaving(true)
       try {
         const repairId = await persistRepair()
-        if (options?.print) handlePrintPDF(repairId)
+        if (options?.print) openConfermaOrdineAnteprima(repairId, ticketNumber)
         if (options?.goToCash) {
           navigate(`/cassa?repairId=${repairId}`)
           return
@@ -400,7 +423,7 @@ export default function NuovaRiparazione() {
         setSaving(false)
       }
     },
-    [studioId, form.clientName, form.deviceModel, persistRepair, handlePrintPDF, navigate],
+    [studioId, form.clientName, form.deviceModel, persistRepair, openConfermaOrdineAnteprima, navigate, ticketNumber],
   )
 
   const goBack = useCallback(() => navigate('/riparazioni'), [navigate])
@@ -472,7 +495,13 @@ export default function NuovaRiparazione() {
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           <ToolButton label="QR" icon="🏷" onClick={() => savedRepairId && handlePrintLabel(savedRepairId)} disabled={!savedRepairId} />
-          <ToolButton label="PDF" icon="🖨" onClick={() => savedRepairId && handlePrintPDF(savedRepairId)} disabled={!savedRepairId} />
+          <ToolButton
+            label="Stampa"
+            icon="🖨"
+            onClick={() => savedRepairId && openConfermaOrdineAnteprima(savedRepairId)}
+            disabled={!savedRepairId}
+          />
+          <ToolButton label="PDF" icon="📄" onClick={() => savedRepairId && handlePrintPDF(savedRepairId)} disabled={!savedRepairId} />
           <ToolButton label="Chiudi" icon="←" onClick={goBack} />
         </div>
       </header>
@@ -517,6 +546,21 @@ export default function NuovaRiparazione() {
       </div>
 
       <ActionBar actions={footerActions} left={saveError ? <span style={{ color: '#b3261e', fontSize: 12 }}>{saveError}</span> : null} />
+
+      {anteprimaHtml && anteprimaMeta ? (
+        <ConfermaOrdineAnteprimaDialog
+          innerHtml={anteprimaHtml}
+          meta={{
+            title: anteprimaMeta.title,
+            filename: anteprimaMeta.filename,
+            onPdf: () => handlePrintPDF(anteprimaMeta.repairId),
+          }}
+          onClose={() => {
+            setAnteprimaHtml(null)
+            setAnteprimaMeta(null)
+          }}
+        />
+      ) : null}
     </div>
   )
 }

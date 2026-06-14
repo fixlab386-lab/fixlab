@@ -309,4 +309,4 @@ export function generateProductSheetPDF(product: ProductForPDF, studio?: StudioI
   pdf.save(`Scheda_${product.code || 'prodotto'}_${product.name.replace(/\s+/g, '_')}.pdf`)
 }
 
-export { generateRepairPDF } from './generateRepairPDF'
+export { generateRepairPDF, buildRepairConfermaOrdineHtml } from './generateRepairPDF'
