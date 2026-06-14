@@ -40,7 +40,7 @@ function resolveDocumentFooter(doc: DocRecord, studio?: StudioInfo): string | un
 export function generateDocumentPDF(doc: DocRecord, studio?: StudioInfo) {
   const studioRecordData = studioRecord(studio)
   const printOpts = getDocumentTypePrintOptions(studioRecordData, doc.type)
-  if (printOpts.layoutTemplate === 'danea_conferma_ordine') {
+  if (printOpts.layoutTemplate === 'layout_conferma_ordine') {
     printDocRecordWithTemplate(doc, studioDataToConfermaStudio(studioRecordData), studioRecordData)
     return
   }

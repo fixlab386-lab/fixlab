@@ -3,12 +3,14 @@ import {
   DOCUMENT_TYPES_FOR_OPTIONS,
   DOCUMENT_TYPE_LABELS,
   DEFAULT_PRINT_LAYOUT,
+  type DocumentTemplateFields,
   type ApplicationOptions,
   type DocumentoTipoOptions,
 } from '../../../lib/applicationOptions'
 import type { ConfermaOrdineStudio } from '../../../lib/confermaOrdineTemplate'
-import { PRINT_LAYOUT_OPTIONS, previewDocumentTemplate } from '../../../lib/printTemplates'
+import { PRINT_LAYOUT_OPTIONS } from '../../../lib/printTemplates'
 import { DEFAULT_DISCLAIMER } from '../../../lib/studioSettings'
+import DocumentTemplateEditorDialog from './DocumentTemplateEditorDialog'
 import { OpzioniCheckRow, OpzioniFieldRow, OpzioniNumberedFields, OpzioniSection } from './OpzioniUi'
 
 type Props = {
@@ -40,30 +42,37 @@ export default function TabDocumenti({
   studioPreview,
 }: Props) {
   const [selectedType, setSelectedType] = useState<string>(DOCUMENT_TYPES_FOR_OPTIONS[0])
+  const [editorOpen, setEditorOpen] = useState(false)
   const selected: DocumentoTipoOptions | undefined = value.tipi[selectedType]
 
-  const patchTipo = (patch: Partial<DocumentoTipoOptions>) => {
+  const patchTipo = (patch: Partial<Omit<DocumentoTipoOptions, 'template'>> & { template?: Partial<DocumentTemplateFields> }) => {
     if (!selected) return
     onChange({
-      tipi: { ...value.tipi, [selectedType]: { ...selected, ...patch } },
+      tipi: {
+        ...value.tipi,
+        [selectedType]: {
+          ...selected,
+          ...patch,
+          template: patch.template ? { ...selected.template, ...patch.template } : selected.template,
+        },
+      },
     })
   }
 
   const applyLayoutToAll = (layoutTemplate: DocumentoTipoOptions['layoutTemplate']) => {
     const tipi = { ...value.tipi }
     for (const id of DOCUMENT_TYPES_FOR_OPTIONS) {
-      if (id === 'vendita_banco' && layoutTemplate === 'danea_conferma_ordine') continue
       tipi[id] = { ...tipi[id], layoutTemplate }
     }
     onChange({ tipi })
   }
 
-  const handlePreview = () => {
-    if (!selected || !studioPreview) {
-      alert('Salva i dati azienda prima di visualizzare l\'anteprima.')
+  const openEditor = () => {
+    if (!studioPreview?.name?.trim()) {
+      alert('Compila almeno la denominazione in «La mia azienda» prima di modificare il template.')
       return
     }
-    previewDocumentTemplate(selectedType, { ...studioPreview, disclaimer: disclaimer ?? DEFAULT_DISCLAIMER }, selected)
+    setEditorOpen(true)
   }
 
   const selectedLayout = PRINT_LAYOUT_OPTIONS.find(o => o.id === selected?.layoutTemplate)
@@ -128,19 +137,13 @@ export default function TabDocumenti({
                     ))}
                   </select>
                 </OpzioniFieldRow>
-                {selectedLayout ? (
-                  <p className="opzioni-template-hint">{selectedLayout.description}</p>
-                ) : null}
+                {selectedLayout ? <p className="opzioni-template-hint">{selectedLayout.description}</p> : null}
                 <div className="opzioni-template-actions">
-                  <button type="button" className="opzioni-btn opzioni-btn--secondary" onClick={handlePreview}>
-                    Anteprima template
+                  <button type="button" className="opzioni-btn opzioni-btn--secondary" onClick={openEditor}>
+                    Modifica template…
                   </button>
-                  <button
-                    type="button"
-                    className="opzioni-link-btn"
-                    onClick={() => applyLayoutToAll(DEFAULT_PRINT_LAYOUT)}
-                  >
-                    Imposta layout Danea su tutti
+                  <button type="button" className="opzioni-link-btn" onClick={() => applyLayoutToAll(DEFAULT_PRINT_LAYOUT)}>
+                    Applica layout standard a tutti
                   </button>
                 </div>
               </OpzioniSection>
@@ -192,11 +195,11 @@ export default function TabDocumenti({
         </OpzioniSection>
 
         {onDisclaimerChange ? (
-          <OpzioniSection label="Disclaimer predefinito (Conferma d'ordine e template Danea)">
+          <OpzioniSection label="Disclaimer predefinito (Conferma d'ordine e layout standard)">
             <textarea className="opzioni-textarea" rows={4} value={disclaimer ?? ''} onChange={e => onDisclaimerChange(e.target.value)} />
             <div className="opzioni-template-actions">
               <button type="button" className="opzioni-link-btn" onClick={() => onDisclaimerChange(DEFAULT_DISCLAIMER)}>
-                Ripristina testo default Danea
+                Ripristina testo predefinito
               </button>
             </div>
           </OpzioniSection>
@@ -221,6 +224,16 @@ export default function TabDocumenti({
           </OpzioniSection>
         ) : null}
       </div>
+
+      {editorOpen && selected && studioPreview ? (
+        <DocumentTemplateEditorDialog
+          documentTypeId={selectedType}
+          initialOptions={selected}
+          studio={{ ...studioPreview, disclaimer: disclaimer ?? DEFAULT_DISCLAIMER }}
+          onApply={next => onChange({ tipi: { ...value.tipi, [selectedType]: next } })}
+          onClose={() => setEditorOpen(false)}
+        />
+      ) : null}
     </div>
   )
 }

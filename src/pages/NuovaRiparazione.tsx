@@ -20,7 +20,7 @@ import RepairLineItemsSection from '../components/repair/RepairLineItemsSection'
 import RepairTotalsSection from '../components/repair/RepairTotalsSection'
 import { normalizeRepairLine, sumLineTotals } from '../components/repair/repairLineUtils'
 import { generateRepairPDF, buildRepairConfermaOrdineHtml } from '../lib/generatePDF'
-import { buildConfermaOrdineViewModel, confermaOrdineFilename, type ConfermaOrdinePrintOptions } from '../lib/confermaOrdineTemplate'
+import { buildConfermaOrdineViewModel, confermaOrdineFilename } from '../lib/confermaOrdineTemplate'
 import { getDocumentTypePrintOptions } from '../lib/printTemplates'
 import ConfermaOrdineAnteprimaDialog from '../components/repair/ConfermaOrdineAnteprimaDialog'
 import { ActionBar, ToolButton, type ActionBarAction } from '../components/ui'
@@ -338,10 +338,14 @@ export default function NuovaRiparazione() {
     [studioData],
   )
 
-  const confermaPrintOptions = useMemo((): ConfermaOrdinePrintOptions | undefined => {
+  const confermaPrintOptions = useMemo(() => {
     if (!studioData) return undefined
     const opts = getDocumentTypePrintOptions(studioData as Record<string, unknown>, 'conferma_ordine')
-    return { titoloStampa: opts.titoloStampa, noteFine: opts.noteFine }
+    return {
+      titoloStampa: opts.titoloStampa,
+      noteFine: opts.noteFine,
+      template: opts.template,
+    }
   }, [studioData])
 
   const openConfermaOrdineAnteprima = useCallback(

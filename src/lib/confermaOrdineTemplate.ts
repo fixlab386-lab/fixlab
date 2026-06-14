@@ -41,13 +41,23 @@ export interface ConfermaOrdineViewModel {
   disclaimer: string
   /** Es. "Conferma d'ordine nr." o "Preventivo nr." */
   documentTitleLabel?: string
+  clientBoxTitle?: string
   rightBoxTitle?: string
   showRightBox?: boolean
+  signatureLabel?: string
+  totalLabel?: string
 }
 
 export type ConfermaOrdinePrintOptions = {
   titoloStampa?: string
   noteFine?: string
+  template?: {
+    clientBoxTitle?: string
+    secondBoxTitle?: string
+    showSecondBox?: boolean
+    signatureLabel?: string
+    totalLabel?: string
+  }
 }
 
 export const DEFAULT_CONFERMA_ORDINE_DISCLAIMER = `Ai sensi del D.Lgs. 196/2003 Vi informiamo che i Vs. dati saranno utilizzati esclusivamente per i fini connessi ai rapporti commerciali tra di noi in essere. Contributo CONAI assolto ove dovuto - Vi preghiamo di controllare i Vs. dati anagrafici, la P. IVA e il Cod. Fiscale. Non ci riteniamo responsabili di eventuali errori. Nell'eventualità in cui l'apparato, riparato o no, non sia ritirato entro 3 mesi, si autorizza il laboratorio alla demolizione o vendita del suddetto per il recupero delle spese gestionali.`
@@ -385,6 +395,7 @@ export function buildConfermaOrdineViewModel(
   const titleBase = printOptions?.titoloStampa?.trim() || "Conferma d'ordine"
   const titleLabel = titleBase.toLowerCase().endsWith('nr.') ? titleBase : `${titleBase} nr.`
   const disclaimerText = printOptions?.noteFine?.trim() || resolveDisclaimer(studio)
+  const tpl = printOptions?.template
 
   return {
     orderNumber: resolveOrderNumber(repair),
@@ -397,8 +408,11 @@ export function buildConfermaOrdineViewModel(
     total: sumReceiptLines(receiptLines) || repair.totalCost || 0,
     disclaimer: disclaimerText,
     documentTitleLabel: titleLabel,
-    rightBoxTitle: 'Informazioni dispositivo',
-    showRightBox: true,
+    clientBoxTitle: tpl?.clientBoxTitle ?? 'Cliente',
+    rightBoxTitle: tpl?.secondBoxTitle ?? 'Informazioni dispositivo',
+    showRightBox: tpl?.showSecondBox ?? true,
+    signatureLabel: tpl?.signatureLabel ?? 'Firma per accettazione',
+    totalLabel: tpl?.totalLabel ?? 'Tot. documento',
   }
 }
 
@@ -432,8 +446,11 @@ export function buildConfermaOrdineHtml(model: ConfermaOrdineViewModel): string 
 
   const depositText = model.deposit ? formatEuroIt(model.deposit) : ''
   const docTitle = model.documentTitleLabel ?? "Conferma d'ordine nr."
+  const clientTitle = model.clientBoxTitle ?? 'Cliente'
   const rightTitle = model.rightBoxTitle ?? 'Informazioni dispositivo'
-  const showRight = model.showRightBox === true || (model.showRightBox !== false && Boolean(model.deviceBody.trim()))
+  const signatureLabel = model.signatureLabel ?? 'Firma per accettazione'
+  const totalLabel = model.totalLabel ?? 'Tot. documento'
+  const showRight = model.showRightBox === true
 
   const boxesClass = showRight ? 'co-print__boxes' : 'co-print__boxes co-print__boxes--single'
   const rightBoxHtml = showRight
@@ -467,7 +484,7 @@ export function buildConfermaOrdineHtml(model: ConfermaOrdineViewModel): string 
 
       <div class="${boxesClass}">
         <div class="co-print__box">
-          <div class="co-print__box-title">Cliente</div>
+          <div class="co-print__box-title">${escapeHtml(clientTitle)}</div>
           <div class="co-print__box-body">${escapeHtml(model.clientBody)}</div>
         </div>
         ${rightBoxHtml}
@@ -490,13 +507,13 @@ export function buildConfermaOrdineHtml(model: ConfermaOrdineViewModel): string 
 
       <footer class="co-print__footer">
         <div class="co-print__sig-block">
-          <div class="co-print__sig-line">Firma per accettazione</div>
+          <div class="co-print__sig-line">${escapeHtml(signatureLabel)}</div>
           <div class="co-print__sig-date">${escapeHtml(model.orderDate)}</div>
         </div>
         <div class="co-print__acconto">Acconto: ${escapeHtml(depositText)}</div>
         <div class="co-print__total-wrap">
           <div class="co-print__total-box">
-            <span class="co-print__total-label">Tot. documento</span>
+            <span class="co-print__total-label">${escapeHtml(totalLabel)}</span>
             <span class="co-print__total-value">${escapeHtml(formatEuroIt(model.total))}</span>
           </div>
         </div>

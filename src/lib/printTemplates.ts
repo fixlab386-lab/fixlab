@@ -1,5 +1,11 @@
 import type { ApplicationOptions, DocumentoTipoOptions, PrintLayoutId } from './applicationOptions'
-import { DOCUMENT_TYPE_LABELS, DEFAULT_PRINT_LAYOUT, loadApplicationOptions } from './applicationOptions'
+import {
+  DOCUMENT_TYPE_LABELS,
+  DEFAULT_PRINT_LAYOUT,
+  loadApplicationOptions,
+  normalizePrintLayoutId,
+  resolveDocumentTemplateFields,
+} from './applicationOptions'
 import type { DocRecord } from '../types'
 import {
   DEFAULT_CONFERMA_ORDINE_DISCLAIMER,
@@ -7,7 +13,6 @@ import {
   type ConfermaOrdineViewModel,
   buildConfermaOrdineHtml,
   formatDateIt,
-  previewConfermaOrdineHtml,
   printConfermaOrdineHtml,
   resolveDisclaimer,
 } from './confermaOrdineTemplate'
@@ -18,9 +23,9 @@ export { DEFAULT_PRINT_LAYOUT } from './applicationOptions'
 
 export const PRINT_LAYOUT_OPTIONS: { id: PrintLayoutId; label: string; description: string }[] = [
   {
-    id: 'danea_conferma_ordine',
-    label: 'Danea — Conferma d\'ordine',
-    description: 'Layout Danea Easyfatt (default): intestazione, riquadri, tabella righe, firma e disclaimer.',
+    id: 'layout_conferma_ordine',
+    label: "Conferma d'ordine (layout standard)",
+    description: 'Layout predefinito FixLab: intestazione, riquadri, tabella righe, firma e disclaimer.',
   },
   {
     id: 'vendita_banco_gestionale',
@@ -51,7 +56,8 @@ export function getDocumentTypePrintOptions(
     numerazAutomatica: tipo?.numerazAutomatica ?? true,
     titoloStampa: tipo?.titoloStampa ?? label,
     noteFine: tipo?.noteFine ?? '',
-    layoutTemplate: (tipo?.layoutTemplate as PrintLayoutId | undefined) ?? DEFAULT_PRINT_LAYOUT,
+    layoutTemplate: normalizePrintLayoutId(tipo?.layoutTemplate),
+    template: resolveDocumentTemplateFields(typeId, tipo?.template),
   }
 }
 
@@ -83,6 +89,23 @@ export function filterEnabledDocumentTypes<T extends string>(
   return types.filter(type => isDocumentTypeEnabled(studioData, type))
 }
 
+function applyTemplateToModel(
+  model: ConfermaOrdineViewModel,
+  printOptions: DocumentTypePrintOptions,
+): ConfermaOrdineViewModel {
+  const t = printOptions.template
+  return {
+    ...model,
+    documentTitleLabel: resolvePrintTitleLabel(printOptions.titoloStampa),
+    clientBoxTitle: t.clientBoxTitle,
+    rightBoxTitle: t.secondBoxTitle,
+    showRightBox: t.showSecondBox,
+    signatureLabel: t.signatureLabel,
+    totalLabel: t.totalLabel,
+    disclaimer: resolvePrintDisclaimer(model.studio, printOptions, DEFAULT_CONFERMA_ORDINE_DISCLAIMER),
+  }
+}
+
 function docRowToLine(row: DocRecord['rows'][number]) {
   const qty = row.quantity ?? 1
   const price = row.unitPrice ?? 0
@@ -99,7 +122,7 @@ function docRowToLine(row: DocRecord['rows'][number]) {
   }
 }
 
-export function buildDocRecordDaneaViewModel(
+export function buildDocRecordPrintViewModel(
   doc: DocRecord,
   studio: ConfermaOrdineStudio | undefined,
   printOptions: DocumentTypePrintOptions,
@@ -124,20 +147,22 @@ export function buildDocRecordDaneaViewModel(
           },
         ]
 
-  return {
-    orderNumber: doc.fullNumber || '0001',
-    orderDate: formatDateIt(doc.date) || new Date().toLocaleDateString('it-IT'),
-    studio: studio ?? { name: 'FIXLab' },
-    clientBody: subjectLines || 'Cliente di esempio\nVia Roma 1\n00100 Roma (RM)',
-    deviceBody: noteBody,
-    lines: sampleLines,
-    deposit: 0,
-    total: doc.totalDocument ?? sampleLines.reduce((s, l) => s + l.importo, 0),
-    disclaimer: resolvePrintDisclaimer(studio, printOptions),
-    documentTitleLabel: resolvePrintTitleLabel(printOptions.titoloStampa),
-    rightBoxTitle: doc.type === 'conferma_ordine' || doc.type === 'rapporto_intervento' ? 'Informazioni dispositivo' : 'Note',
-    showRightBox: Boolean(noteBody) || doc.type === 'conferma_ordine' || doc.type === 'rapporto_intervento',
-  }
+  const isRepair = doc.type === 'conferma_ordine' || doc.type === 'rapporto_intervento'
+
+  return applyTemplateToModel(
+    {
+      orderNumber: doc.fullNumber || '0001',
+      orderDate: formatDateIt(doc.date) || new Date().toLocaleDateString('it-IT'),
+      studio: studio ?? { name: 'FIXLab' },
+      clientBody: subjectLines || 'Cliente di esempio\nVia Roma 1\n00100 Roma (RM)',
+      deviceBody: noteBody || (isRepair ? 'IMEI e S/N: —\nCodice Blocco: —\nNote: —' : ''),
+      lines: sampleLines,
+      deposit: 0,
+      total: doc.totalDocument ?? sampleLines.reduce((s, l) => s + l.importo, 0),
+      disclaimer: '',
+    },
+    printOptions,
+  )
 }
 
 export function buildTemplatePreviewModel(
@@ -146,42 +171,34 @@ export function buildTemplatePreviewModel(
   printOptions: DocumentTypePrintOptions,
 ): ConfermaOrdineViewModel {
   const label = printOptions.titoloStampa || DOCUMENT_TYPE_LABELS[typeId] || typeId
-  const isRepairStyle = typeId === 'conferma_ordine' || typeId === 'rapporto_intervento'
-  return {
-    orderNumber: '0001',
-    orderDate: new Date().toLocaleDateString('it-IT'),
-    studio,
-    clientBody: 'Mario Rossi\nVia Roma 1\n00100 Roma (RM)\nCell: 333 1234567\nE-mail: cliente@email.it',
-    deviceBody: isRepairStyle
-      ? 'IMEI e S/N: —\nCodice Blocco: —\nAccount e Password: —\nNote: Anteprima template'
-      : '',
-    lines: [
-      {
-        code: 'ART001',
-        description: `Riga di esempio — ${label}`,
-        qty: 1,
-        priceIvato: 49.9,
-        sconto: 0,
-        importo: 49.9,
-        iva: 22,
-      },
-    ],
-    deposit: 0,
-    total: 49.9,
-    disclaimer: resolvePrintDisclaimer(studio, printOptions, DEFAULT_CONFERMA_ORDINE_DISCLAIMER),
-    documentTitleLabel: resolvePrintTitleLabel(printOptions.titoloStampa),
-    rightBoxTitle: isRepairStyle ? 'Informazioni dispositivo' : 'Note',
-    showRightBox: isRepairStyle,
-  }
-}
+  const isRepair = typeId === 'conferma_ordine' || typeId === 'rapporto_intervento'
 
-export function previewDocumentTemplate(
-  typeId: string,
-  studio: ConfermaOrdineStudio,
-  printOptions: DocumentTypePrintOptions,
-): void {
-  const model = buildTemplatePreviewModel(typeId, studio, printOptions)
-  previewConfermaOrdineHtml(model)
+  return applyTemplateToModel(
+    {
+      orderNumber: '0001',
+      orderDate: new Date().toLocaleDateString('it-IT'),
+      studio,
+      clientBody: 'Mario Rossi\nVia Roma 1\n00100 Roma (RM)\nCell: 333 1234567\nE-mail: cliente@email.it',
+      deviceBody: isRepair
+        ? 'IMEI e S/N: —\nCodice Blocco: —\nAccount e Password: —\nNote: Anteprima template'
+        : 'Note o dettagli aggiuntivi del documento.',
+      lines: [
+        {
+          code: 'ART001',
+          description: `Riga di esempio — ${label}`,
+          qty: 1,
+          priceIvato: 49.9,
+          sconto: 0,
+          importo: 49.9,
+          iva: 22,
+        },
+      ],
+      deposit: 0,
+      total: 49.9,
+      disclaimer: '',
+    },
+    printOptions,
+  )
 }
 
 export function printDocRecordWithTemplate(
@@ -190,12 +207,11 @@ export function printDocRecordWithTemplate(
   studioData?: Record<string, unknown>,
 ): void {
   const printOptions = getDocumentTypePrintOptions(studioData, doc.type)
-  if (printOptions.layoutTemplate === 'danea_conferma_ordine') {
-    const model = buildDocRecordDaneaViewModel(doc, studio, printOptions)
+  if (printOptions.layoutTemplate === 'layout_conferma_ordine') {
+    const model = buildDocRecordPrintViewModel(doc, studio, printOptions)
     printConfermaOrdineHtml(model)
     return
   }
-  // standard_jsPDF handled by caller
 }
 
 export function studioDataToConfermaStudio(data: Record<string, unknown> | undefined): ConfermaOrdineStudio | undefined {
@@ -225,3 +241,6 @@ export function buildTemplatePreviewHtml(
 ): string {
   return buildConfermaOrdineHtml(buildTemplatePreviewModel(typeId, studio, printOptions))
 }
+
+/** @deprecated Usare buildDocRecordPrintViewModel */
+export const buildDocRecordDaneaViewModel = buildDocRecordPrintViewModel

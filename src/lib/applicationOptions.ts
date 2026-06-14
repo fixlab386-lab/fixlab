@@ -1,8 +1,17 @@
-/** Opzioni applicazione stile Danea Easyfatt — persistite su studios.appOptions */
+/** Opzioni applicazione — persistite su studios.appOptions */
 
-export type PrintLayoutId = 'danea_conferma_ordine' | 'standard_jsPDF' | 'vendita_banco_gestionale'
+export type PrintLayoutId = 'layout_conferma_ordine' | 'standard_jsPDF' | 'vendita_banco_gestionale'
 
-export const DEFAULT_PRINT_LAYOUT: PrintLayoutId = 'danea_conferma_ordine'
+export const DEFAULT_PRINT_LAYOUT: PrintLayoutId = 'layout_conferma_ordine'
+
+/** Campi personalizzabili del template stampa (base: Conferma d'ordine). */
+export type DocumentTemplateFields = {
+  clientBoxTitle: string
+  secondBoxTitle: string
+  showSecondBox: boolean
+  signatureLabel: string
+  totalLabel: string
+}
 
 export type DocumentoTipoOptions = {
   enabled: boolean
@@ -13,6 +22,7 @@ export type DocumentoTipoOptions = {
   titoloStampa: string
   noteFine: string
   layoutTemplate: PrintLayoutId
+  template: DocumentTemplateFields
 }
 
 export type ApplicationOptions = {
@@ -106,7 +116,32 @@ export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   arrivo_merce: 'Arrivo merce',
 }
 
-function defaultDocTipo(label: string, layoutTemplate: PrintLayoutId = DEFAULT_PRINT_LAYOUT): DocumentoTipoOptions {
+function defaultTemplateFields(typeId: string): DocumentTemplateFields {
+  const isRepair = typeId === 'conferma_ordine' || typeId === 'rapporto_intervento'
+  return {
+    clientBoxTitle: 'Cliente',
+    secondBoxTitle: isRepair ? 'Informazioni dispositivo' : 'Note',
+    showSecondBox: isRepair,
+    signatureLabel: 'Firma per accettazione',
+    totalLabel: 'Tot. documento',
+  }
+}
+
+export function resolveDocumentTemplateFields(
+  typeId: string,
+  partial?: Partial<DocumentTemplateFields>,
+): DocumentTemplateFields {
+  return { ...defaultTemplateFields(typeId), ...partial }
+}
+
+export function normalizePrintLayoutId(id: string | undefined): PrintLayoutId {
+  if (id === 'danea_conferma_ordine' || id === 'layout_conferma_ordine') return 'layout_conferma_ordine'
+  if (id === 'vendita_banco_gestionale') return 'vendita_banco_gestionale'
+  if (id === 'standard_jsPDF') return 'standard_jsPDF'
+  return DEFAULT_PRINT_LAYOUT
+}
+
+function defaultDocTipo(typeId: string, label: string, layoutTemplate: PrintLayoutId = DEFAULT_PRINT_LAYOUT): DocumentoTipoOptions {
   return {
     enabled: true,
     destPredefinito: 'Destinazione merce',
@@ -116,6 +151,7 @@ function defaultDocTipo(label: string, layoutTemplate: PrintLayoutId = DEFAULT_P
     titoloStampa: label,
     noteFine: '',
     layoutTemplate,
+    template: defaultTemplateFields(typeId),
   }
 }
 
@@ -196,11 +232,8 @@ export const AVVISI_ITEMS: { id: string; label: string; group: string }[] = [
 export function defaultApplicationOptions(): ApplicationOptions {
   const tipi: Record<string, DocumentoTipoOptions> = {}
   for (const id of DOCUMENT_TYPES_FOR_OPTIONS) {
-    const layout =
-      id === 'vendita_banco'
-        ? ('vendita_banco_gestionale' as PrintLayoutId)
-        : DEFAULT_PRINT_LAYOUT
-    tipi[id] = defaultDocTipo(DOCUMENT_TYPE_LABELS[id] ?? id, layout)
+    const layout = id === 'vendita_banco' ? ('vendita_banco_gestionale' as PrintLayoutId) : DEFAULT_PRINT_LAYOUT
+    tipi[id] = defaultDocTipo(id, DOCUMENT_TYPE_LABELS[id] ?? id, layout)
   }
   const avvisi: Record<string, boolean> = {}
   for (const item of AVVISI_ITEMS) {
@@ -284,12 +317,13 @@ function mergeDocTipi(raw: Record<string, Partial<DocumentoTipoOptions>> | undef
   if (!raw) return base
   const out = { ...base }
   for (const [id, patch] of Object.entries(raw)) {
-    const baseTipo = base[id] ?? defaultDocTipo(DOCUMENT_TYPE_LABELS[id] ?? id)
+    const baseTipo = base[id] ?? defaultDocTipo(id, DOCUMENT_TYPE_LABELS[id] ?? id)
     out[id] = {
       ...baseTipo,
       ...patch,
       titoloStampa: patch.titoloStampa ?? baseTipo.titoloStampa,
-      layoutTemplate: (patch.layoutTemplate as PrintLayoutId | undefined) ?? baseTipo.layoutTemplate,
+      layoutTemplate: normalizePrintLayoutId(patch.layoutTemplate as string | undefined ?? baseTipo.layoutTemplate),
+      template: resolveDocumentTemplateFields(id, { ...baseTipo.template, ...patch.template }),
     }
   }
   return out
@@ -327,7 +361,7 @@ export function applicationOptionsToFirestore(appOptions: ApplicationOptions) {
   return { appOptions }
 }
 
-/** Sincronizza moduli Danea con features FixLab già esistenti. */
+/** Sincronizza moduli opzioni con features FixLab già esistenti. */
 export function syncFeaturesFromAppOptions(
   appOptions: ApplicationOptions,
   features: { warehouse: boolean; pos: boolean; rtPrinter: boolean },
