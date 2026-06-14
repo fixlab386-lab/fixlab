@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { createPortal } from 'react-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useActiveStudio } from '../hooks/useActiveStudio'
 import { useOnboardingContext } from '../contexts/OnboardingContext'
@@ -85,19 +86,6 @@ const TEMPLATE_VARS = [
   { var: '{{telefono_negozio}}', desc: 'Telefono del negozio' },
   { var: '{{nome_negozio}}', desc: 'Nome del negozio' },
 ]
-
-function resolveOpzioniTab(tab: string | null): OpzioniTabId {
-  const legacy: Record<string, OpzioniTabId> = {
-    officina: 'azienda',
-    whatsapp: 'varie',
-    dati: 'varie',
-    legale: 'varie',
-  }
-  if (tab && legacy[tab]) return legacy[tab]
-  const valid: OpzioniTabId[] = ['moduli', 'azienda', 'clienti', 'prodotti', 'documenti', 'avvisi', 'varie']
-  if (tab && valid.includes(tab as OpzioniTabId)) return tab as OpzioniTabId
-  return 'moduli'
-}
 
 /** Checklist operativa: cosa controllare in laboratorio (stampa da browser se serve). */
 const VERIFICA_SECTIONS: { title: string; subtitle: string; items: string[] }[] = [
@@ -385,16 +373,16 @@ async function buildStudioExportZipBlob(params: {
   })
 }
 
-export default function Impostazioni() {
-  const navigate = useNavigate()
+export type ImpostazioniPanelProps = {
+  onClose: () => void
+  initialTab?: OpzioniTabId
+}
+
+export default function ImpostazioniPanel({ onClose, initialTab: initialTabProp }: ImpostazioniPanelProps) {
   const { userProfile } = useAuth()
   const { studioId, legacyStudioId, loading: studioLoading } = useActiveStudio()
   const { reopenOnboarding } = useOnboardingContext()
   const { consent, openSettings: openCookieSettings } = useCookieConsent()
-  const [searchParams] = useSearchParams()
-
-  const tabFromUrl = searchParams.get('tab')
-  const initialTab = resolveOpzioniTab(tabFromUrl)
 
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -402,13 +390,13 @@ export default function Impostazioni() {
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [uploadingLogo, setUploadingLogo] = useState(false)
-  const [activeTab, setActiveTab] = useState<OpzioniTabId>(initialTab)
+  const [activeTab, setActiveTab] = useState<OpzioniTabId>(() => initialTabProp ?? 'moduli')
   const [showCapPopup, setShowCapPopup] = useState(false)
   const [appOptions, setAppOptions] = useState<ApplicationOptions>(() => defaultApplicationOptions())
 
   useEffect(() => {
-    setActiveTab(resolveOpzioniTab(searchParams.get('tab')))
-  }, [searchParams])
+    if (initialTabProp) setActiveTab(initialTabProp)
+  }, [initialTabProp])
 
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteStep, setDeleteStep] = useState<1 | 2>(1)
@@ -809,32 +797,48 @@ export default function Impostazioni() {
   const saveButtonLabel = saving ? 'Salvataggio…' : saved ? '✓ Salvato' : 'Salva'
 
   if (loading || studioLoading) {
-    return (
-      <div className="gestionale-page gestionale-settings-page">
-        <div className="gestionale-detail-panel__empty-msg">Caricamento impostazioni…</div>
-      </div>
+    return createPortal(
+      <div
+        className="opzioni-backdrop gestionale-theme"
+        onClick={e => e.target === e.currentTarget && onClose()}
+      >
+        <div className="opzioni-window" role="dialog" aria-labelledby="opzioni-title" onClick={e => e.stopPropagation()}>
+          <div className="opzioni-window__loading">Caricamento impostazioni…</div>
+        </div>
+      </div>,
+      document.body,
     )
   }
 
-
-  return (
+  return createPortal(
     <>
-      <div className="gestionale-page gestionale-settings-page" data-tutorial="page-impostazioni">
-        {loadError ? (
-          <div className="gestionale-settings-info-box gestionale-settings-info-box--danger" style={{ marginBottom: 12 }}>
-            {loadError}
-          </div>
-        ) : null}
+      <div
+        className="opzioni-backdrop gestionale-theme"
+        onClick={e => e.target === e.currentTarget && onClose()}
+      >
+        <div
+          className="opzioni-window"
+          role="dialog"
+          aria-labelledby="opzioni-title"
+          data-tutorial="page-impostazioni"
+          onClick={e => e.stopPropagation()}
+        >
+          {loadError ? (
+            <div className="gestionale-settings-info-box gestionale-settings-info-box--danger" style={{ margin: 12 }}>
+              {loadError}
+            </div>
+          ) : null}
 
-        <OpzioniApplicazioneShell
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          onHelp={() => alert('Guida Opzioni applicazione FixLab — consulta la documentazione in-app.')}
-          footer={
-            <>
-              <button type="button" className="opzioni-btn" onClick={() => navigate('/')}>
-                Chiudi
-              </button>
+          <OpzioniApplicazioneShell
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            onClose={onClose}
+            onHelp={() => alert('Guida Opzioni applicazione FixLab — consulta la documentazione in-app.')}
+            footer={
+              <>
+                <button type="button" className="opzioni-btn" onClick={onClose}>
+                  Chiudi
+                </button>
               {(saveError || saved) && (
                 <span
                   className="opzioni-save-status"
@@ -1109,6 +1113,7 @@ export default function Impostazioni() {
             />
           )}
         </OpzioniApplicazioneShell>
+        </div>
       </div>
       {showCapPopup ? (
         <CapLookupPopup
@@ -1235,6 +1240,7 @@ export default function Impostazioni() {
           </div>
         </div>
       ) : null}
-    </>
+    </>,
+    document.body,
   )
 }

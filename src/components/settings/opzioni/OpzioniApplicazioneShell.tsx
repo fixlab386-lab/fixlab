@@ -18,19 +18,34 @@ type Props = {
   children: ReactNode
   footer?: ReactNode
   onHelp?: () => void
+  onClose?: () => void
 }
 
-export default function OpzioniApplicazioneShell({ activeTab, onTabChange, children, footer, onHelp }: Props) {
+export default function OpzioniApplicazioneShell({ activeTab, onTabChange, children, footer, onHelp, onClose }: Props) {
   return (
     <div className="opzioni-applicazione">
       <header className="opzioni-applicazione__header">
         <div>
-          <h1 className="opzioni-applicazione__title">Opzioni applicazione</h1>
+          <h1 id="opzioni-title" className="opzioni-applicazione__title">Opzioni applicazione</h1>
           <p className="opzioni-applicazione__subtitle">Adatta FixLab alle tue esigenze</p>
         </div>
-        <div className="opzioni-applicazione__header-icons" aria-hidden>
-          <span className="opzioni-applicazione__icon" />
-          <span className="opzioni-applicazione__icon" />
+        <div className="opzioni-applicazione__header-actions">
+          {onClose ? (
+            <button
+              type="button"
+              className="opzioni-applicazione__close"
+              onClick={onClose}
+              aria-label="Chiudi"
+              title="Chiudi"
+            >
+              ×
+            </button>
+          ) : (
+            <div className="opzioni-applicazione__header-icons" aria-hidden>
+              <span className="opzioni-applicazione__icon" />
+              <span className="opzioni-applicazione__icon" />
+            </div>
+          )}
         </div>
       </header>
 

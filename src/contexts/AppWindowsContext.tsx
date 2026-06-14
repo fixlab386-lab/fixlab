@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import type { ActiveDocumentType } from '../gestionale/features/documenti/constants'
+import type { OpzioniTabId } from '../components/settings/opzioni/OpzioniApplicazioneShell'
 
 type AppWindowsContextValue = {
   venditaBancoOpen: boolean
@@ -14,6 +15,10 @@ type AppWindowsContextValue = {
   archiviOpen: boolean
   openArchivi: () => void
   closeArchivi: () => void
+  opzioniOpen: boolean
+  opzioniInitialTab: OpzioniTabId | null
+  openOpzioni: (tab?: OpzioniTabId | null) => void
+  closeOpzioni: () => void
 }
 
 const AppWindowsContext = createContext<AppWindowsContextValue | null>(null)
@@ -23,6 +28,8 @@ export function AppWindowsProvider({ children }: { children: ReactNode }) {
   const [documentiOpen, setDocumentiOpen] = useState(false)
   const [documentiType, setDocumentiType] = useState<ActiveDocumentType | null>(null)
   const [archiviOpen, setArchiviOpen] = useState(false)
+  const [opzioniOpen, setOpzioniOpen] = useState(false)
+  const [opzioniInitialTab, setOpzioniInitialTab] = useState<OpzioniTabId | null>(null)
 
   const openVenditaBanco = useCallback(() => setVenditaBancoOpen(true), [])
   const closeVenditaBanco = useCallback(() => setVenditaBancoOpen(false), [])
@@ -49,6 +56,16 @@ export function AppWindowsProvider({ children }: { children: ReactNode }) {
   const openArchivi = useCallback(() => setArchiviOpen(true), [])
   const closeArchivi = useCallback(() => setArchiviOpen(false), [])
 
+  const openOpzioni = useCallback((tab?: OpzioniTabId | null) => {
+    setOpzioniInitialTab(tab ?? null)
+    setOpzioniOpen(true)
+  }, [])
+
+  const closeOpzioni = useCallback(() => {
+    setOpzioniOpen(false)
+    setOpzioniInitialTab(null)
+  }, [])
+
   const value = useMemo(
     () => ({
       venditaBancoOpen,
@@ -63,6 +80,10 @@ export function AppWindowsProvider({ children }: { children: ReactNode }) {
       archiviOpen,
       openArchivi,
       closeArchivi,
+      opzioniOpen,
+      opzioniInitialTab,
+      openOpzioni,
+      closeOpzioni,
     }),
     [
       venditaBancoOpen,
@@ -77,6 +98,10 @@ export function AppWindowsProvider({ children }: { children: ReactNode }) {
       archiviOpen,
       openArchivi,
       closeArchivi,
+      opzioniOpen,
+      opzioniInitialTab,
+      openOpzioni,
+      closeOpzioni,
     ],
   )
 

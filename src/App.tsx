@@ -17,7 +17,7 @@ import NuovoDocumento from './pages/NuovoDocumento'
 import Pagamenti from './pages/Pagamenti'
 import MovimentiMagazzino from './pages/MovimentiMagazzino'
 import Dispositivi from './pages/Dispositivi'
-import Impostazioni from './pages/Impostazioni'
+import ImpostazioniOpener from './pages/ImpostazioniOpener'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import CookiePolicy from './pages/CookiePolicy'
 import GestionaleLayout from './components/GestionaleLayout'
@@ -90,7 +90,7 @@ export default function App() {
                 <Route path="movimenti" element={<MovimentiMagazzino />} />
                 <Route path="cassa" element={<Cassa />} />
                 <Route path="analytics" element={<Navigate to="/" replace />} />
-                <Route path="impostazioni" element={<Impostazioni />} />
+                <Route path="impostazioni" element={<ImpostazioniOpener />} />
                 <Route path="impostazioni/whatsapp" element={<WhatsAppSetup />} />
               </Route>
             </Routes>

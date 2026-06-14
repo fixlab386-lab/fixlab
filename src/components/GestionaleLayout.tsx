@@ -11,6 +11,7 @@ import ToolbarDocumentiMenu from './navigation/ToolbarDocumentiMenu'
 import VenditaAlBancoModal from '../gestionale/features/vendita-banco/VenditaAlBancoModal'
 import DocumentiWindow from '../gestionale/features/documenti/DocumentiWindow'
 import ArchiviWindow from './archives/ArchiviWindow'
+import OpzioniApplicazioneWindow from './settings/opzioni/OpzioniApplicazioneWindow'
 
 type NavDef = {
   id: string
@@ -31,7 +32,7 @@ const NAV_ITEMS: NavDef[] = [
   { id: 'dispositivi', label: 'Dispositivi', path: '/dispositivi', icon: '📱' },
   { id: 'cassa', label: 'Cassa', path: '/cassa', icon: '💰' },
   { id: 'archivi', label: 'Archivi', path: '__archivi__', icon: '🗂️' },
-  { id: 'impostazioni', label: 'Impostazioni', path: '/impostazioni', icon: '⚙️' },
+  { id: 'impostazioni', label: 'Impostazioni', path: '__opzioni__', icon: '⚙️' },
 ]
 
 function isNavActive(item: NavDef, pathname: string): boolean {
@@ -42,7 +43,7 @@ function isNavActive(item: NavDef, pathname: string): boolean {
 function GestionaleShell() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { documentiOpen, archiviOpen, openArchivi } = useAppWindows()
+  const { documentiOpen, archiviOpen, openArchivi, opzioniOpen, openOpzioni } = useAppWindows()
 
   const renderNavButton = (item: NavDef) => {
     if (item.id === 'archivi') {
@@ -54,6 +55,23 @@ function GestionaleShell() {
           onClick={openArchivi}
           title={item.label}
           aria-pressed={archiviOpen}
+        >
+          <span className="gestionale-toolbar__icon" aria-hidden="true">
+            {item.icon}
+          </span>
+          <span className="gestionale-toolbar__label">{item.label}</span>
+        </button>
+      )
+    }
+    if (item.id === 'impostazioni') {
+      return (
+        <button
+          key={item.id}
+          type="button"
+          className={`gestionale-toolbar__item${opzioniOpen ? ' gestionale-toolbar__item--active' : ''}`}
+          onClick={() => openOpzioni()}
+          title={item.label}
+          aria-pressed={opzioniOpen}
         >
           <span className="gestionale-toolbar__icon" aria-hidden="true">
             {item.icon}
@@ -101,6 +119,7 @@ function GestionaleShell() {
       <VenditaAlBancoModal />
       <DocumentiWindow />
       <ArchiviWindow />
+      <OpzioniApplicazioneWindow />
       <OnboardingGate />
     </div>
   )

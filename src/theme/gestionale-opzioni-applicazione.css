@@ -1,17 +1,55 @@
-/* Opzioni applicazione — stile Danea Easyfatt */
+/* Opzioni applicazione — stile Danea Easyfatt (finestra modale) */
 
-.opzioni-applicazione {
-  max-width: 980px;
-  margin: 0 auto;
+.opzioni-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.opzioni-window {
+  display: flex;
+  flex-direction: column;
+  width: min(980px, 96vw);
+  height: min(720px, 92vh);
+  max-height: 92vh;
+  overflow: hidden;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+}
+
+.opzioni-window__loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: #fff;
   border: 1px solid #b8c8e0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  font-size: 13px;
+  color: #555;
+}
+
+.opzioni-applicazione {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: #fff;
+  border: 1px solid #7a9ec8;
+  border-radius: 4px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
 }
 
 .opzioni-applicazione__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-shrink: 0;
   padding: 16px 20px 8px;
   border-bottom: 1px solid #d8e4f0;
 }
@@ -34,6 +72,29 @@
   gap: 6px;
 }
 
+.opzioni-applicazione__header-actions {
+  display: flex;
+  align-items: flex-start;
+}
+
+.opzioni-applicazione__close {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #9eb8d8;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #fff 0%, #e8eef6 100%);
+  color: #316ac5;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.opzioni-applicazione__close:hover {
+  background: #f0f4fa;
+  border-color: #316ac5;
+}
+
 .opzioni-applicazione__icon {
   width: 28px;
   height: 28px;
@@ -46,6 +107,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0;
+  flex-shrink: 0;
   padding: 0 12px;
   border-bottom: 1px solid #c0c0c0;
   background: #f5f8fc;
@@ -70,7 +132,9 @@
 }
 
 .opzioni-applicazione__content {
-  min-height: 420px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   padding: 16px 20px;
   background: #fff;
 }
@@ -80,6 +144,7 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
+  flex-shrink: 0;
   padding: 12px 20px 16px;
   border-top: 1px solid #d0d0d0;
   background: #f0f0f0;

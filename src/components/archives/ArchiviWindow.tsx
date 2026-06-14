@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../hooks/useAuth'
@@ -90,8 +89,7 @@ function SmallDialog({
 }
 
 export default function ArchiviWindow() {
-  const { archiviOpen, closeArchivi } = useAppWindows()
-  const navigate = useNavigate()
+  const { archiviOpen, closeArchivi, openOpzioni } = useAppWindows()
   const { userProfile } = useAuth()
   const { reopenOnboarding } = useOnboardingContext()
   const {
@@ -466,7 +464,7 @@ export default function ArchiviWindow() {
                       onClick={() => {
                         setAltreOpen(false)
                         closeArchivi()
-                        navigate('/impostazioni')
+                        openOpzioni()
                       }}
                     >
                       Impostazioni archivio…
