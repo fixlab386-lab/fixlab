@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '../../../firebase'
 import { useAuth } from '../../../hooks/useAuth'
 import { useActiveStudio } from '../../../hooks/useActiveStudio'
 import { useAppWindows } from '../../../contexts/AppWindowsContext'
 import { getDocuments } from '../../../lib/firestore'
+import { filterEnabledDocumentTypes } from '../../../lib/printTemplates'
 import type { DocRecord } from '../../../types'
 import {
   ACTIVE_DOCUMENT_LABELS,
@@ -30,6 +33,7 @@ export default function DocumentiHub({ embedded = false }: Props) {
   const navigate = useNavigate()
   const { openDocumentiType } = useAppWindows()
   const [documents, setDocuments] = useState<DocRecord[]>([])
+  const [studioData, setStudioData] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -41,9 +45,11 @@ export default function DocumentiHub({ embedded = false }: Props) {
     }
     let cancelled = false
     setLoading(true)
-    getDocuments(studioId)
-      .then(data => {
-        if (!cancelled) setDocuments(data)
+    Promise.all([getDocuments(studioId), getDoc(doc(db, 'studios', studioId))])
+      .then(([data, studioSnap]) => {
+        if (cancelled) return
+        setDocuments(data)
+        setStudioData(studioSnap.exists() ? studioSnap.data() : null)
       })
       .catch(() => {
         if (!cancelled) setError('Impossibile caricare i documenti.')
@@ -58,6 +64,15 @@ export default function DocumentiHub({ embedded = false }: Props) {
 
   const counts = useMemo(() => countByType(documents), [documents])
   const total = documents.length
+
+  const hubGroups = useMemo(
+    () =>
+      DOCUMENT_HUB_GROUPS.map(group => ({
+        ...group,
+        types: filterEnabledDocumentTypes(studioData ?? undefined, group.types),
+      })).filter(group => group.types.length > 0),
+    [studioData],
+  )
 
   const handleSelect = (type: ActiveDocumentType) => {
     if (embedded) {
@@ -86,7 +101,7 @@ export default function DocumentiHub({ embedded = false }: Props) {
       </div>
 
       <div className="documenti-hub__body">
-        {DOCUMENT_HUB_GROUPS.map(group => (
+        {hubGroups.map(group => (
           <section key={group.title} className="documenti-hub__group">
             <h2 className="documenti-hub__group-title">{group.title}</h2>
             <div className="documenti-hub__tiles">

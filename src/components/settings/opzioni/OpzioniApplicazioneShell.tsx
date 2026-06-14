@@ -69,7 +69,7 @@ export default function OpzioniApplicazioneShell({ activeTab, onTabChange, child
       </div>
 
       <footer className="opzioni-applicazione__footer">
-        {footer}
+        <div className="opzioni-applicazione__footer-actions">{footer}</div>
         <button type="button" className="opzioni-applicazione__help" title="Aiuto" onClick={onHelp}>
           ?
         </button>

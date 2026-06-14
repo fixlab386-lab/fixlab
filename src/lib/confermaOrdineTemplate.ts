@@ -39,6 +39,15 @@ export interface ConfermaOrdineViewModel {
   deposit: number
   total: number
   disclaimer: string
+  /** Es. "Conferma d'ordine nr." o "Preventivo nr." */
+  documentTitleLabel?: string
+  rightBoxTitle?: string
+  showRightBox?: boolean
+}
+
+export type ConfermaOrdinePrintOptions = {
+  titoloStampa?: string
+  noteFine?: string
 }
 
 export const DEFAULT_CONFERMA_ORDINE_DISCLAIMER = `Ai sensi del D.Lgs. 196/2003 Vi informiamo che i Vs. dati saranno utilizzati esclusivamente per i fini connessi ai rapporti commerciali tra di noi in essere. Contributo CONAI assolto ove dovuto - Vi preghiamo di controllare i Vs. dati anagrafici, la P. IVA e il Cod. Fiscale. Non ci riteniamo responsabili di eventuali errori. Nell'eventualità in cui l'apparato, riparato o no, non sia ritirato entro 3 mesi, si autorizza il laboratorio alla demolizione o vendita del suddetto per il recupero delle spese gestionali.`
@@ -116,6 +125,9 @@ export const CONFERMA_ORDINE_PRINT_CSS = `
   grid-template-columns: 1fr 1fr;
   border: 1px solid #000;
   margin: 8px 0 6px;
+}
+.co-print__boxes--single {
+  grid-template-columns: 1fr;
 }
 .co-print__box {
   padding: 5px 6px 8px;
@@ -348,7 +360,11 @@ function toLineRow(line: RepairProduct): ConfermaOrdineLineRow {
   }
 }
 
-export function buildConfermaOrdineViewModel(repair: Repair, studio?: ConfermaOrdineStudio): ConfermaOrdineViewModel {
+export function buildConfermaOrdineViewModel(
+  repair: Repair,
+  studio?: ConfermaOrdineStudio,
+  printOptions?: ConfermaOrdinePrintOptions,
+): ConfermaOrdineViewModel {
   const receiptLines = buildReceiptLines(repair)
   let lines = receiptLines.map(toLineRow)
   if (lines.length === 0) {
@@ -366,6 +382,10 @@ export function buildConfermaOrdineViewModel(repair: Repair, studio?: ConfermaOr
     ]
   }
 
+  const titleBase = printOptions?.titoloStampa?.trim() || "Conferma d'ordine"
+  const titleLabel = titleBase.toLowerCase().endsWith('nr.') ? titleBase : `${titleBase} nr.`
+  const disclaimerText = printOptions?.noteFine?.trim() || resolveDisclaimer(studio)
+
   return {
     orderNumber: resolveOrderNumber(repair),
     orderDate: resolveAcceptanceDate(repair),
@@ -375,7 +395,10 @@ export function buildConfermaOrdineViewModel(repair: Repair, studio?: ConfermaOr
     lines,
     deposit: repair.deposit || 0,
     total: sumReceiptLines(receiptLines) || repair.totalCost || 0,
-    disclaimer: resolveDisclaimer(studio),
+    disclaimer: disclaimerText,
+    documentTitleLabel: titleLabel,
+    rightBoxTitle: 'Informazioni dispositivo',
+    showRightBox: true,
   }
 }
 
@@ -408,6 +431,17 @@ export function buildConfermaOrdineHtml(model: ConfermaOrdineViewModel): string 
     .join('')
 
   const depositText = model.deposit ? formatEuroIt(model.deposit) : ''
+  const docTitle = model.documentTitleLabel ?? "Conferma d'ordine nr."
+  const rightTitle = model.rightBoxTitle ?? 'Informazioni dispositivo'
+  const showRight = model.showRightBox === true || (model.showRightBox !== false && Boolean(model.deviceBody.trim()))
+
+  const boxesClass = showRight ? 'co-print__boxes' : 'co-print__boxes co-print__boxes--single'
+  const rightBoxHtml = showRight
+    ? `<div class="co-print__box">
+          <div class="co-print__box-title">${escapeHtml(rightTitle)}</div>
+          <div class="co-print__box-body">${escapeHtml(model.deviceBody)}</div>
+        </div>`
+    : ''
 
   return `
     <div class="co-print">
@@ -421,7 +455,7 @@ export function buildConfermaOrdineHtml(model: ConfermaOrdineViewModel): string 
         </div>
         <div class="co-print__doc-meta">
           <div class="co-print__doc-row">
-            <span>Conferma d'ordine nr.</span>
+            <span>${escapeHtml(docTitle)}</span>
             <span class="co-print__doc-box">${escapeHtml(model.orderNumber)}</span>
           </div>
           <div class="co-print__doc-row">
@@ -431,15 +465,12 @@ export function buildConfermaOrdineHtml(model: ConfermaOrdineViewModel): string 
         </div>
       </header>
 
-      <div class="co-print__boxes">
+      <div class="${boxesClass}">
         <div class="co-print__box">
           <div class="co-print__box-title">Cliente</div>
           <div class="co-print__box-body">${escapeHtml(model.clientBody)}</div>
         </div>
-        <div class="co-print__box">
-          <div class="co-print__box-title">Informazioni dispositivo</div>
-          <div class="co-print__box-body">${escapeHtml(model.deviceBody)}</div>
-        </div>
+        ${rightBoxHtml}
       </div>
 
       <table class="co-print__table">

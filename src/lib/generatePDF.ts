@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf'
 import type { DocRecord, DocumentRow } from '../types'
+import { getDocumentTypePrintOptions, printDocRecordWithTemplate, studioDataToConfermaStudio } from './printTemplates'
 
 const typeLabels: Record<string, string> = {
   preventivo: 'PREVENTIVO', conferma_ordine: "CONFERMA D'ORDINE", ordine_cliente: 'ORDINE CLIENTE',
@@ -9,7 +10,7 @@ const typeLabels: Record<string, string> = {
   arrivo_merce: 'ARRIVO MERCE'
 }
 
-interface StudioInfo {
+interface StudioInfo extends Record<string, unknown> {
   name: string
   address?: string
   city?: string
@@ -21,7 +22,29 @@ interface StudioInfo {
   disclaimer?: string
 }
 
+function studioRecord(studio?: StudioInfo): Record<string, unknown> | undefined {
+  return studio
+}
+
+function resolveDocumentTitle(doc: DocRecord, studio?: StudioInfo): string {
+  const printOpts = getDocumentTypePrintOptions(studioRecord(studio), doc.type)
+  if (printOpts.titoloStampa) return printOpts.titoloStampa.toUpperCase()
+  return typeLabels[doc.type] || doc.type
+}
+
+function resolveDocumentFooter(doc: DocRecord, studio?: StudioInfo): string | undefined {
+  const printOpts = getDocumentTypePrintOptions(studioRecord(studio), doc.type)
+  return printOpts.noteFine?.trim() || (typeof studio?.disclaimer === 'string' ? studio.disclaimer : undefined)
+}
+
 export function generateDocumentPDF(doc: DocRecord, studio?: StudioInfo) {
+  const studioRecordData = studioRecord(studio)
+  const printOpts = getDocumentTypePrintOptions(studioRecordData, doc.type)
+  if (printOpts.layoutTemplate === 'danea_conferma_ordine') {
+    printDocRecordWithTemplate(doc, studioDataToConfermaStudio(studioRecordData), studioRecordData)
+    return
+  }
+
   const pdf = new jsPDF('p', 'mm', 'a4')
   const w = 210
   const margin = 15
@@ -53,7 +76,7 @@ export function generateDocumentPDF(doc: DocRecord, studio?: StudioInfo) {
   // ===== DOCUMENT TYPE + NUMBER =====
   pdf.setFontSize(14)
   pdf.setFont('helvetica', 'bold')
-  pdf.text(`${typeLabels[doc.type] || doc.type}  N. ${doc.fullNumber}`, margin, y)
+  pdf.text(`${resolveDocumentTitle(doc, studio)}  N. ${doc.fullNumber}`, margin, y)
   y += 8
 
   pdf.setFontSize(9)
@@ -190,13 +213,25 @@ export function generateDocumentPDF(doc: DocRecord, studio?: StudioInfo) {
   }
 
   // ===== FOOTER =====
+  const footerText = resolveDocumentFooter(doc, studio)
+  if (footerText) {
+    y += 4
+    pdf.setFontSize(7)
+    pdf.setFont('helvetica', 'normal')
+    pdf.setTextColor(60)
+    const footerLines = pdf.splitTextToSize(footerText, contentW)
+    pdf.text(footerLines, margin, y)
+    y += footerLines.length * 3.5
+    pdf.setTextColor(0)
+  }
+
   pdf.setFontSize(7)
   pdf.setTextColor(150)
   pdf.text('Documento generato da FIXLab', margin, 290)
   pdf.text(`Pagina 1`, w - margin, 290, { align: 'right' })
 
-  // Save
-  const fileName = `${typeLabels[doc.type] || 'DOC'}_${doc.fullNumber}_${doc.subjectName.replace(/\s+/g, '_')}.pdf`
+  const titleSlug = resolveDocumentTitle(doc, studio).replace(/\s+/g, '_')
+  const fileName = `${titleSlug}_${doc.fullNumber}_${doc.subjectName.replace(/\s+/g, '_')}.pdf`
   pdf.save(fileName)
 }
 

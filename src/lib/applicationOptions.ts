@@ -1,5 +1,9 @@
 /** Opzioni applicazione stile Danea Easyfatt — persistite su studios.appOptions */
 
+export type PrintLayoutId = 'danea_conferma_ordine' | 'standard_jsPDF' | 'vendita_banco_gestionale'
+
+export const DEFAULT_PRINT_LAYOUT: PrintLayoutId = 'danea_conferma_ordine'
+
 export type DocumentoTipoOptions = {
   enabled: boolean
   destPredefinito: string
@@ -8,6 +12,7 @@ export type DocumentoTipoOptions = {
   numerazAutomatica: boolean
   titoloStampa: string
   noteFine: string
+  layoutTemplate: PrintLayoutId
 }
 
 export type ApplicationOptions = {
@@ -79,6 +84,7 @@ export type ApplicationOptions = {
 
 export const DOCUMENT_TYPES_FOR_OPTIONS = [
   'preventivo',
+  'conferma_ordine',
   'ordine_cliente',
   'ddt',
   'rapporto_intervento',
@@ -90,6 +96,7 @@ export const DOCUMENT_TYPES_FOR_OPTIONS = [
 
 export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   preventivo: 'Preventivo',
+  conferma_ordine: "Conferma d'ordine",
   ordine_cliente: 'Ordine cliente',
   ddt: 'Documento di trasporto',
   rapporto_intervento: "Rapporto d'intervento",
@@ -99,7 +106,7 @@ export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   arrivo_merce: 'Arrivo merce',
 }
 
-function defaultDocTipo(label: string): DocumentoTipoOptions {
+function defaultDocTipo(label: string, layoutTemplate: PrintLayoutId = DEFAULT_PRINT_LAYOUT): DocumentoTipoOptions {
   return {
     enabled: true,
     destPredefinito: 'Destinazione merce',
@@ -108,6 +115,7 @@ function defaultDocTipo(label: string): DocumentoTipoOptions {
     numerazAutomatica: true,
     titoloStampa: label,
     noteFine: '',
+    layoutTemplate,
   }
 }
 
@@ -188,7 +196,11 @@ export const AVVISI_ITEMS: { id: string; label: string; group: string }[] = [
 export function defaultApplicationOptions(): ApplicationOptions {
   const tipi: Record<string, DocumentoTipoOptions> = {}
   for (const id of DOCUMENT_TYPES_FOR_OPTIONS) {
-    tipi[id] = defaultDocTipo(DOCUMENT_TYPE_LABELS[id] ?? id)
+    const layout =
+      id === 'vendita_banco'
+        ? ('vendita_banco_gestionale' as PrintLayoutId)
+        : DEFAULT_PRINT_LAYOUT
+    tipi[id] = defaultDocTipo(DOCUMENT_TYPE_LABELS[id] ?? id, layout)
   }
   const avvisi: Record<string, boolean> = {}
   for (const item of AVVISI_ITEMS) {
@@ -272,7 +284,13 @@ function mergeDocTipi(raw: Record<string, Partial<DocumentoTipoOptions>> | undef
   if (!raw) return base
   const out = { ...base }
   for (const [id, patch] of Object.entries(raw)) {
-    out[id] = { ...base[id], ...patch, titoloStampa: patch.titoloStampa ?? base[id]?.titoloStampa ?? id }
+    const baseTipo = base[id] ?? defaultDocTipo(DOCUMENT_TYPE_LABELS[id] ?? id)
+    out[id] = {
+      ...baseTipo,
+      ...patch,
+      titoloStampa: patch.titoloStampa ?? baseTipo.titoloStampa,
+      layoutTemplate: (patch.layoutTemplate as PrintLayoutId | undefined) ?? baseTipo.layoutTemplate,
+    }
   }
   return out
 }

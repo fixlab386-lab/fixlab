@@ -6,6 +6,7 @@ import {
   confermaOrdineFilename,
   formatEuroIt,
   type ConfermaOrdineLineRow,
+  type ConfermaOrdinePrintOptions,
   type ConfermaOrdineStudio,
   type ConfermaOrdineViewModel,
 } from './confermaOrdineTemplate'
@@ -34,6 +35,7 @@ export {
 export interface RepairReceiptPdfOptions {
   logoDataUrl?: string
   skipSave?: boolean
+  printOptions?: ConfermaOrdinePrintOptions
 }
 
 const PAGE_W = 210
@@ -275,7 +277,7 @@ export function buildRepairReceiptPdfDocument(
   studio?: RepairReceiptStudio,
   options?: RepairReceiptPdfOptions,
 ): jsPDF {
-  const model = buildConfermaOrdineViewModel(repair, studio)
+  const model = buildConfermaOrdineViewModel(repair, studio, options?.printOptions)
   const pdf = new jsPDF('p', 'mm', 'a4')
 
   let y = drawStudioHeader(pdf, model, options?.logoDataUrl, MARGIN)
@@ -324,11 +326,19 @@ async function loadLogoDataUrl(url: string): Promise<string | undefined> {
   }
 }
 
-export async function generateRepairPDF(repair: Repair, studio?: RepairReceiptStudio): Promise<void> {
+export async function generateRepairPDF(
+  repair: Repair,
+  studio?: RepairReceiptStudio,
+  printOptions?: ConfermaOrdinePrintOptions,
+): Promise<void> {
   const logoDataUrl = studio?.logoUrl ? await loadLogoDataUrl(studio.logoUrl) : undefined
-  generateRepairReceiptPDF(repair, studio, { logoDataUrl })
+  generateRepairReceiptPDF(repair, studio, { logoDataUrl, printOptions })
 }
 
-export function buildRepairConfermaOrdineHtml(repair: Repair, studio?: RepairReceiptStudio): string {
-  return buildConfermaOrdineHtml(buildConfermaOrdineViewModel(repair, studio))
+export function buildRepairConfermaOrdineHtml(
+  repair: Repair,
+  studio?: RepairReceiptStudio,
+  printOptions?: ConfermaOrdinePrintOptions,
+): string {
+  return buildConfermaOrdineHtml(buildConfermaOrdineViewModel(repair, studio, printOptions))
 }

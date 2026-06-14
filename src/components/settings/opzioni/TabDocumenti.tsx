@@ -2,9 +2,13 @@ import { useState } from 'react'
 import {
   DOCUMENT_TYPES_FOR_OPTIONS,
   DOCUMENT_TYPE_LABELS,
+  DEFAULT_PRINT_LAYOUT,
   type ApplicationOptions,
   type DocumentoTipoOptions,
 } from '../../../lib/applicationOptions'
+import type { ConfermaOrdineStudio } from '../../../lib/confermaOrdineTemplate'
+import { PRINT_LAYOUT_OPTIONS, previewDocumentTemplate } from '../../../lib/printTemplates'
+import { DEFAULT_DISCLAIMER } from '../../../lib/studioSettings'
 import { OpzioniCheckRow, OpzioniFieldRow, OpzioniNumberedFields, OpzioniSection } from './OpzioniUi'
 
 type Props = {
@@ -17,6 +21,7 @@ type Props = {
   onRtModelChange?: (v: string) => void
   onRtIpChange?: (v: string) => void
   rtModels?: { value: string; label: string }[]
+  studioPreview?: ConfermaOrdineStudio
 }
 
 const DEST_OPTIONS = ['Destinazione merce', 'Sede legale', 'Sede operativa', '(Nessuna)']
@@ -32,6 +37,7 @@ export default function TabDocumenti({
   onRtModelChange,
   onRtIpChange,
   rtModels,
+  studioPreview,
 }: Props) {
   const [selectedType, setSelectedType] = useState<string>(DOCUMENT_TYPES_FOR_OPTIONS[0])
   const selected: DocumentoTipoOptions | undefined = value.tipi[selectedType]
@@ -42,6 +48,25 @@ export default function TabDocumenti({
       tipi: { ...value.tipi, [selectedType]: { ...selected, ...patch } },
     })
   }
+
+  const applyLayoutToAll = (layoutTemplate: DocumentoTipoOptions['layoutTemplate']) => {
+    const tipi = { ...value.tipi }
+    for (const id of DOCUMENT_TYPES_FOR_OPTIONS) {
+      if (id === 'vendita_banco' && layoutTemplate === 'danea_conferma_ordine') continue
+      tipi[id] = { ...tipi[id], layoutTemplate }
+    }
+    onChange({ tipi })
+  }
+
+  const handlePreview = () => {
+    if (!selected || !studioPreview) {
+      alert('Salva i dati azienda prima di visualizzare l\'anteprima.')
+      return
+    }
+    previewDocumentTemplate(selectedType, { ...studioPreview, disclaimer: disclaimer ?? DEFAULT_DISCLAIMER }, selected)
+  }
+
+  const selectedLayout = PRINT_LAYOUT_OPTIONS.find(o => o.id === selected?.layoutTemplate)
 
   return (
     <div className="opzioni-tab-panel opzioni-tab-panel--documenti">
@@ -55,30 +80,33 @@ export default function TabDocumenti({
               </tr>
             </thead>
             <tbody>
-              {DOCUMENT_TYPES_FOR_OPTIONS.map(id => (
-                <tr
-                  key={id}
-                  className={selectedType === id ? 'opzioni-grid-table__selected' : undefined}
-                  onClick={() => setSelectedType(id)}
-                >
-                  <td>{DOCUMENT_TYPE_LABELS[id]}</td>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={value.tipi[id]?.enabled ?? true}
-                      onChange={e => {
-                        e.stopPropagation()
-                        onChange({
-                          tipi: {
-                            ...value.tipi,
-                            [id]: { ...value.tipi[id], enabled: e.target.checked },
-                          },
-                        })
-                      }}
-                    />
-                  </td>
-                </tr>
-              ))}
+              {DOCUMENT_TYPES_FOR_OPTIONS.map(id => {
+                const enabled = value.tipi[id]?.enabled ?? true
+                return (
+                  <tr
+                    key={id}
+                    className={`${selectedType === id ? 'opzioni-grid-table__selected' : ''}${enabled ? '' : ' opzioni-grid-table__disabled'}`}
+                    onClick={() => setSelectedType(id)}
+                  >
+                    <td>{DOCUMENT_TYPE_LABELS[id]}</td>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={enabled}
+                        onChange={e => {
+                          e.stopPropagation()
+                          onChange({
+                            tipi: {
+                              ...value.tipi,
+                              [id]: { ...value.tipi[id], enabled: e.target.checked },
+                            },
+                          })
+                        }}
+                      />
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -86,7 +114,38 @@ export default function TabDocumenti({
         <div className="opzioni-documenti-detail">
           {selected ? (
             <>
-              <OpzioniFieldRow label="Indirizzo di destinazione predefinito">
+              <OpzioniSection label="Template stampa">
+                <OpzioniFieldRow label="Layout template" wideLabel>
+                  <select
+                    className="opzioni-select"
+                    value={selected.layoutTemplate ?? DEFAULT_PRINT_LAYOUT}
+                    onChange={e => patchTipo({ layoutTemplate: e.target.value as DocumentoTipoOptions['layoutTemplate'] })}
+                  >
+                    {PRINT_LAYOUT_OPTIONS.map(o => (
+                      <option key={o.id} value={o.id}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </OpzioniFieldRow>
+                {selectedLayout ? (
+                  <p className="opzioni-template-hint">{selectedLayout.description}</p>
+                ) : null}
+                <div className="opzioni-template-actions">
+                  <button type="button" className="opzioni-btn opzioni-btn--secondary" onClick={handlePreview}>
+                    Anteprima template
+                  </button>
+                  <button
+                    type="button"
+                    className="opzioni-link-btn"
+                    onClick={() => applyLayoutToAll(DEFAULT_PRINT_LAYOUT)}
+                  >
+                    Imposta layout Danea su tutti
+                  </button>
+                </div>
+              </OpzioniSection>
+
+              <OpzioniFieldRow label="Indirizzo di destinazione predefinito" wideLabel>
                 <select className="opzioni-select" value={selected.destPredefinito} onChange={e => patchTipo({ destPredefinito: e.target.value })}>
                   {DEST_OPTIONS.map(o => (
                     <option key={o} value={o}>
@@ -106,10 +165,10 @@ export default function TabDocumenti({
                 checked={selected.numerazAutomatica}
                 onChange={v => patchTipo({ numerazAutomatica: v })}
               />
-              <OpzioniFieldRow label="Titolo intestazione stampe">
+              <OpzioniFieldRow label="Titolo intestazione stampe" wideLabel>
                 <input className="opzioni-input" value={selected.titoloStampa} onChange={e => patchTipo({ titoloStampa: e.target.value })} />
               </OpzioniFieldRow>
-              <OpzioniFieldRow label="Note a fine documento">
+              <OpzioniFieldRow label="Note a fine documento" wideLabel>
                 <textarea className="opzioni-textarea" rows={4} value={selected.noteFine} onChange={e => patchTipo({ noteFine: e.target.value })} />
               </OpzioniFieldRow>
             </>
@@ -133,8 +192,13 @@ export default function TabDocumenti({
         </OpzioniSection>
 
         {onDisclaimerChange ? (
-          <OpzioniSection label="Disclaimer / testi stampa">
+          <OpzioniSection label="Disclaimer predefinito (Conferma d'ordine e template Danea)">
             <textarea className="opzioni-textarea" rows={4} value={disclaimer ?? ''} onChange={e => onDisclaimerChange(e.target.value)} />
+            <div className="opzioni-template-actions">
+              <button type="button" className="opzioni-link-btn" onClick={() => onDisclaimerChange(DEFAULT_DISCLAIMER)}>
+                Ripristina testo default Danea
+              </button>
+            </div>
           </OpzioniSection>
         ) : null}
 

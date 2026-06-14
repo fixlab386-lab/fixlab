@@ -142,12 +142,20 @@
 .opzioni-applicazione__footer {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 12px;
   flex-shrink: 0;
   padding: 12px 20px 16px;
   border-top: 1px solid #d0d0d0;
   background: #f0f0f0;
+}
+
+.opzioni-applicazione__footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex: 1;
 }
 
 .opzioni-applicazione__help {
@@ -290,8 +298,16 @@
   display: grid;
   grid-template-columns: 110px 1fr;
   gap: 8px;
-  align-items: center;
+  align-items: start;
   margin-bottom: 6px;
+}
+
+.opzioni-field-row--wide-label {
+  grid-template-columns: minmax(140px, 168px) 1fr;
+}
+
+.opzioni-field-row__control {
+  min-width: 0;
 }
 
 .opzioni-field-row__label {
@@ -319,23 +335,95 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
+  align-items: start;
 }
 
-.opzioni-row-2 {
+.opzioni-azienda-col--right {
+  display: flex;
+  flex-direction: column;
+}
+
+.opzioni-inline-row {
   display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+.opzioni-inline-row--2 {
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
 }
 
-.opzioni-row-3 {
-  display: grid;
-  grid-template-columns: 72px 1fr 48px;
-  gap: 8px;
+.opzioni-inline-row--3 {
+  grid-template-columns: 88px 1fr 56px;
+}
+
+.opzioni-inline-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.opzioni-inline-field__label {
+  font-size: 10px;
+  color: #555;
+}
+
+.opzioni-inline-field__control {
+  display: block;
+}
+
+.opzioni-input--cap {
+  max-width: 100%;
+}
+
+.opzioni-input--prov {
+  max-width: 100%;
+}
+
+.opzioni-input--grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.opzioni-link-btn--after-inline {
+  margin-top: 4px;
+  padding-left: 0;
 }
 
 .opzioni-input-with-icon {
   display: flex;
   gap: 4px;
+  width: 100%;
+}
+
+.opzioni-documenti-detail {
+  min-width: 0;
+}
+
+.opzioni-template-hint {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.opzioni-template-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.opzioni-btn--secondary {
+  background: linear-gradient(180deg, #fff 0%, #e8eef6 100%);
+  border-color: #7a9ec8;
+  color: #316ac5;
+}
+
+.opzioni-grid-table__disabled td {
+  color: #999;
 }
 
 .opzioni-icon-btn {
@@ -344,7 +432,8 @@
 }
 
 .opzioni-logo-block {
-  margin-top: 12px;
+  margin-top: 8px;
+  align-self: flex-start;
 }
 
 .opzioni-logo-frame {
@@ -471,7 +560,8 @@
     grid-template-columns: 1fr;
   }
 
-  .opzioni-field-row__label {
-    text-align: left;
+  .opzioni-inline-row--2,
+  .opzioni-inline-row--3 {
+    grid-template-columns: 1fr;
   }
 }

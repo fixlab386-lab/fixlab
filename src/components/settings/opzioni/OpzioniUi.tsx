@@ -50,17 +50,36 @@ export function OpzioniCheckRow({
   )
 }
 
+export function OpzioniInlineField({
+  label,
+  children,
+  className,
+}: {
+  label: string
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <label className={`opzioni-inline-field${className ? ` ${className}` : ''}`}>
+      <span className="opzioni-inline-field__label">{label}</span>
+      <span className="opzioni-inline-field__control">{children}</span>
+    </label>
+  )
+}
+
 export function OpzioniFieldRow({
   label,
   children,
   help,
+  wideLabel,
 }: {
   label: string
   children: ReactNode
   help?: string
+  wideLabel?: boolean
 }) {
   return (
-    <div className="opzioni-field-row">
+    <div className={`opzioni-field-row${wideLabel ? ' opzioni-field-row--wide-label' : ''}`}>
       <span className="opzioni-field-row__label">
         {label}
         {help ? <OpzioniHelp title={help} /> : null}

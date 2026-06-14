@@ -954,6 +954,21 @@ export default function ImpostazioniPanel({ onClose, initialTab: initialTabProp 
                 onRtModelChange={setRtModel}
                 onRtIpChange={setRtIp}
                 rtModels={RT_MODELS}
+                studioPreview={{
+                  name: shopName,
+                  subtitle,
+                  address,
+                  city,
+                  province,
+                  cap,
+                  nation: appOptions.azienda.nation,
+                  vatNumber,
+                  phone,
+                  cellPhone,
+                  email,
+                  logoUrl,
+                  disclaimer,
+                }}
               />
               <details className="opzioni-advanced-block">
                 <summary>Testi scheda riparazione e piè di pagina</summary>

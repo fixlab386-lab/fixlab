@@ -1,4 +1,4 @@
-import { OpzioniFieldRow } from './OpzioniUi'
+import { OpzioniFieldRow, OpzioniInlineField } from './OpzioniUi'
 
 export type AziendaFormProps = {
   shopName: string
@@ -74,34 +74,41 @@ export default function TabAzienda({
               <option>Altro</option>
             </select>
           </OpzioniFieldRow>
-          <div className="opzioni-row-3">
-            <OpzioniFieldRow label="CAP">
-              <input className="opzioni-input" value={cap} onChange={e => onChange({ cap: e.target.value })} />
-            </OpzioniFieldRow>
-            <OpzioniFieldRow label="Città">
-              <input className="opzioni-input" value={city} onChange={e => onChange({ city: e.target.value })} />
-            </OpzioniFieldRow>
-            <OpzioniFieldRow label="Prov.">
-              <input className="opzioni-input opzioni-input--xs" value={province} onChange={e => onChange({ province: e.target.value })} />
-            </OpzioniFieldRow>
-          </div>
-          <button type="button" className="opzioni-link-btn" onClick={onCapLookup}>
-            Cerca CAP…
-          </button>
-          <div className="opzioni-row-2">
-            <OpzioniFieldRow label="Cod. Fiscale">
-              <input className="opzioni-input" value={fiscalCode} onChange={e => onChange({ fiscalCode: e.target.value })} />
-            </OpzioniFieldRow>
-            <OpzioniFieldRow label="Part. Iva">
-              <input className="opzioni-input" value={vatNumber} onChange={e => onChange({ vatNumber: e.target.value })} />
-            </OpzioniFieldRow>
-          </div>
+
+          <OpzioniFieldRow label="CAP / Città">
+            <div className="opzioni-inline-row opzioni-inline-row--3">
+              <OpzioniInlineField label="CAP">
+                <input className="opzioni-input opzioni-input--cap" value={cap} onChange={e => onChange({ cap: e.target.value })} />
+              </OpzioniInlineField>
+              <OpzioniInlineField label="Città">
+                <input className="opzioni-input" value={city} onChange={e => onChange({ city: e.target.value })} />
+              </OpzioniInlineField>
+              <OpzioniInlineField label="Prov.">
+                <input className="opzioni-input opzioni-input--prov" value={province} onChange={e => onChange({ province: e.target.value })} />
+              </OpzioniInlineField>
+            </div>
+            <button type="button" className="opzioni-link-btn opzioni-link-btn--after-inline" onClick={onCapLookup}>
+              Cerca CAP…
+            </button>
+          </OpzioniFieldRow>
+
+          <OpzioniFieldRow label="Cod. Fisc. / P.IVA">
+            <div className="opzioni-inline-row opzioni-inline-row--2">
+              <OpzioniInlineField label="Cod. Fiscale">
+                <input className="opzioni-input" value={fiscalCode} onChange={e => onChange({ fiscalCode: e.target.value })} />
+              </OpzioniInlineField>
+              <OpzioniInlineField label="Part. Iva">
+                <input className="opzioni-input" value={vatNumber} onChange={e => onChange({ vatNumber: e.target.value })} />
+              </OpzioniInlineField>
+            </div>
+          </OpzioniFieldRow>
+
           <OpzioniFieldRow label="Reg. Imprese">
             <input className="opzioni-input" value={regImprese} onChange={e => onChange({ regImprese: e.target.value })} />
           </OpzioniFieldRow>
           <OpzioniFieldRow label="Home Page">
             <div className="opzioni-input-with-icon">
-              <input className="opzioni-input" value={website} onChange={e => onChange({ website: e.target.value })} />
+              <input className="opzioni-input opzioni-input--grow" value={website} onChange={e => onChange({ website: e.target.value })} />
               {website ? (
                 <a href={website.startsWith('http') ? website : `https://${website}`} target="_blank" rel="noreferrer" className="opzioni-icon-btn">
                   🌐
