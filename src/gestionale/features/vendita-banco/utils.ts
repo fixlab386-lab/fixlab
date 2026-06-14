@@ -56,6 +56,27 @@ export function emptyRiga(): RigaDocumento {
   })
 }
 
+export function buildNotaRiga(descrizione = ''): RigaDocumento {
+  return calcRiga({
+    ...emptyRiga(),
+    descrizione,
+    tipoRiga: 'nota',
+    qta: 0,
+    prezzoIvato: 0,
+    um: '',
+    iva: 0,
+    scaricaMagazzino: false,
+  })
+}
+
+/** Classe CSS per note in grassetto (** ) o corsivo (// ) come su Danea. */
+export function notaDescrizioneClass(descrizione: string): string {
+  const t = descrizione.trimStart()
+  if (t.startsWith('**')) return 'vb-nota-desc--bold'
+  if (t.startsWith('//')) return 'vb-nota-desc--italic'
+  return ''
+}
+
 export function documentTotalsFromRighe(
   righe: RigaDocumento[],
   speseImporto = 0,
@@ -66,7 +87,7 @@ export function documentTotalsFromRighe(
   totaleDocumento: number
   vatByRate: Map<number, number>
 } {
-  const active = righe.filter(r => r.descrizione.trim())
+  const active = righe.filter(r => r.descrizione.trim() && r.tipoRiga !== 'nota')
   const vatByRate = new Map<number, number>()
   let netSum = 0
   let vatSum = 0

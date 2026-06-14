@@ -104,7 +104,9 @@ export default function ArchivesManagerPopup({ onClose }: Props) {
       await duplicateStudioArchive({
         sourceStudioId: studioId,
         userId,
+        userEmail,
         newName: `${archives.find(a => a.studioId === studioId)?.name ?? 'Archivio'} (copia)`,
+        memberships,
       })
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Duplicazione non disponibile')

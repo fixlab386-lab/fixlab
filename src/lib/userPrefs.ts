@@ -109,3 +109,21 @@ export function addCustomTipoPagamento(label: string): string[] {
   writeJson('tipi_pagamento', next)
   return next
 }
+
+export type CustomCalcolataTemplate = {
+  label: string
+  percent?: number
+  amount?: number
+}
+
+export function getCustomCalcolataTemplates(): CustomCalcolataTemplate[] {
+  return readJson<CustomCalcolataTemplate[]>('calcolata_templates', [])
+}
+
+export function addCustomCalcolataTemplate(entry: CustomCalcolataTemplate): CustomCalcolataTemplate[] {
+  const label = entry.label.trim()
+  if (!label) return getCustomCalcolataTemplates()
+  const next = [...getCustomCalcolataTemplates().filter(t => t.label !== label), { ...entry, label }]
+  writeJson('calcolata_templates', next)
+  return next
+}

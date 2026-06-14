@@ -29,31 +29,63 @@ export function moveRiga(righe: RigaDocumento[], index: number, direction: -1 | 
   return next
 }
 
-export function addSubtotaleRiga(righe: RigaDocumento[]): RigaDocumento[] {
-  const active = righe.filter(r => r.descrizione.trim())
+/** Righe che concorrono alla base per percentuali (solo merci/servizi, no note/subtotali/altre calcolate). */
+export function righeBasePerCalcolataPercentuale(righe: RigaDocumento[]): RigaDocumento[] {
+  return righe.filter(
+    r => r.descrizione.trim() && r.tipoRiga !== 'nota' && r.tipoRiga !== 'calcolata',
+  )
+}
+
+export function buildSubtotaleRiga(righe: RigaDocumento[]): RigaDocumento {
+  const active = righe.filter(r => r.descrizione.trim() && r.tipoRiga !== 'nota')
   const sum = active.reduce((acc, r) => acc + calcRiga(r).importoIvato, 0)
-  const row = calcRiga({
+  return calcRiga({
     ...emptyRiga(),
     descrizione: `Subtotale: ${formatEuro(sum)}`,
     tipoRiga: 'nota',
     qta: 0,
     prezzoIvato: 0,
+    scaricaMagazzino: false,
   })
-  return [...righe.filter(r => r.descrizione.trim()), row, emptyRiga()]
 }
 
-export function addPercentualeRiga(righe: RigaDocumento[], label: string, percent: number): RigaDocumento[] {
-  const totals = documentTotalsFromRighe(righe.filter(r => r.descrizione.trim()))
+export function buildPercentualeRiga(righe: RigaDocumento[], label: string, percent: number): RigaDocumento {
+  const base = righeBasePerCalcolataPercentuale(righe)
+  const totals = documentTotalsFromRighe(base)
   const amount = Math.round(totals.totaleDocumento * (percent / 100) * 100) / 100
-  const row = calcRiga({
+  return calcRiga({
     ...emptyRiga(),
     descrizione: label,
     prezzoIvato: amount,
     qta: 1,
     iva: 22,
     tipoRiga: 'calcolata',
+    scaricaMagazzino: false,
   })
-  return [...righe.filter(r => r.descrizione.trim()), row, emptyRiga()]
+}
+
+export function buildImportoFissoRiga(label: string, amount: number, iva = 22): RigaDocumento {
+  return calcRiga({
+    ...emptyRiga(),
+    descrizione: label,
+    prezzoIvato: amount,
+    qta: 1,
+    iva,
+    tipoRiga: 'calcolata',
+    scaricaMagazzino: false,
+  })
+}
+
+export function addSubtotaleRiga(righe: RigaDocumento[]): RigaDocumento[] {
+  return [...righe.filter(r => r.descrizione.trim()), buildSubtotaleRiga(righe), emptyRiga()]
+}
+
+export function addPercentualeRiga(righe: RigaDocumento[], label: string, percent: number): RigaDocumento[] {
+  return [...righe.filter(r => r.descrizione.trim()), buildPercentualeRiga(righe, label, percent), emptyRiga()]
+}
+
+export function addImportoFissoRiga(righe: RigaDocumento[], label: string, amount: number, iva = 22): RigaDocumento[] {
+  return [...righe.filter(r => r.descrizione.trim()), buildImportoFissoRiga(label, amount, iva), emptyRiga()]
 }
 
 export function scorporaTotaleRighe(righe: RigaDocumento[]): string {
@@ -86,6 +118,31 @@ export function ruotaTotaleIva(righe: RigaDocumento[], newIva: number): RigaDocu
   return righe.map(r =>
     r.descrizione.trim() ? calcRiga({ ...r, iva: newIva }) : r,
   )
+}
+
+/** Applica sconto % uniforme sulle righe merce (Danea: Sconto su totale). */
+export function scontoSuTotaleRighe(righe: RigaDocumento[], percent: number): RigaDocumento[] {
+  const pct = Math.max(0, Math.min(100, percent))
+  return righe.map(r => {
+    if (!r.descrizione.trim() || r.tipoRiga === 'nota' || r.tipoRiga === 'calcolata') return r
+    return calcRiga({ ...r, sconto: pct })
+  })
+}
+
+/** Ricalcola i prezzi per raggiungere un totale documento ivato (Danea: Porta totale a…). */
+export function portaTotaleA(righe: RigaDocumento[], targetTotal: number): RigaDocumento[] {
+  if (!Number.isFinite(targetTotal) || targetTotal <= 0) return righe
+  const adjustable = righeBasePerCalcolataPercentuale(righe)
+  const current = documentTotalsFromRighe(adjustable).totaleDocumento
+  if (current <= 0) return righe
+  const factor = targetTotal / current
+  return righe.map(r => {
+    if (!r.descrizione.trim() || r.tipoRiga === 'nota' || r.tipoRiga === 'calcolata') return r
+    return calcRiga({
+      ...r,
+      prezzoIvato: Math.round(r.prezzoIvato * factor * 100) / 100,
+    })
+  })
 }
 
 export function exportRigheExcel(righe: RigaDocumento[]): void {

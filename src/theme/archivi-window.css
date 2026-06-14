@@ -1,0 +1,379 @@
+/* FIXLab — Finestra Archivi stile Danea Easyfatt */
+
+.archivi-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.archivi-window {
+  display: flex;
+  flex-direction: column;
+  width: min(920px, 96vw);
+  height: min(620px, 92vh);
+  background: #fff;
+  border: 1px solid #7a9ec8;
+  border-radius: 4px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+}
+
+.archivi-window__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
+  border-bottom: 1px solid #c5d4e8;
+}
+
+.archivi-window__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a5a9e;
+}
+
+.archivi-window__subtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #5a6a7a;
+}
+
+.archivi-window__header-icon {
+  font-size: 36px;
+  opacity: 0.85;
+}
+
+.archivi-window__pathbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #3a3a3a;
+  color: #f0f0f0;
+  font-size: 12px;
+}
+
+.archivi-window__pathbar-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.archivi-window__pathbar-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.archivi-window__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.archivi-sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #2b6cb0 0%, #1e4d8c 100%);
+  color: #fff;
+  padding: 10px 0;
+  overflow-y: auto;
+}
+
+.archivi-sidebar__section {
+  margin-bottom: 14px;
+}
+
+.archivi-sidebar__section-title {
+  padding: 4px 14px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.85;
+}
+
+.archivi-sidebar__btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 14px;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 12px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.archivi-sidebar__btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.archivi-sidebar__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.archivi-sidebar__icon {
+  width: 22px;
+  text-align: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.archivi-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #fff;
+  position: relative;
+}
+
+.archivi-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 12px 0;
+  padding: 8px 10px;
+  background: #fff8dc;
+  border: 1px solid #e8d080;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #5a4a00;
+}
+
+.archivi-banner__link {
+  color: #1a5a9e;
+  cursor: pointer;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  font: inherit;
+  padding: 0;
+}
+
+.archivi-main__hint {
+  margin: 10px 14px 6px;
+  font-size: 12px;
+  color: #444;
+}
+
+.archivi-grid-wrap {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 14px 12px;
+}
+
+.archivi-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-content: flex-start;
+}
+
+.archivi-grid__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 96px;
+  padding: 8px 4px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+  font-family: inherit;
+}
+
+.archivi-grid__item:hover {
+  background: #f0f6fc;
+}
+
+.archivi-grid__item--selected {
+  border-color: #1a5a9e;
+  background: #e8f2fc;
+}
+
+.archivi-grid__folder {
+  font-size: 48px;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.archivi-grid__label {
+  font-size: 11px;
+  text-align: center;
+  word-break: break-word;
+  max-width: 100%;
+  color: #222;
+}
+
+.archivi-grid__lock {
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.archivi-main__footer-link {
+  padding: 6px 14px 10px;
+  font-size: 11px;
+}
+
+.archivi-main__footer-link button {
+  color: #1a5a9e;
+  background: none;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.archivi-statusbar {
+  display: flex;
+  gap: 24px;
+  padding: 6px 14px;
+  background: #eef2f6;
+  border-top: 1px solid #c5d4e8;
+  font-size: 11px;
+  color: #333;
+}
+
+.archivi-statusbar__item strong {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.archivi-statusbar__count {
+  margin-left: auto;
+  color: #666;
+}
+
+.archivi-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 13000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.archivi-dialog {
+  width: min(380px, 92vw);
+  background: #fff;
+  border: 1px solid #888;
+  border-radius: 3px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.archivi-dialog__header {
+  padding: 8px 12px;
+  background: linear-gradient(180deg, #f0f0f0, #e0e0e0);
+  border-bottom: 1px solid #aaa;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.archivi-dialog__body {
+  padding: 14px 16px;
+}
+
+.archivi-dialog__label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.archivi-dialog__input {
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid #aaa;
+  font-size: 12px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.archivi-dialog__error {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #b00020;
+}
+
+.archivi-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px 14px;
+}
+
+.archivi-dialog__btn {
+  min-width: 72px;
+  height: 26px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-family: inherit;
+  border: 1px solid #888;
+  background: #f5f5f5;
+  cursor: pointer;
+}
+
+.archivi-dialog__btn--primary {
+  background: #e8f0fa;
+  border-color: #5a8ec8;
+}
+
+.archivi-dropdown {
+  position: relative;
+}
+
+.archivi-dropdown__menu {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  z-index: 10;
+  min-width: 220px;
+  background: #fff;
+  border: 1px solid #ccc;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.archivi-dropdown__item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: #fff;
+  text-align: left;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  color: #222;
+}
+
+.archivi-dropdown__item:hover {
+  background: #e8f2fc;
+}
+
+.archivi-busy {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  color: #333;
+}

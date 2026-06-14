@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+﻿import { useEffect, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useActiveStudio } from '../hooks/useActiveStudio'
 import { useOnboardingContext } from '../contexts/OnboardingContext'
@@ -45,7 +45,24 @@ import {
 import { uploadStudioLogoFile } from '../lib/studioLogo'
 import { WhatsAppConnectionPanel } from '../WhatsAppSetup'
 import type { StudioFeatures } from '../types'
+import OpzioniApplicazioneShell, { type OpzioniTabId } from '../components/settings/opzioni/OpzioniApplicazioneShell'
+import TabModuli from '../components/settings/opzioni/TabModuli'
+import TabAzienda from '../components/settings/opzioni/TabAzienda'
+import TabClientiFornitori from '../components/settings/opzioni/TabClientiFornitori'
+import TabProdotti from '../components/settings/opzioni/TabProdotti'
+import TabDocumenti from '../components/settings/opzioni/TabDocumenti'
+import TabAvvisi from '../components/settings/opzioni/TabAvvisi'
+import TabVarie from '../components/settings/opzioni/TabVarie'
+import {
+  applicationOptionsToFirestore,
+  defaultApplicationOptions,
+  loadApplicationOptions,
+  syncAppOptionsFromFeatures,
+  syncFeaturesFromAppOptions,
+  type ApplicationOptions,
+} from '../lib/applicationOptions'
 import '../theme/gestionale-settings.css'
+import '../theme/gestionale-opzioni-applicazione.css'
 import '../theme/gestionale-dialog.css'
 import '../components/onboarding/onboarding.css'
 
@@ -69,44 +86,17 @@ const TEMPLATE_VARS = [
   { var: '{{nome_negozio}}', desc: 'Nome del negozio' },
 ]
 
-type SettingsTab = 'officina' | 'moduli' | 'documenti' | 'whatsapp' | 'dati' | 'legale'
-
-const TABS: { key: SettingsTab; label: string }[] = [
-  { key: 'officina', label: 'La mia officina' },
-  { key: 'moduli', label: 'Moduli / Funzionalità' },
-  { key: 'documenti', label: 'Documenti e stampa' },
-  { key: 'whatsapp', label: 'WhatsApp' },
-  { key: 'dati', label: 'Dati e backup' },
-  { key: 'legale', label: 'Legale / Privacy' },
-]
-
-const SAVE_TABS: SettingsTab[] = ['officina', 'moduli', 'documenti', 'whatsapp']
-
-const TAB_PANELS: Record<SettingsTab, { title: string; hint: string }> = {
-  officina: {
-    title: 'La mia officina',
-    hint: 'Dati anagrafici e logo che compaiono su documenti, PDF e comunicazioni ai clienti.',
-  },
-  moduli: {
-    title: 'Moduli e funzionalità',
-    hint: 'Attiva o disattiva le sezioni del gestionale e configura agenti, magazzini e listini.',
-  },
-  documenti: {
-    title: 'Documenti e stampa',
-    hint: 'Testi legali, piè di pagina riparazioni e configurazione registratore telematico.',
-  },
-  whatsapp: {
-    title: 'WhatsApp',
-    hint: 'Template messaggi e collegamento Evolution API per avvisare i clienti.',
-  },
-  dati: {
-    title: 'Dati e backup',
-    hint: 'Account, export dati, app desktop e checklist di verifica del laboratorio.',
-  },
-  legale: {
-    title: 'Legale e privacy',
-    hint: 'Documentazione privacy, cookie e preferenze di consenso.',
-  },
+function resolveOpzioniTab(tab: string | null): OpzioniTabId {
+  const legacy: Record<string, OpzioniTabId> = {
+    officina: 'azienda',
+    whatsapp: 'varie',
+    dati: 'varie',
+    legale: 'varie',
+  }
+  if (tab && legacy[tab]) return legacy[tab]
+  const valid: OpzioniTabId[] = ['moduli', 'azienda', 'clienti', 'prodotti', 'documenti', 'avvisi', 'varie']
+  if (tab && valid.includes(tab as OpzioniTabId)) return tab as OpzioniTabId
+  return 'moduli'
 }
 
 /** Checklist operativa: cosa controllare in laboratorio (stampa da browser se serve). */
@@ -138,7 +128,7 @@ const VERIFICA_SECTIONS: { title: string; subtitle: string; items: string[] }[] 
     subtitle: 'Catalogo, codici e movimenti.',
     items: [
       'Categorie e prodotti: creazione, modifica, prezzi listino e giacenza.',
-      'Barcode prodotto: campo ricerca Magazzino + lettore USB (codice lungo + Invio) oppure «Scansiona» con fotocamera.',
+      'Barcode prodotto: campo ricerca Magazzino + lettore USB (codice lungo + Invio) oppure Â«ScansionaÂ» con fotocamera.',
       'Movimenti magazzino: carico/scarico registrato e riflesso sullo stock.',
       'Fornitori: anagrafica aggiornata se usata in documenti.',
     ],
@@ -148,7 +138,7 @@ const VERIFICA_SECTIONS: { title: string; subtitle: string; items: string[] }[] 
     subtitle: 'Vendite e documenti commerciali.',
     items: [
       'Cassa: aggiunta prodotti al carrello, totale, sconto, cliente; vendita di prova e controllo magazzino dopo scarico.',
-      'Scontrino fiscale: se usi la macchina classica, verifica che corrisponda all’importo in cassa; invio da app solo se avete configurato rete/bridge.',
+      'Scontrino fiscale: se usi la macchina classica, verifica che corrisponda all\'importo in cassa; invio da app solo se avete configurato rete/bridge.',
       'Documenti: creazione preventivo/fattura (secondo i tipi che usate), salvataggio, PDF se previsto.',
       'Pagamenti: movimenti coerenti con incassi registrati a cassa o altrove.',
     ],
@@ -396,6 +386,7 @@ async function buildStudioExportZipBlob(params: {
 }
 
 export default function Impostazioni() {
+  const navigate = useNavigate()
   const { userProfile } = useAuth()
   const { studioId, legacyStudioId, loading: studioLoading } = useActiveStudio()
   const { reopenOnboarding } = useOnboardingContext()
@@ -403,14 +394,7 @@ export default function Impostazioni() {
   const [searchParams] = useSearchParams()
 
   const tabFromUrl = searchParams.get('tab')
-  const initialTab: SettingsTab =
-    tabFromUrl === 'moduli' ||
-    tabFromUrl === 'documenti' ||
-    tabFromUrl === 'whatsapp' ||
-    tabFromUrl === 'dati' ||
-    tabFromUrl === 'legale'
-      ? tabFromUrl
-      : 'officina'
+  const initialTab = resolveOpzioniTab(tabFromUrl)
 
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -418,21 +402,12 @@ export default function Impostazioni() {
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [uploadingLogo, setUploadingLogo] = useState(false)
-  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab)
+  const [activeTab, setActiveTab] = useState<OpzioniTabId>(initialTab)
   const [showCapPopup, setShowCapPopup] = useState(false)
+  const [appOptions, setAppOptions] = useState<ApplicationOptions>(() => defaultApplicationOptions())
 
   useEffect(() => {
-    const tab = searchParams.get('tab')
-    if (
-      tab === 'moduli' ||
-      tab === 'documenti' ||
-      tab === 'whatsapp' ||
-      tab === 'dati' ||
-      tab === 'legale' ||
-      tab === 'officina'
-    ) {
-      setActiveTab(tab)
-    }
+    setActiveTab(resolveOpzioniTab(searchParams.get('tab')))
   }, [searchParams])
 
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -488,7 +463,8 @@ export default function Impostazioni() {
         if (cancelled) return
 
         if (snap.exists()) {
-          const loaded = studioDocToSettingsForm(snap.data(), userProfile.email || '')
+          const data = snap.data()
+          const loaded = studioDocToSettingsForm(data, userProfile.email || '')
           setShopName(loaded.shopName)
           setSubtitle(loaded.subtitle)
           setAddress(loaded.address)
@@ -509,6 +485,11 @@ export default function Impostazioni() {
           setDisclaimer(loaded.disclaimer)
           setWaTemplate(loaded.waTemplate)
           setFeatures(loaded.features)
+          const opts = syncAppOptionsFromFeatures(loadApplicationOptions(data), loaded.features)
+          if (loaded.cellPhone && !opts.azienda.phone2) {
+            opts.azienda.phone2 = loaded.cellPhone
+          }
+          setAppOptions(opts)
         } else {
           setLoadError('Dati officina non trovati per questo archivio.')
         }
@@ -551,31 +532,47 @@ export default function Impostazioni() {
     setSaving(true)
     setSaveError('')
     try {
+      const syncedFeatures: StudioFeatures = {
+        ...features,
+        ...syncFeaturesFromAppOptions(appOptions, features),
+        whatsapp: appOptions.moduli.ecommerce,
+      }
+      const appOptionsToSave: ApplicationOptions = {
+        ...appOptions,
+        azienda: {
+          ...appOptions.azienda,
+          phone2: appOptions.azienda.phone2 || cellPhone,
+        },
+      }
       await updateDoc(
         doc(db, 'studios', studioId),
-        settingsFormToFirestorePatch({
-          shopName,
-          subtitle,
-          address,
-          city,
-          province,
-          cap,
-          phone,
-          cellPhone,
-          email,
-          website,
-          vatNumber,
-          fiscalCode,
-          logoUrl,
-          features,
-          rtModel,
-          rtIp,
-          warrantyText,
-          footerText,
-          disclaimer,
-          waTemplate,
-        }),
+        {
+          ...settingsFormToFirestorePatch({
+            shopName,
+            subtitle,
+            address,
+            city,
+            province,
+            cap,
+            phone,
+            cellPhone: appOptionsToSave.azienda.phone2 || cellPhone,
+            email,
+            website,
+            vatNumber,
+            fiscalCode,
+            logoUrl,
+            features: syncedFeatures,
+            rtModel,
+            rtIp,
+            warrantyText,
+            footerText,
+            disclaimer,
+            waTemplate,
+          }),
+          ...applicationOptionsToFirestore(appOptionsToSave),
+        },
       )
+      setFeatures(syncedFeatures)
       await updateDoc(doc(db, 'users', userProfile.id), { name: userName.trim() })
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
@@ -762,21 +759,54 @@ export default function Impostazioni() {
   const roleLabel =
     userProfile?.role === 'admin' ? 'Amministratore' : userProfile?.role === 'technician' ? 'Tecnico' : 'Cassiere'
 
-  const showSaveFooter =
-    SAVE_TABS.includes(activeTab) || (activeTab === 'dati' && userName !== (userProfile?.name || ''))
+  const patchModuli = (patch: Partial<ApplicationOptions['moduli']>) => {
+    setAppOptions(prev => {
+      const moduli = { ...prev.moduli, ...patch }
+      setFeatures(f => ({
+        ...f,
+        warehouse: moduli.magazzinoGestione,
+        pos: moduli.venditaTouchscreen,
+        rtPrinter: moduli.registratoreCassa,
+        whatsapp: moduli.ecommerce,
+      }))
+      return { ...prev, moduli }
+    })
+  }
 
-  const saveButtonLabel =
-    activeTab === 'dati' && !SAVE_TABS.includes(activeTab)
-      ? saving
-        ? 'Salvataggio…'
-        : saved
-          ? '✓ Nome salvato'
-          : 'Salva nome utente'
-      : saving
-        ? 'Salvataggio…'
-        : saved
-          ? '✓ Salvato'
-          : 'Salva impostazioni'
+  const patchAzienda = (patch: Partial<Parameters<typeof TabAzienda>[0]>) => {
+    if ('shopName' in patch && patch.shopName !== undefined) setShopName(patch.shopName)
+    if ('subtitle' in patch && patch.subtitle !== undefined) setSubtitle(patch.subtitle)
+    if ('address' in patch && patch.address !== undefined) setAddress(patch.address)
+    if ('cap' in patch && patch.cap !== undefined) setCap(patch.cap)
+    if ('city' in patch && patch.city !== undefined) setCity(patch.city)
+    if ('province' in patch && patch.province !== undefined) setProvince(patch.province)
+    if ('fiscalCode' in patch && patch.fiscalCode !== undefined) setFiscalCode(patch.fiscalCode)
+    if ('vatNumber' in patch && patch.vatNumber !== undefined) setVatNumber(patch.vatNumber)
+    if ('website' in patch && patch.website !== undefined) setWebsite(patch.website)
+    if ('phone' in patch && patch.phone !== undefined) setPhone(patch.phone)
+    if ('email' in patch && patch.email !== undefined) setEmail(patch.email)
+    if ('phone2' in patch && patch.phone2 !== undefined) {
+      setCellPhone(patch.phone2)
+      setAppOptions(prev => ({ ...prev, azienda: { ...prev.azienda, phone2: patch.phone2! } }))
+      return
+    }
+    if ('phone3' in patch || 'fax' in patch || 'pec' in patch || 'nation' in patch || 'regImprese' in patch || 'altro' in patch) {
+      setAppOptions(prev => ({
+        ...prev,
+        azienda: {
+          ...prev.azienda,
+          ...(patch.phone3 !== undefined ? { phone3: patch.phone3 } : {}),
+          ...(patch.fax !== undefined ? { fax: patch.fax } : {}),
+          ...(patch.pec !== undefined ? { pec: patch.pec } : {}),
+          ...(patch.nation !== undefined ? { nation: patch.nation } : {}),
+          ...(patch.regImprese !== undefined ? { regImprese: patch.regImprese } : {}),
+          ...(patch.altro !== undefined ? { altro: patch.altro } : {}),
+        },
+      }))
+    }
+  }
+
+  const saveButtonLabel = saving ? 'Salvataggio…' : saved ? '✓ Salvato' : 'Salva'
 
   if (loading || studioLoading) {
     return (
@@ -786,226 +816,55 @@ export default function Impostazioni() {
     )
   }
 
-  const panel = TAB_PANELS[activeTab]
 
   return (
     <>
       <div className="gestionale-page gestionale-settings-page" data-tutorial="page-impostazioni">
-        <div className="gestionale-settings-layout">
-          <aside className="gestionale-settings-nav">
-            <div className="gestionale-settings-nav__head">
-              <h1 className="gestionale-settings-nav__title">Impostazioni</h1>
-              <p className="gestionale-settings-nav__subtitle">Configurazione FixLab</p>
-            </div>
-            <nav className="gestionale-settings-nav__list" role="tablist" aria-label="Sezioni impostazioni" data-tutorial="impostazioni-sidebar">
-              {TABS.map(tab => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  className={`gestionale-settings-nav__btn${activeTab === tab.key ? ' gestionale-settings-nav__btn--active' : ''}`}
-                  data-tutorial={tab.key === 'dati' ? 'impostazioni-tab-verifica' : undefined}
-                  aria-selected={activeTab === tab.key}
-                  onClick={() => setActiveTab(tab.key)}
+        {loadError ? (
+          <div className="gestionale-settings-info-box gestionale-settings-info-box--danger" style={{ marginBottom: 12 }}>
+            {loadError}
+          </div>
+        ) : null}
+
+        <OpzioniApplicazioneShell
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          onHelp={() => alert('Guida Opzioni applicazione FixLab — consulta la documentazione in-app.')}
+          footer={
+            <>
+              <button type="button" className="opzioni-btn" onClick={() => navigate('/')}>
+                Chiudi
+              </button>
+              {(saveError || saved) && (
+                <span
+                  className="opzioni-save-status"
+                  style={{ fontSize: 11, color: saveError ? '#c00' : '#080' }}
                 >
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
-          </aside>
-
-          <div className="gestionale-settings-main">
-            <div className="gestionale-settings-body" data-tutorial="impostazioni-content" role="tabpanel">
-              <div className="gestionale-settings-panel-head">
-                <h2 className="gestionale-settings-panel-head__title">{panel.title}</h2>
-                <p className="gestionale-settings-panel-head__hint">{panel.hint}</p>
-                {loadError ? (
-                  <div className="gestionale-settings-info-box gestionale-settings-info-box--danger" style={{ marginTop: 10 }}>
-                    {loadError}
-                  </div>
-                ) : null}
-              </div>
-          {activeTab === 'officina' && (
-            <div className="gestionale-settings-stack gestionale-settings-stack--wide">
-              <div className="gestionale-settings-card">
-                <div className="gestionale-settings-fields">
-                <FormField label="Logo" htmlFor="set-logo">
-                  <div className="gestionale-settings-logo-row">
-                    {logoUrl ? (
-                      <img src={logoUrl} alt="Logo officina" className="gestionale-settings-logo-preview" />
-                    ) : (
-                      <div className="gestionale-settings-logo-placeholder" aria-hidden>🏪</div>
-                    )}
-                    <div>
-                      <div style={{ fontSize: 11, color: 'var(--gestionale-text-muted)', marginBottom: 6 }}>PNG o JPG, max 2 MB</div>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        <label className="gestionale-tool-btn" style={{ cursor: uploadingLogo ? 'wait' : 'pointer' }}>
-                          {uploadingLogo ? 'Caricamento…' : logoUrl ? 'Cambia logo' : 'Carica logo'}
-                          <input
-                            id="set-logo"
-                            type="file"
-                            accept="image/png,image/jpeg,image/*"
-                            hidden
-                            disabled={uploadingLogo}
-                            onChange={handleLogoUpload}
-                          />
-                        </label>
-                        {logoUrl ? (
-                          <ToolButton label="Rimuovi" variant="danger" onClick={() => setLogoUrl('')} />
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                </FormField>
-
-                <div className="gestionale-settings-row-2">
-                  <FormField label="Cod. Fiscale" htmlFor="set-cf">
-                    <input
-                      id="set-cf"
-                      className="gestionale-form-field__input"
-                      value={fiscalCode}
-                      onChange={e => setFiscalCode(e.target.value)}
-                    />
-                  </FormField>
-                  <FormField label="Part. IVA" htmlFor="set-piva">
-                    <input
-                      id="set-piva"
-                      className="gestionale-form-field__input"
-                      value={vatNumber}
-                      onChange={e => setVatNumber(e.target.value)}
-                    />
-                  </FormField>
-                </div>
-
-                <FormField label="Denominazione" htmlFor="set-name" required>
-                  <input
-                    id="set-name"
-                    className="gestionale-form-field__input"
-                    value={shopName}
-                    onChange={e => setShopName(e.target.value)}
-                    placeholder="Nome officina"
-                  />
-                </FormField>
-
-                <FormField label="Sottotitolo" htmlFor="set-subtitle">
-                  <input
-                    id="set-subtitle"
-                    className="gestionale-form-field__input"
-                    value={subtitle}
-                    onChange={e => setSubtitle(e.target.value)}
-                    placeholder="Es. Riparazione smartphone e PC"
-                  />
-                </FormField>
-
-                <FormField label="Indirizzo" htmlFor="set-address">
-                  <input
-                    id="set-address"
-                    className="gestionale-form-field__input"
-                    value={address}
-                    onChange={e => setAddress(e.target.value)}
-                  />
-                </FormField>
-
-                <FormField label="CAP" htmlFor="set-cap">
-                  <div className="gestionale-field-with-action gestionale-settings-cap-field">
-                    <input
-                      id="set-cap"
-                      className="gestionale-form-field__input gestionale-field-with-action__input"
-                      value={cap}
-                      onChange={e => setCap(e.target.value)}
-                    />
-                    <button
-                      type="button"
-                      className="gestionale-field-action-btn"
-                      title="Ricerca CAP / Città / Provincia"
-                      onClick={() => setShowCapPopup(true)}
-                    >
-                      🔍
-                    </button>
-                  </div>
-                </FormField>
-
-                <div className="gestionale-settings-row-2 gestionale-settings-row-2--city">
-                  <FormField label="Città" htmlFor="set-city">
-                    <input
-                      id="set-city"
-                      className="gestionale-form-field__input"
-                      value={city}
-                      onChange={e => setCity(e.target.value)}
-                    />
-                  </FormField>
-                  <FormField label="Prov." htmlFor="set-prov" labelWidth={52}>
-                    <input
-                      id="set-prov"
-                      className="gestionale-form-field__input"
-                      value={province}
-                      onChange={e => setProvince(e.target.value.toUpperCase())}
-                      maxLength={2}
-                    />
-                  </FormField>
-                </div>
-
-                <div className="gestionale-settings-row-2">
-                  <FormField label="Tel." htmlFor="set-phone">
-                    <input
-                      id="set-phone"
-                      className="gestionale-form-field__input"
-                      type="tel"
-                      value={phone}
-                      onChange={e => setPhone(e.target.value)}
-                    />
-                  </FormField>
-                  <FormField label="Cell./WhatsApp" htmlFor="set-cell">
-                    <input
-                      id="set-cell"
-                      className="gestionale-form-field__input"
-                      type="tel"
-                      value={cellPhone}
-                      onChange={e => setCellPhone(e.target.value)}
-                    />
-                  </FormField>
-                </div>
-
-                <FormField label="E-mail" htmlFor="set-email">
-                  <input
-                    id="set-email"
-                    className="gestionale-form-field__input"
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                  />
-                </FormField>
-
-                <FormField label="Sito web" htmlFor="set-website">
-                  <input
-                    id="set-website"
-                    className="gestionale-form-field__input"
-                    value={website}
-                    onChange={e => setWebsite(e.target.value)}
-                  />
-                </FormField>
-                </div>
-              </div>
-
-              <div className="gestionale-settings-card">
-                <ToolButton label="Riapri configurazione guidata" onClick={reopenOnboarding} />
-                <p className="gestionale-settings-section__hint" style={{ marginTop: 8, marginBottom: 0 }}>
-                  Rilancia il wizard di primo avvio per rivedere moduli e tipi di riparazione.
-                </p>
-              </div>
-            </div>
-          )}
-
-            {activeTab === 'moduli' && (
-              <div className="gestionale-settings-stack gestionale-settings-stack--wide">
-                <div className="gestionale-settings-card">
-                <div className="gestionale-settings-section">
-                  <h3 className="gestionale-settings-section__title">Moduli attivi</h3>
-                  <p className="gestionale-settings-section__hint">
-                    Attiva o disattiva le funzionalità del gestionale. Le scelte vengono salvate su Firestore come nell&apos;onboarding.
-                  </p>
-                </div>
-                <div className="gestionale-onboarding-check-list">
+                  {saveError || 'Modifiche salvate.'}
+                </span>
+              )}
+              <button
+                type="button"
+                className="opzioni-btn"
+                disabled={saving || Boolean(loadError)}
+                onClick={() => void handleSave()}
+              >
+                {saveButtonLabel}
+              </button>
+            </>
+          }
+        >
+          {activeTab === 'moduli' && (
+            <>
+              <TabModuli
+                value={appOptions.moduli}
+                onChange={patchModuli}
+                onUtenti={() => alert('Gestione utenti — in arrivo.')}
+                onConfiguraVendita={reopenOnboarding}
+              />
+              <details className="opzioni-advanced-block" open>
+                <summary>Moduli FixLab e configurazione avanzata</summary>
+                <div className="gestionale-onboarding-check-list" style={{ marginTop: 8 }}>
                   {FEATURE_OPTIONS.map(opt => (
                     <label key={opt.key} className="gestionale-onboarding-check">
                       <input
@@ -1017,367 +876,240 @@ export default function Impostazioni() {
                     </label>
                   ))}
                 </div>
-                </div>
                 <EnterpriseConfigSection />
+              </details>
+            </>
+          )}
+
+          {activeTab === 'azienda' && (
+            <>
+              <TabAzienda
+                shopName={shopName}
+                subtitle={subtitle}
+                address={address}
+                nation={appOptions.azienda.nation}
+                cap={cap}
+                city={city}
+                province={province}
+                fiscalCode={fiscalCode}
+                vatNumber={vatNumber}
+                regImprese={appOptions.azienda.regImprese}
+                website={website}
+                altro={appOptions.azienda.altro}
+                phone={phone}
+                phone2={appOptions.azienda.phone2 || cellPhone}
+                phone3={appOptions.azienda.phone3}
+                fax={appOptions.azienda.fax}
+                email={email}
+                pec={appOptions.azienda.pec}
+                logoUrl={logoUrl}
+                uploadingLogo={uploadingLogo}
+                onChange={patchAzienda}
+                onLogoUpload={handleLogoUpload}
+                onDeleteLogo={() => setLogoUrl('')}
+                onCapLookup={() => setShowCapPopup(true)}
+              />
+              <div style={{ marginTop: 12 }}>
+                <ToolButton label="Riapri configurazione guidata" onClick={reopenOnboarding} />
               </div>
-            )}
+            </>
+          )}
 
-            {activeTab === 'documenti' && (
-              <div className="gestionale-settings-stack gestionale-settings-stack--wide">
-                <div className="gestionale-settings-card">
-                <div className="gestionale-settings-section">
-                  <h3 className="gestionale-settings-section__title">Disclaimer legale</h3>
-                  <p className="gestionale-settings-section__hint">
-                    Testo in fondo a conferme d&apos;ordine, preventivi, fatture e ricevute PDF.
-                  </p>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
-                    <ToolButton label="↺ Ripristina default" onClick={() => setDisclaimer(DEFAULT_DISCLAIMER)} />
+          {activeTab === 'clienti' && (
+            <TabClientiFornitori
+              value={appOptions.clienti}
+              onChange={patch => setAppOptions(prev => ({ ...prev, clienti: { ...prev.clienti, ...patch } }))}
+            />
+          )}
+
+          {activeTab === 'prodotti' && (
+            <TabProdotti
+              value={appOptions.prodotti}
+              onChange={patch => setAppOptions(prev => ({ ...prev, prodotti: { ...prev.prodotti, ...patch } }))}
+            />
+          )}
+
+          {activeTab === 'documenti' && (
+            <>
+              <TabDocumenti
+                value={appOptions.documenti}
+                onChange={patch =>
+                  setAppOptions(prev => ({
+                    ...prev,
+                    documenti: {
+                      ...prev.documenti,
+                      ...patch,
+                      tipi: patch.tipi ? { ...prev.documenti.tipi, ...patch.tipi } : prev.documenti.tipi,
+                    },
+                  }))
+                }
+                disclaimer={disclaimer}
+                onDisclaimerChange={setDisclaimer}
+                rtModel={rtModel}
+                rtIp={rtIp}
+                onRtModelChange={setRtModel}
+                onRtIpChange={setRtIp}
+                rtModels={RT_MODELS}
+              />
+              <details className="opzioni-advanced-block">
+                <summary>Testi scheda riparazione e piè di pagina</summary>
+                <div className="opzioni-tab-panel" style={{ marginTop: 8 }}>
+                  <div className="opzioni-field-row">
+                    <label className="opzioni-field-row__label">Testo garanzia</label>
+                    <input className="opzioni-input" value={warrantyText} onChange={e => setWarrantyText(e.target.value)} />
                   </div>
-                  <textarea
-                    className="gestionale-form-field__input gestionale-form-field__input--textarea gestionale-form-field__input--tall"
-                    value={disclaimer}
-                    onChange={e => setDisclaimer(e.target.value)}
-                    rows={6}
-                  />
-                </div>
-                </div>
-
-                <div className="gestionale-settings-card">
-                <div className="gestionale-settings-section">
-                  <h3 className="gestionale-settings-section__title">Numerazione documenti</h3>
-                  <p className="gestionale-settings-section__hint">
-                    La numerazione progressiva e l&apos;eventuale serie (es. A, B) si impostano per ogni documento in{' '}
-                    <strong>Documenti → Nuovo</strong>. Il formato completo è <code>numero/serie</code> o{' '}
-                    <code>numero/anno</code> se non è indicata una serie. L&apos;anno segue la data del documento.
-                  </p>
-                  <div className="gestionale-settings-info-box">
-                    Per le riparazioni, numero e anno si gestiscono nella scheda ticket (campo progressivo/anno).
+                  <div className="opzioni-field-row">
+                    <label className="opzioni-field-row__label">Piè di pagina</label>
+                    <input className="opzioni-input" value={footerText} onChange={e => setFooterText(e.target.value)} />
                   </div>
+                  <ToolButton label="↺ Ripristina disclaimer default" onClick={() => setDisclaimer(DEFAULT_DISCLAIMER)} />
                 </div>
-                </div>
+              </details>
+            </>
+          )}
 
-                <div className="gestionale-settings-card">
-                <div className="gestionale-settings-section">
-                  <h3 className="gestionale-settings-section__title">Testi scheda riparazione</h3>
-                  <FormField label="Testo garanzia" htmlFor="set-warranty">
-                    <input
-                      id="set-warranty"
-                      className="gestionale-form-field__input"
-                      value={warrantyText}
-                      onChange={e => setWarrantyText(e.target.value)}
-                    />
-                  </FormField>
-                  <FormField label="Piè di pagina" htmlFor="set-footer">
-                    <input
-                      id="set-footer"
-                      className="gestionale-form-field__input"
-                      value={footerText}
-                      onChange={e => setFooterText(e.target.value)}
-                    />
-                  </FormField>
-                </div>
-                </div>
+          {activeTab === 'avvisi' && (
+            <TabAvvisi
+              value={appOptions.avvisi}
+              onChange={(id, enabled) =>
+                setAppOptions(prev => ({ ...prev, avvisi: { ...prev.avvisi, [id]: enabled } }))
+              }
+            />
+          )}
 
-                <div className="gestionale-settings-card">
-                <div className="gestionale-settings-section">
-                  <h3 className="gestionale-settings-section__title">Anteprima piè di pagina</h3>
-                  <div className="gestionale-settings-preview">
-                    <div style={{ borderTop: '1px solid #ddd', paddingTop: 8 }}>
-                      <div style={{ fontWeight: 600, marginBottom: 6 }}>Firma per accettazione: ____________________</div>
-                      <div style={{ fontSize: 10, color: '#888', lineHeight: 1.5 }}>{disclaimer.substring(0, 250)}…</div>
-                    </div>
-                  </div>
-                </div>
-                </div>
-
-                <div className="gestionale-settings-card">
-                <div className="gestionale-settings-section">
-                  <h3 className="gestionale-settings-section__title">Registratore telematico (RT)</h3>
-                  <div className="gestionale-settings-info-box">
-                    <strong>Cosa funziona davvero.</strong> Epson / Custom (prefissi <code>epson_</code>, <code>custom_</code>): comandi XML
-                    tipo ePOS su <code>fpmate.cgi</code>. Altri modelli in elenco: invio <strong>JSON generico</strong> allo stesso URL — il
-                    dispositivo reale potrebbe richiedere un protocollo diverso (non garantito). Da <strong>sito HTTPS</strong> il browser spesso{' '}
-                    <strong>blocca</strong> le chiamate verso <code>http://IP-locale</code>: serve un bridge sul PC in laboratorio o uso senza mixed
-                    content.
-                  </div>
-                  <FormField label="Modello RT" htmlFor="set-rt-model">
-                    <select
-                      id="set-rt-model"
-                      className="gestionale-form-field__input"
-                      value={rtModel}
-                      onChange={e => setRtModel(e.target.value)}
-                    >
-                      {RT_MODELS.map(m => (
-                        <option key={m.value} value={m.value}>
-                          {m.label}
-                        </option>
-                      ))}
-                    </select>
-                  </FormField>
-                  {rtModel && rtModel !== 'none' ? (
-                    <FormField label="Indirizzo IP" htmlFor="set-rt-ip">
-                      <input
-                        id="set-rt-ip"
-                        className="gestionale-form-field__input"
-                        value={rtIp}
-                        onChange={e => setRtIp(e.target.value)}
-                        placeholder="192.168.1.100"
-                      />
-                      <p className="gestionale-settings-section__hint" style={{ marginTop: 4 }}>
-                        Stessa rete del PC o del bridge che espone fpmate.
+          {activeTab === 'varie' && (
+            <TabVarie
+              value={appOptions.varie}
+              onChange={patch => setAppOptions(prev => ({ ...prev, varie: { ...prev.varie, ...patch } }))}
+              extraSections={
+                <>
+                  <details className="opzioni-advanced-block" open>
+                    <summary>WhatsApp</summary>
+                    <div className="gestionale-settings-section" style={{ marginTop: 8 }}>
+                      <p className="gestionale-settings-section__hint">
+                        Template messaggio riparazione pronta. Pagina dedicata:{' '}
+                        <Link to="/impostazioni/whatsapp">/impostazioni/whatsapp</Link>
                       </p>
-                    </FormField>
-                  ) : (
-                    <p className="gestionale-settings-section__hint">Seleziona un modello per configurare l&apos;indirizzo IP.</p>
-                  )}
-                </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'whatsapp' && (
-              <div className="gestionale-settings-stack gestionale-settings-stack--wide">
-                <div className="gestionale-settings-card">
-                <div className="gestionale-settings-section">
-                  <h3 className="gestionale-settings-section__title">Template messaggio</h3>
-                  <p className="gestionale-settings-section__hint">
-                    Messaggio inviato quando la riparazione è pronta (variabili sostituite automaticamente).
-                  </p>
-                  <div className="gestionale-settings-var-chips">
-                    {TEMPLATE_VARS.map(v => (
-                      <button
-                        key={v.var}
-                        type="button"
-                        className="gestionale-settings-var-chip"
-                        title={v.desc}
-                        onClick={() => setWaTemplate(t => t + v.var)}
-                      >
-                        {v.var}
-                      </button>
-                    ))}
-                  </div>
-                  <textarea
-                    className="gestionale-form-field__input gestionale-form-field__input--textarea gestionale-form-field__input--tall"
-                    value={waTemplate}
-                    onChange={e => setWaTemplate(e.target.value)}
-                    rows={8}
-                    style={{ fontFamily: 'monospace', fontSize: 12 }}
-                  />
-                  <ToolButton
-                    label="↺ Ripristina default"
-                    onClick={() => setWaTemplate(DEFAULT_WA_TEMPLATE)}
-                    style={{ marginTop: 6 }}
-                  />
-                </div>
-                </div>
-
-                <div className="gestionale-settings-card">
-                <div className="gestionale-settings-section">
-                  <h3 className="gestionale-settings-section__title">Anteprima</h3>
-                  <div className="gestionale-settings-preview gestionale-settings-preview--wa">{previewMessage}</div>
-                </div>
-                </div>
-
-                <div className="gestionale-settings-card">
-                <div className="gestionale-settings-section">
-                  <h3 className="gestionale-settings-section__title">Collegamento Evolution API</h3>
-                  <p className="gestionale-settings-section__hint">
-                    Genera il QR e collega WhatsApp sul telefono del laboratorio. Pagina dedicata:{' '}
-                    <Link to="/impostazioni/whatsapp" className="gestionale-datatable__link">
-                      /impostazioni/whatsapp
-                    </Link>
-                  </p>
-                  <WhatsAppConnectionPanel compact />
-                </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'dati' && (
-              <div className="gestionale-settings-stack gestionale-settings-stack--wide">
-                <div className="gestionale-settings-card">
-                <DesktopAppInfoSection />
-                </div>
-
-                <div className="gestionale-settings-card">
-                <div className="gestionale-settings-section">
-                  <h3 className="gestionale-settings-section__title">Il tuo account</h3>
-                  <div className="gestionale-settings-stack gestionale-settings-stack--wide">
-                    <FormField label="Il tuo nome" htmlFor="set-username">
-                      <input
-                        id="set-username"
-                        className="gestionale-form-field__input"
-                        value={userName}
-                        onChange={e => setUserName(e.target.value)}
-                      />
-                    </FormField>
-                    <FormField label="E-mail" htmlFor="set-user-email">
-                      <input
-                        id="set-user-email"
-                        className="gestionale-form-field__input"
-                        value={userProfile?.email || ''}
-                        disabled
-                      />
-                    </FormField>
-                    <FormField label="Ruolo" htmlFor="set-user-role">
-                      <input id="set-user-role" className="gestionale-form-field__input" value={roleLabel} disabled />
-                    </FormField>
-                    <p className="gestionale-settings-section__hint">
-                      Il nome utente viene salvato insieme alle altre impostazioni con il pulsante in fondo.
-                    </p>
-                  </div>
-                </div>
-                </div>
-
-                <div className="gestionale-settings-card">
-                <div className="gestionale-settings-section">
-                  <h3 className="gestionale-settings-section__title">Export dati</h3>
-                  <p className="gestionale-settings-section__hint">
-                    <strong>JSON</strong>: dati Firestore + elenco percorsi Storage (veloce). <strong>ZIP</strong>: stesso contenuto in{' '}
-                    <code>dati.json</code>, più cartella <code>storage/</code> con i file scaricati da Firebase (può richiedere tempo). Limite
-                    indicativo ~350 MB totali e ~48 MB per singolo file.
-                  </p>
-                  {exportProgress ? (
-                    <p className="gestionale-settings-section__hint">{exportProgress}</p>
-                  ) : null}
-                  {exportError ? (
-                    <div className="gestionale-settings-info-box gestionale-settings-info-box--danger">{exportError}</div>
-                  ) : null}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    <ToolButton
-                      label={exporting && exportMode === 'json' ? 'Esportazione…' : 'Scarica JSON'}
-                      onClick={handleExportData}
-                      disabled={exporting}
-                    />
-                    <ToolButton
-                      label={exporting && exportMode === 'zip' ? 'Esportazione…' : 'Scarica ZIP (JSON + file)'}
-                      onClick={handleExportZip}
-                      disabled={exporting}
-                    />
-                  </div>
-                </div>
-                </div>
-
-                <div className="gestionale-settings-card">
-                <div className="gestionale-settings-section">
-                  <h3 className="gestionale-settings-section__title">Import dati</h3>
-                  <div className="gestionale-settings-import-placeholder">
-                    <input type="file" accept=".json,.zip" disabled aria-disabled="true" />
-                    <span className="gestionale-settings-import-placeholder__note">
-                      Funzione in preparazione — non modificare i dati esistenti finché non sarà disponibile.
-                    </span>
-                  </div>
-                </div>
-                </div>
-
-                <div className="gestionale-settings-card">
-                <div className="gestionale-settings-section">
-                  <h3 className="gestionale-settings-section__title">Zona pericolosa</h3>
-                  <div className="gestionale-settings-info-box gestionale-settings-info-box--danger">
-                    Eliminando il tuo account verranno cancellati permanentemente tutti i dati: officina, clienti, riparazioni, prodotti,
-                    documenti, pagamenti e file. Azione irreversibile.
-                  </div>
-                  <ToolButton label="Elimina account e tutti i dati" variant="danger" onClick={openDeleteModal} />
-                </div>
-                </div>
-
-                <div className="gestionale-settings-card">
-                <div className="gestionale-settings-section" data-tutorial="impostazioni-verifica">
-                  <h3 className="gestionale-settings-section__title">Checklist di verifica</h3>
-                  <p className="gestionale-settings-section__hint">
-                    Elenco pratico per collaudare FixLab in laboratorio, per ruolo. Usa{' '}
-                    <kbd style={{ fontSize: 10, padding: '1px 5px', border: '1px solid var(--gestionale-border)' }}>Ctrl</kbd>+
-                    <kbd style={{ fontSize: 10, padding: '1px 5px', border: '1px solid var(--gestionale-border)' }}>P</kbd> per stampare o
-                    salvare in PDF.
-                  </p>
-                  <ToolButton label="Apri finestra di stampa" onClick={() => window.print()} style={{ marginBottom: 12 }} />
-                  {VERIFICA_SECTIONS.map(sec => (
-                    <div key={sec.title} className="gestionale-settings-checklist-block">
-                      <div className="gestionale-settings-checklist-block__title">{sec.title}</div>
-                      <div className="gestionale-settings-checklist-block__subtitle">{sec.subtitle}</div>
-                      <ul>
-                        {sec.items.map((item, i) => (
-                          <li key={`${sec.title}-${i}`}>{item}</li>
+                      <div className="gestionale-settings-var-chips">
+                        {TEMPLATE_VARS.map(v => (
+                          <button
+                            key={v.var}
+                            type="button"
+                            className="gestionale-settings-var-chip"
+                            title={v.desc}
+                            onClick={() => setWaTemplate(t => t + v.var)}
+                          >
+                            {v.var}
+                          </button>
                         ))}
-                      </ul>
+                      </div>
+                      <textarea
+                        className="opzioni-textarea"
+                        value={waTemplate}
+                        onChange={e => setWaTemplate(e.target.value)}
+                        rows={6}
+                      />
+                      <ToolButton label="↺ Ripristina default" onClick={() => setWaTemplate(DEFAULT_WA_TEMPLATE)} />
+                      <div className="gestionale-settings-preview gestionale-settings-preview--wa" style={{ marginTop: 8 }}>
+                        {previewMessage}
+                      </div>
+                      <WhatsAppConnectionPanel compact />
                     </div>
-                  ))}
-                </div>
-                </div>
-              </div>
-            )}
+                  </details>
 
-            {activeTab === 'legale' && (
-              <div className="gestionale-settings-stack gestionale-settings-stack--wide">
-              <div className="gestionale-settings-card">
-              <div className="gestionale-settings-legal-links">
-                <div className="gestionale-settings-section">
-                  <h3 className="gestionale-settings-section__title">Documentazione legale</h3>
-                  <p className="gestionale-settings-section__hint">
-                    Testi informativi su trattamento dati e cookie. I link sono disponibili anche dal footer dell&apos;app.
-                  </p>
-                </div>
+                  <details className="opzioni-advanced-block">
+                    <summary>Dati, backup e account</summary>
+                    <div style={{ marginTop: 8 }}>
+                      <DesktopAppInfoSection />
+                      <div className="opzioni-field-row" style={{ marginTop: 12 }}>
+                        <label className="opzioni-field-row__label">Il tuo nome</label>
+                        <input className="opzioni-input" value={userName} onChange={e => setUserName(e.target.value)} />
+                      </div>
+                      <div className="opzioni-field-row">
+                        <label className="opzioni-field-row__label">E-mail</label>
+                        <input className="opzioni-input" value={userProfile?.email || ''} disabled />
+                      </div>
+                      <div className="opzioni-field-row">
+                        <label className="opzioni-field-row__label">Ruolo</label>
+                        <input className="opzioni-input" value={roleLabel} disabled />
+                      </div>
+                      {exportProgress ? <p className="gestionale-settings-section__hint">{exportProgress}</p> : null}
+                      {exportError ? (
+                        <div className="gestionale-settings-info-box gestionale-settings-info-box--danger">{exportError}</div>
+                      ) : null}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                        <ToolButton
+                          label={exporting && exportMode === 'json' ? 'Esportazione…' : 'Scarica JSON'}
+                          onClick={handleExportData}
+                          disabled={exporting}
+                        />
+                        <ToolButton
+                          label={exporting && exportMode === 'zip' ? 'Esportazione…' : 'Scarica ZIP (JSON + file)'}
+                          onClick={handleExportZip}
+                          disabled={exporting}
+                        />
+                      </div>
+                      <div className="gestionale-settings-info-box gestionale-settings-info-box--danger" style={{ marginTop: 12 }}>
+                        Eliminando il tuo account verranno cancellati permanentemente tutti i dati. Azione irreversibile.
+                      </div>
+                      <ToolButton label="Elimina account e tutti i dati" variant="danger" onClick={openDeleteModal} />
+                    </div>
+                  </details>
 
-                <div className="gestionale-settings-legal-card">
-                  <div className="gestionale-settings-legal-card__text">
-                    <strong>Informativa privacy</strong>
-                    Ruoli titolare/responsabile, diritti degli interessati, export ed eliminazione dati self-service.
-                  </div>
-                  <Link to="/privacy" className="gestionale-tool-btn" style={{ textDecoration: 'none' }}>
-                    Apri
-                  </Link>
-                </div>
+                  <details className="opzioni-advanced-block" data-tutorial="impostazioni-verifica">
+                    <summary>Checklist di verifica</summary>
+                    <div style={{ marginTop: 8 }}>
+                      <ToolButton label="Apri finestra di stampa" onClick={() => window.print()} style={{ marginBottom: 12 }} />
+                      {VERIFICA_SECTIONS.map(sec => (
+                        <div key={sec.title} className="gestionale-settings-checklist-block">
+                          <div className="gestionale-settings-checklist-block__title">{sec.title}</div>
+                          <div className="gestionale-settings-checklist-block__subtitle">{sec.subtitle}</div>
+                          <ul>
+                            {sec.items.map((item, i) => (
+                              <li key={`${sec.title}-${i}`}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
 
-                <div className="gestionale-settings-legal-card">
-                  <div className="gestionale-settings-legal-card__text">
-                    <strong>Cookie policy</strong>
-                    Tipologie di cookie, base giuridica e gestione delle preferenze di consenso.
-                  </div>
-                  <Link to="/cookie" className="gestionale-tool-btn" style={{ textDecoration: 'none' }}>
-                    Apri
-                  </Link>
-                </div>
-
-                <div className="gestionale-settings-legal-card">
-                  <div className="gestionale-settings-legal-card__text">
-                    <strong>Preferenze cookie</strong>
-                    {consent
-                      ? `Salvate il ${new Date(consent.savedAt).toLocaleString('it-IT')} — funzionali: ${consent.functional ? 'sì' : 'no'}, analytics: ${consent.analytics ? 'sì' : 'no'}.`
-                      : 'Non ancora impostate in questa sessione.'}
-                  </div>
-                  <ToolButton label="Gestisci" onClick={openCookieSettings} />
-                </div>
-              </div>
-              </div>
-              </div>
-            )}
-            </div>
-
-            {showSaveFooter ? (
-              <footer className="gestionale-settings-footer">
-                <div
-                  className={`gestionale-settings-footer__status${
-                    saveError ? ' gestionale-settings-footer__status--error' : saved ? ' gestionale-settings-footer__status--ok' : ''
-                  }`}
-                >
-                  {saveError || (saved ? 'Modifiche salvate correttamente.' : 'Le modifiche non sono ancora salvate.')}
-                </div>
-                <div className="gestionale-settings-footer__actions">
-                  <button
-                    type="button"
-                    className="gestionale-dialog-btn gestionale-dialog-btn--primary"
-                    onClick={() => void handleSave()}
-                    disabled={saving || Boolean(loadError)}
-                  >
-                    {saveButtonLabel}
-                  </button>
-                </div>
-              </footer>
-            ) : null}
-          </div>
-        </div>
+                  <details className="opzioni-advanced-block">
+                    <summary>Legale e privacy</summary>
+                    <div className="gestionale-settings-legal-links" style={{ marginTop: 8 }}>
+                      <div className="gestionale-settings-legal-card">
+                        <div className="gestionale-settings-legal-card__text">
+                          <strong>Informativa privacy</strong>
+                        </div>
+                        <Link to="/privacy" className="gestionale-tool-btn" style={{ textDecoration: 'none' }}>
+                          Apri
+                        </Link>
+                      </div>
+                      <div className="gestionale-settings-legal-card">
+                        <div className="gestionale-settings-legal-card__text">
+                          <strong>Cookie policy</strong>
+                        </div>
+                        <Link to="/cookie" className="gestionale-tool-btn" style={{ textDecoration: 'none' }}>
+                          Apri
+                        </Link>
+                      </div>
+                      <div className="gestionale-settings-legal-card">
+                        <div className="gestionale-settings-legal-card__text">
+                          <strong>Preferenze cookie</strong>
+                          {consent
+                            ? `Salvate il ${new Date(consent.savedAt).toLocaleString('it-IT')}.`
+                            : 'Non ancora impostate.'}
+                        </div>
+                        <ToolButton label="Gestisci" onClick={openCookieSettings} />
+                      </div>
+                    </div>
+                  </details>
+                </>
+              }
+            />
+          )}
+        </OpzioniApplicazioneShell>
       </div>
-
       {showCapPopup ? (
         <CapLookupPopup
           initialCap={cap}
@@ -1459,7 +1191,7 @@ export default function Impostazioni() {
 
               {deleting ? (
                 <div style={{ textAlign: 'center', padding: '16px 0' }}>
-                  <div style={{ fontSize: 28, marginBottom: 12 }}>🗑️</div>
+                  <div style={{ fontSize: 28, marginBottom: 12 }}>ðŸ—‘ï¸</div>
                   <div style={{ fontWeight: 600, marginBottom: 8 }}>Eliminazione in corso…</div>
                   <div style={{ fontSize: 12, color: 'var(--gestionale-text-muted)' }}>{deleteProgress}</div>
                   <div style={{ fontSize: 11, color: 'var(--gestionale-text-muted)', marginTop: 10 }}>Non chiudere questa pagina</div>

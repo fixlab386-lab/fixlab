@@ -49,14 +49,29 @@ export const STAMPA_STAMPANTI = ['(Predefinita)', 'Canon TS3100 series', 'Micros
 
 export const STAMPA_SORGENTI_CARTA = ['(Automatico)', 'Vassoio 1', 'Vassoio 2', 'Alimentazione manuale'] as const
 
-export const NOTA_MENU_ITEMS = [
+export const CALCOLATA_MENU_ITEMS = [
   'Subtotale',
-  'Calcola INPS 4%',
+  'Rivalsa INPS 4%',
   'Contributo integrativo 4%',
   'Spese di trasporto',
   'Pagamento in contrassegno 2%',
   'Personalizza…',
 ] as const
+
+/** Voci predefinite del menu Nota (Danea Easyfatt). */
+export const NOTA_MENU_PREDEFINED = [
+  '** Nota in grassetto',
+  '// Nota in corsivo',
+  'Escluso IVA art. 15 DPR 633/72',
+  'Esente IVA ai sensi art. 10 DPR 633/72',
+  'Fuori campo IVA',
+  "Marca da bollo da L. 2.500 sull'originale",
+  'Non imp. Art. 41 D.L. 331/1993',
+  'Non imp. Art. 71 DPR 633/72',
+] as const
+
+/** @deprecated Usare NOTA_MENU_PREDEFINED + menu strutturato in TabRigheDocumento */
+export const NOTA_MENU_ITEMS = ['Nota interna', 'Personalizza…'] as const
 
 export const GRUPPI_MENU_ITEMS = ['(Nessuna voce)', 'Personalizza…'] as const
 
@@ -89,12 +104,25 @@ export const COMMENTI_INTERNI_PREDEFINITI = [
   'Personalizza…',
 ] as const
 
+/** Voci menu Utilità (Danea Easyfatt — ordine e testi esatti). */
+export const UTILITA_MENU_ENTRIES = [
+  { id: 'sconto-su-totale', label: 'Sconto su totale', shortcut: 'Ctrl+S' },
+  { id: 'porta-totale', label: 'Porta totale a… (Calcolo fattura inversa)' },
+  { id: 'confronta-prezzi', label: 'Confronta con ultimi prezzi applicati' },
+  { id: 'copia-righe', label: 'Copia righe da altro documento' },
+  { id: 'terminale', label: 'Importa da terminale portatile', shortcut: 'Shift+F5' },
+  { id: 'sep-utilita', separator: true as const },
+  { id: 'export-excel', label: 'Esporta con Excel/OpenOffice/LibreOffice' },
+  { id: 'import-excel', label: 'Importa con Excel/OpenOffice/LibreOffice' },
+] as const
+
+/** @deprecated Usare UTILITA_MENU_ENTRIES */
 export const UTILITA_MENU_ITEMS = [
-  'Scorpora totale',
-  'Ruota totale a…',
+  'Sconto su totale',
+  'Porta totale a… (Calcolo fattura inversa)',
   'Confronta con ultimi prezzi applicati',
   'Copia righe da altro documento',
-  'Importa da terminale lettore',
+  'Importa da terminale portatile',
   'Esporta con Excel/OpenOffice/LibreOffice',
   'Importa con Excel/OpenOffice/LibreOffice',
 ] as const

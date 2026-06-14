@@ -11,6 +11,9 @@ type AppWindowsContextValue = {
   closeDocumenti: () => void
   openDocumentiType: (type: ActiveDocumentType) => void
   backDocumentiHub: () => void
+  archiviOpen: boolean
+  openArchivi: () => void
+  closeArchivi: () => void
 }
 
 const AppWindowsContext = createContext<AppWindowsContextValue | null>(null)
@@ -19,6 +22,7 @@ export function AppWindowsProvider({ children }: { children: ReactNode }) {
   const [venditaBancoOpen, setVenditaBancoOpen] = useState(false)
   const [documentiOpen, setDocumentiOpen] = useState(false)
   const [documentiType, setDocumentiType] = useState<ActiveDocumentType | null>(null)
+  const [archiviOpen, setArchiviOpen] = useState(false)
 
   const openVenditaBanco = useCallback(() => setVenditaBancoOpen(true), [])
   const closeVenditaBanco = useCallback(() => setVenditaBancoOpen(false), [])
@@ -42,6 +46,9 @@ export function AppWindowsProvider({ children }: { children: ReactNode }) {
 
   const backDocumentiHub = useCallback(() => setDocumentiType(null), [])
 
+  const openArchivi = useCallback(() => setArchiviOpen(true), [])
+  const closeArchivi = useCallback(() => setArchiviOpen(false), [])
+
   const value = useMemo(
     () => ({
       venditaBancoOpen,
@@ -53,6 +60,9 @@ export function AppWindowsProvider({ children }: { children: ReactNode }) {
       closeDocumenti,
       openDocumentiType,
       backDocumentiHub,
+      archiviOpen,
+      openArchivi,
+      closeArchivi,
     }),
     [
       venditaBancoOpen,
@@ -64,6 +74,9 @@ export function AppWindowsProvider({ children }: { children: ReactNode }) {
       closeDocumenti,
       openDocumentiType,
       backDocumentiHub,
+      archiviOpen,
+      openArchivi,
+      closeArchivi,
     ],
   )
 

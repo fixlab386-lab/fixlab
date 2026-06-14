@@ -10,7 +10,7 @@ import ToolbarNewMenu from './navigation/ToolbarNewMenu'
 import ToolbarDocumentiMenu from './navigation/ToolbarDocumentiMenu'
 import VenditaAlBancoModal from '../gestionale/features/vendita-banco/VenditaAlBancoModal'
 import DocumentiWindow from '../gestionale/features/documenti/DocumentiWindow'
-import { type ToolbarTopItem } from './ui'
+import ArchiviWindow from './archives/ArchiviWindow'
 
 type NavDef = {
   id: string
@@ -30,6 +30,7 @@ const NAV_ITEMS: NavDef[] = [
   { id: 'riparazioni', label: 'Riparazioni', path: '/riparazioni', icon: '🔧' },
   { id: 'dispositivi', label: 'Dispositivi', path: '/dispositivi', icon: '📱' },
   { id: 'cassa', label: 'Cassa', path: '/cassa', icon: '💰' },
+  { id: 'archivi', label: 'Archivi', path: '__archivi__', icon: '🗂️' },
   { id: 'impostazioni', label: 'Impostazioni', path: '/impostazioni', icon: '⚙️' },
 ]
 
@@ -41,23 +42,42 @@ function isNavActive(item: NavDef, pathname: string): boolean {
 function GestionaleShell() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { documentiOpen } = useAppWindows()
+  const { documentiOpen, archiviOpen, openArchivi } = useAppWindows()
 
-  const renderNavButton = (item: NavDef) => (
-    <button
-      key={item.id}
-      type="button"
-      className={`gestionale-toolbar__item${isNavActive(item, location.pathname) ? ' gestionale-toolbar__item--active' : ''}`}
-      onClick={() => navigate(item.path)}
-      title={item.label}
-      aria-pressed={isNavActive(item, location.pathname)}
-    >
-      <span className="gestionale-toolbar__icon" aria-hidden="true">
-        {item.icon}
-      </span>
-      <span className="gestionale-toolbar__label">{item.label}</span>
-    </button>
-  )
+  const renderNavButton = (item: NavDef) => {
+    if (item.id === 'archivi') {
+      return (
+        <button
+          key={item.id}
+          type="button"
+          className={`gestionale-toolbar__item${archiviOpen ? ' gestionale-toolbar__item--active' : ''}`}
+          onClick={openArchivi}
+          title={item.label}
+          aria-pressed={archiviOpen}
+        >
+          <span className="gestionale-toolbar__icon" aria-hidden="true">
+            {item.icon}
+          </span>
+          <span className="gestionale-toolbar__label">{item.label}</span>
+        </button>
+      )
+    }
+    return (
+      <button
+        key={item.id}
+        type="button"
+        className={`gestionale-toolbar__item${isNavActive(item, location.pathname) ? ' gestionale-toolbar__item--active' : ''}`}
+        onClick={() => navigate(item.path)}
+        title={item.label}
+        aria-pressed={isNavActive(item, location.pathname)}
+      >
+        <span className="gestionale-toolbar__icon" aria-hidden="true">
+          {item.icon}
+        </span>
+        <span className="gestionale-toolbar__label">{item.label}</span>
+      </button>
+    )
+  }
 
   const beforeDocumenti = NAV_ITEMS.slice(0, 4)
   const afterDocumenti = NAV_ITEMS.slice(4)
@@ -80,6 +100,7 @@ function GestionaleShell() {
       </main>
       <VenditaAlBancoModal />
       <DocumentiWindow />
+      <ArchiviWindow />
       <OnboardingGate />
     </div>
   )

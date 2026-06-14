@@ -2,9 +2,11 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 export type DropdownItem = {
   id: string
-  label: string
-  onClick: () => void
+  label?: string
+  shortcut?: string
+  onClick?: () => void
   disabled?: boolean
+  separator?: boolean
 }
 
 type Props = {
@@ -40,21 +42,26 @@ export default function WinDropdownMenu({ label, items, className, disabled }: P
       </button>
       {open ? (
         <div className="vb-dropdown__menu" role="menu">
-          {items.map(item => (
-            <button
-              key={item.id}
-              type="button"
-              role="menuitem"
-              className="vb-dropdown__item"
-              disabled={item.disabled}
-              onClick={() => {
-                item.onClick()
-                setOpen(false)
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
+          {items.map(item =>
+            item.separator ? (
+              <div key={item.id} className="vb-dropdown__separator" role="separator" />
+            ) : (
+              <button
+                key={item.id}
+                type="button"
+                role="menuitem"
+                className="vb-dropdown__item"
+                disabled={item.disabled}
+                onClick={() => {
+                  item.onClick?.()
+                  setOpen(false)
+                }}
+              >
+                <span className="vb-dropdown__item-label">{item.label}</span>
+                {item.shortcut ? <span className="vb-dropdown__shortcut">{item.shortcut}</span> : null}
+              </button>
+            ),
+          )}
         </div>
       ) : null}
     </div>

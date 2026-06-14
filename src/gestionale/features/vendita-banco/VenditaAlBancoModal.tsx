@@ -47,6 +47,7 @@ import AnomalieMagazzinoDialog from './dialogs/AnomalieMagazzinoDialog'
 import AllegatiDialog from './dialogs/AllegatiDialog'
 import GeneraDocCollegatoDialog from './dialogs/GeneraDocCollegatoDialog'
 import EtichetteDialog from './dialogs/EtichetteDialog'
+import EasyfattCalcDialog from './dialogs/EasyfattCalcDialog'
 import ClientSearchDialog from '../../../components/clients/ClientSearchDialog'
 import FooterTotals from './FooterTotals'
 import { findAnomalieMagazzino, type AnomaliaMagazzino } from './stockCheck'
@@ -67,7 +68,6 @@ import {
   rigaToDocumentRow,
   documentRowToRiga,
   calcRiga,
-  evalCalcolata,
 } from './utils'
 import { WinField, WinIconBtn, WinInput, WinSelect } from './WinControls'
 import WinDropdownMenu from './WinDropdownMenu'
@@ -123,6 +123,7 @@ export default function VenditaAlBancoModal() {
   const draftStorageKeyRef = useRef(crypto.randomUUID())
   const [showAllegati, setShowAllegati] = useState(false)
   const [showEtichette, setShowEtichette] = useState(false)
+  const [showCalc, setShowCalc] = useState(false)
   const [showGeneraDoc, setShowGeneraDoc] = useState(false)
   const [anomalie, setAnomalie] = useState<AnomaliaMagazzino[] | null>(null)
   const [pendingEmetti, setPendingEmetti] = useState(false)
@@ -155,6 +156,7 @@ export default function VenditaAlBancoModal() {
     draftStorageKeyRef.current = crypto.randomUUID()
     setShowAllegati(false)
     setShowEtichette(false)
+    setShowCalc(false)
     setShowGeneraDoc(false)
     setAnomalie(null)
     setPendingEmetti(false)
@@ -221,14 +223,7 @@ export default function VenditaAlBancoModal() {
   }, [])
 
   const handleCalculator = useCallback(() => {
-    const expr = window.prompt('Calcolatrice — inserisci espressione (es. 20+211):')
-    if (!expr) return
-    const val = evalCalcolata(expr)
-    if (val === null) {
-      alert('Espressione non valida.')
-      return
-    }
-    alert(`Risultato: € ${val.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
+    setShowCalc(true)
   }, [])
 
   const commentiItems = useMemo(
@@ -252,7 +247,7 @@ export default function VenditaAlBancoModal() {
   )
 
   const activeRighe = useMemo(
-    () => docState.righe.filter(r => r.descrizione.trim()),
+    () => docState.righe.filter(r => r.descrizione.trim() && r.tipoRiga !== 'nota'),
     [docState.righe],
   )
 
@@ -1457,6 +1452,17 @@ export default function VenditaAlBancoModal() {
           righe={activeRighe.map(calcRiga)}
           onPrint={handleEtichettePrint}
           onClose={() => setShowEtichette(false)}
+        />
+      ) : null}
+
+      {showCalc ? (
+        <EasyfattCalcDialog
+          onClose={() => setShowCalc(false)}
+          onApply={value => {
+            setActionMessage(
+              `Calcolatrice: € ${value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (copiato negli appunti)`,
+            )
+          }}
         />
       ) : null}
     </div>,

@@ -447,6 +447,29 @@
   white-space: nowrap;
 }
 
+.vb-righe__row--calcolata td {
+  background: #f8fbff;
+}
+
+.vb-righe__row--nota td {
+  background: #fafafa;
+  font-style: italic;
+}
+
+.vb-righe__foot td {
+  background: #eef2f6;
+  border-top: 2px solid #b0b0b0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 6px;
+}
+
+.vb-righe__foot-total {
+  font-size: 12px;
+  color: #1a5a9e;
+  font-weight: 700;
+}
+
 .vb-righe__toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -948,7 +971,10 @@
 }
 
 .vb-dropdown__item {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   width: 100%;
   text-align: left;
   padding: 4px 8px;
@@ -958,19 +984,113 @@
   cursor: pointer;
 }
 
+.vb-dropdown__item-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.vb-dropdown__shortcut {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #666;
+}
+
+.vb-dropdown__item:hover:not(:disabled) .vb-dropdown__shortcut {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.vb-dropdown--nota .vb-dropdown__menu {
+  min-width: 340px;
+}
+
+.vb-dropdown--utilita .vb-dropdown__menu {
+  min-width: 360px;
+}
+
+.vb-nota-desc--bold {
+  font-weight: 700;
+}
+
+.vb-nota-desc--italic {
+  font-style: italic;
+}
+
 .vb-dropdown__item:hover:not(:disabled) {
   background: var(--win-focus-blue);
   color: #fff;
 }
 
+.vb-dropdown__separator {
+  height: 1px;
+  margin: 4px 0;
+  background: #c0c0c0;
+}
+
 .vb-barcode-panel {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  margin-top: 4px;
-  border: 1px solid var(--win-border);
-  background: #fafafa;
+  gap: 10px;
+  padding: 8px 10px;
+  margin-top: 2px;
+  border: 1px solid #b8c8d8;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #fafcff 0%, #eef3f8 100%);
+  flex-wrap: wrap;
+}
+
+.vb-barcode-panel__label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2a3a4a;
+  white-space: nowrap;
+}
+
+.vb-barcode-panel__help {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid #5a8ec8;
+  background: #e8f2fc;
+  color: #1a5a9e;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.vb-barcode-panel__input {
+  flex: 1;
+  min-width: 180px;
+  max-width: 420px;
+  height: 26px !important;
+  font-size: 13px !important;
+  letter-spacing: 0.02em;
+}
+
+.vb-barcode-panel__hint {
+  font-size: 11px;
+  color: #5a6a7a;
+  font-style: italic;
+  margin-left: auto;
+}
+
+.vb-barcode-panel__feedback {
+  width: 100%;
+  font-size: 11px;
+  color: #1b5e20;
+  font-weight: 600;
+  padding-left: 2px;
+}
+
+.vb-btn--active {
+  background: linear-gradient(180deg, #dce8f8 0%, #b8d0ec 100%) !important;
+  border-color: #5a8ec8 !important;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.6);
+  font-weight: 600;
 }
 
 .vb-dialog--xl { width: min(820px, 96vw); }
@@ -1199,4 +1319,622 @@
 
 .vb-icon-search { color: #2e7d32; }
 .vb-icon-user { color: #1565c0; }
+
+/* — Selezione prodotti (stile Danea) — */
+.vb-sp-overlay {
+  z-index: 22000;
+}
+
+.vb-dialog--selezione-prodotti {
+  width: min(980px, 96vw);
+  height: min(680px, 90vh);
+  display: flex;
+  flex-direction: column;
+  background: var(--win-panel-bg);
+}
+
+.vb-sp-titlebar {
+  background: linear-gradient(180deg, #f8f8f8 0%, #ececec 100%);
+  font-weight: 600;
+}
+
+.vb-sp-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: #f0f0f0;
+  border-bottom: 1px solid var(--win-border);
+  flex-wrap: wrap;
+}
+
+.vb-sp-toolbar__search {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: auto;
+}
+
+.vb-sp-toolbar__search-icon {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.vb-sp-toolbar__search-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.vb-sp-toolbar__btn--active {
+  background: #dce8f8 !important;
+  border-color: #5a8ec8 !important;
+}
+
+.vb-sp-toolbar__colonne {
+  position: relative;
+}
+
+.vb-sp-colonne-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 5;
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid var(--win-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.vb-sp-colonne-menu label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.vb-sp-filtri {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  padding: 8px;
+  background: #fafafa;
+  border-bottom: 1px solid var(--win-border);
+  font-size: 11px;
+}
+
+.vb-sp-filtri label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.vb-sp-filtri__check {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 6px !important;
+  align-self: end;
+  padding-bottom: 4px;
+}
+
+.vb-dialog--selezione-prodotti .vb-selezione-grid-wrap {
+  flex: 1;
+  overflow: auto;
+  border-top: 1px solid var(--win-border);
+}
+
+.vb-sp-grid th {
+  background: linear-gradient(180deg, #eef4fb 0%, #d8e6f5 100%);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.vb-sp-grid__check {
+  width: 28px;
+  text-align: center;
+}
+
+.vb-selezione-grid__group td {
+  background: #f5f5f5;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.vb-sp-status {
+  text-align: center;
+  font-size: 11px;
+  color: var(--win-text-muted);
+  padding: 2px 8px;
+  border-top: 1px solid var(--win-border);
+  background: #fafafa;
+}
+
+.vb-sp-actionbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.vb-sp-actionbar__left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.vb-sp-actionbar__right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.vb-sp-btn-aggiungi {
+  background: linear-gradient(180deg, #e8f5e9 0%, #c8e6c9 100%) !important;
+  border-color: #81c784 !important;
+  font-weight: 600;
+}
+
+.vb-sp-qty {
+  width: 52px !important;
+  text-align: center;
+}
+
+.vb-sp-um {
+  width: 56px !important;
+}
+
+.vb-sp-help {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid #5a8ec8;
+  background: #e8f2fc;
+  color: #1a5a9e;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.vb-sp-modifica {
+  padding: 8px;
+  background: #fffde7;
+  border-bottom: 1px solid #e8d080;
+}
+
+.vb-sp-modifica__title {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.vb-sp-modifica__grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 120px;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.vb-sp-modifica__grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.vb-sp-modifica__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.vb-sp-help-overlay {
+  z-index: 23000;
+}
+
+/* Gruppi di prodotti (Danea) */
+.vb-dialog--gruppi-prodotti {
+  width: min(920px, 96vw);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.vb-gruppi-overlay {
+  z-index: 21500;
+}
+
+.vb-gruppi-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.vb-gruppi-titlebar__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.vb-gruppi-titlebar__sub {
+  font-size: 10px;
+  font-weight: 400;
+  color: #555;
+}
+
+.vb-gruppi-titlebar__icon {
+  font-size: 16px;
+  opacity: 0.85;
+}
+
+.vb-gruppi-body {
+  flex: 1;
+  min-height: 0;
+  padding: 8px;
+  background: #f0f0f0;
+}
+
+.vb-gruppi-split {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 8px;
+  height: min(420px, 58vh);
+  min-height: 280px;
+}
+
+.vb-gruppi-list,
+.vb-gruppi-detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid #a8a8a8;
+  background: #fff;
+}
+
+.vb-gruppi-detail__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-bottom: 1px solid #d0d0d0;
+  background: #fafafa;
+}
+
+.vb-gruppi-detail__name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  min-width: 180px;
+  flex: 1;
+}
+
+.vb-gruppi-detail__check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.vb-gruppi-items-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.vb-gruppi-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.vb-gruppi-grid th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #eef4fa;
+  color: #316ac5;
+  text-align: left;
+  padding: 4px 6px;
+  border-bottom: 1px solid #b0b0b0;
+  font-weight: 600;
+}
+
+.vb-gruppi-grid td {
+  padding: 2px 4px;
+  border-bottom: 1px solid #e8e8e8;
+  vertical-align: middle;
+}
+
+.vb-gruppi-grid__empty {
+  color: #888;
+  font-style: italic;
+  padding: 24px 8px !important;
+  text-align: center;
+}
+
+.vb-gruppi-grid__row--selected td {
+  background: #316ac5;
+  color: #fff;
+}
+
+.vb-gruppi-grid__row--selected .vb-input {
+  color: #000;
+  background: #fff;
+}
+
+.vb-gruppi-grid--items tbody tr {
+  cursor: pointer;
+}
+
+.vb-gruppi-grid__qta {
+  width: 72px;
+}
+
+.vb-gruppi-items-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-top: 1px solid #d0d0d0;
+  background: #f5f5f5;
+}
+
+.vb-gruppi-items-toolbar__nav {
+  display: flex;
+  gap: 2px;
+}
+
+.vb-gruppi-items-toolbar__spacer {
+  flex: 1;
+}
+
+.vb-gruppi-colonne {
+  position: relative;
+}
+
+.vb-gruppi-colonne__link {
+  border: none;
+  background: none;
+  color: #316ac5;
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.vb-gruppi-colonne__menu {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  z-index: 5;
+  min-width: 120px;
+  padding: 6px 8px;
+  border: 1px solid #a8a8a8;
+  background: #fff;
+  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.vb-gruppi-colonne__menu label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  padding: 2px 0;
+}
+
+.vb-gruppi-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid #a8a8a8;
+  background: linear-gradient(180deg, #f6f4ec 0%, #e8e4d8 100%);
+}
+
+.vb-gruppi-footer__spacer {
+  flex: 1;
+}
+
+.vb-gruppi-btn-inserisci {
+  font-weight: 600;
+}
+
+.vb-gruppi-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 56px;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  background: #ffffe1;
+  border: 1px solid #c0a000;
+  font-size: 11px;
+  box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.15);
+  z-index: 2;
+}
+
+.vb-gruppi-help-overlay {
+  z-index: 22500;
+}
+
+/* Easyfatt Calc (Danea) */
+.vb-calc-overlay {
+  z-index: 24000;
+}
+
+.vb-easyfatt-calc {
+  width: 320px;
+  border: 1px solid #888;
+  background: #ece9d8;
+  box-shadow: 3px 3px 12px rgba(0, 0, 0, 0.35);
+  position: relative;
+}
+
+.vb-easyfatt-calc__titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 26px;
+  padding: 0 8px;
+  border-bottom: 1px solid #a8a8a8;
+  background: linear-gradient(180deg, #f6f4ec 0%, #d8d4c8 100%);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.vb-easyfatt-calc__tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border-bottom: 1px solid #a8a8a8;
+  background: #e8e4d8;
+  padding-right: 4px;
+}
+
+.vb-easyfatt-calc__tab {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 10px;
+  border: none;
+  border-right: 1px solid #c0c0c0;
+  background: #e0dcd0;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.vb-easyfatt-calc__tab--active {
+  background: #fff;
+  border-bottom: 1px solid #fff;
+  margin-bottom: -1px;
+  font-weight: 600;
+}
+
+.vb-easyfatt-calc__tab-icon {
+  font-size: 12px;
+}
+
+.vb-easyfatt-calc__help {
+  margin-left: auto;
+}
+
+.vb-easyfatt-calc__body {
+  padding: 8px;
+  background: #d4d0c8;
+}
+
+.vb-easyfatt-calc__body--panel {
+  background: #fff;
+  min-height: 220px;
+}
+
+.vb-easyfatt-calc__main {
+  display: flex;
+  gap: 6px;
+}
+
+.vb-easyfatt-calc__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+}
+
+.vb-easyfatt-calc__pad {
+  flex: 1;
+  min-width: 0;
+}
+
+.vb-easyfatt-calc__display {
+  background: #fff;
+  border: 2px inset #c0c0c0;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  min-height: 36px;
+  text-align: right;
+  font-size: 22px;
+  font-weight: 700;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  line-height: 1.2;
+}
+
+.vb-easyfatt-calc__keys {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 3px;
+}
+
+.vb-calc-key {
+  min-height: 28px;
+  padding: 2px 4px;
+  border: 1px solid #888;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #fefefe 0%, #e8e8e8 100%);
+  font-size: 11px;
+  cursor: pointer;
+  box-shadow: 1px 1px 0 #fff inset;
+}
+
+.vb-calc-key:active {
+  background: #d0d0d0;
+  box-shadow: none;
+}
+
+.vb-calc-key--equals {
+  font-weight: 700;
+}
+
+.vb-easyfatt-calc__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+  font-size: 11px;
+}
+
+.vb-easyfatt-calc__hint {
+  font-size: 10px;
+  color: #666;
+}
+
+.vb-easyfatt-calc__result {
+  font-size: 12px;
+  margin: 8px 0;
+}
+
+.vb-easyfatt-calc__sep {
+  border: none;
+  border-top: 1px solid #d0d0d0;
+  margin: 12px 0;
+}
+
+.vb-easyfatt-calc__toast {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  background: #ffffe1;
+  border: 1px solid #c0a000;
+  font-size: 10px;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.vb-calc-help-overlay {
+  z-index: 24500;
+}
 

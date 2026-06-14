@@ -21,6 +21,8 @@ export type StudioArchive = {
   role: MembershipRole
   /** true se coincide con users.studioId (accesso dati garantito con regole attuali). */
   isPrimary: boolean
+  hasPassword?: boolean
+  lastAccessAt?: string | null
 }
 
 const DEFAULT_MEMBERSHIP_ROLE: MembershipRole = 'owner'
@@ -113,7 +115,22 @@ export async function fetchStudioArchives(params: {
     let name = m.studioId
     try {
       const snap = await getDoc(doc(db, 'studios', m.studioId))
-      if (snap.exists()) name = String(snap.data().name ?? name)
+      if (snap.exists()) {
+        const data = snap.data()
+        name = String(data.name ?? name)
+        const lastAccessAt =
+          data.lastAccessAt?.toDate?.()?.toISOString?.() ??
+          (typeof data.lastAccessAt === 'string' ? data.lastAccessAt : null)
+        archives.push({
+          studioId: m.studioId,
+          name,
+          role: m.role,
+          isPrimary: m.studioId === legacyStudioId,
+          hasPassword: Boolean(data.archivePasswordHash),
+          lastAccessAt,
+        })
+        continue
+      }
     } catch {
       /* studio non leggibile finché rules Fase 2 non mappano tutte le membership */
     }
@@ -199,12 +216,15 @@ export async function removeStudioFromUser(params: {
   return next
 }
 
-export async function duplicateStudioArchive(_params: {
+export async function duplicateStudioArchive(params: {
   sourceStudioId: string
   userId: string
+  userEmail: string
   newName: string
-}): Promise<never> {
-  throw new Error('La duplicazione archivio sarà disponibile nella Fase 2 (regole e funzioni cloud).')
+  memberships: UserStudioMembershipRef[]
+}): Promise<{ studioId: string; memberships: UserStudioMembershipRef[] }> {
+  const { duplicateStudioArchiveClient } = await import('./archiveOperations')
+  return duplicateStudioArchiveClient(params)
 }
 
 export function activeStudioStorageKey(userId: string): string {
