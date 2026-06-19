@@ -1,7 +1,7 @@
 {
   "name": "fixlab",
   "private": true,
-  "version": "1.0.31",
+  "version": "1.0.59",
   "description": "FIXLab — gestionale desktop per laboratori di riparazione",
   "author": "FixLab",
   "repository": {
@@ -22,10 +22,14 @@
     "release:patch": "node scripts/release-desktop.mjs patch",
     "release:minor": "node scripts/release-desktop.mjs minor",
     "release:major": "node scripts/release-desktop.mjs major",
+    "publish:desktop": "node scripts/publish-desktop.mjs",
     "deploy:hosting": "npm run build && firebase deploy --only hosting",
     "deploy:all": "npm run deploy:hosting && npm run release:patch",
     "deploy:functions": "firebase deploy --only functions",
-    "deploy:firestore": "firebase deploy --only firestore:indexes"
+    "deploy:firestore": "firebase deploy --only firestore:indexes",
+    "seed:test": "node --experimental-strip-types scripts/seedTestData.ts",
+    "audit:app": "node scripts/auditFixlab.mjs",
+    "test:e2e": "playwright test e2e/audit.spec.ts"
   },
   "dependencies": {
     "driver.js": "^1.4.0",
@@ -41,6 +45,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.61.0",
     "@tailwindcss/vite": "^4.2.2",
     "@types/node": "^24.12.0",
     "@types/react": "^19.2.14",
@@ -88,7 +93,8 @@
       {
         "provider": "github",
         "owner": "fixlab386-lab",
-        "repo": "fixlab"
+        "repo": "fixlab",
+        "releaseType": "release"
       }
     ],
     "win": {
@@ -105,13 +111,15 @@
       "forceCodeSigning": false
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
       "allowElevation": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "FixLab",
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true
     }
   }
 }

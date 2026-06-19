@@ -10,7 +10,7 @@ export type TipologiaProdotto =
 
 export type SchedaTabId = 'caratteristiche' | 'dimensioni' | 'dettagli' | 'magazzino'
 
-export type ColonnaId = 'cod' | 'descrizione' | 'produttore' | 'prezzo'
+export type ColonnaId = 'categoria' | 'cod' | 'descrizione' | 'produttore' | 'prezzo'
 
 export type RaggruppaCriterio =
   | 'Nessuno'
@@ -24,7 +24,7 @@ export type RaggruppaCriterio =
   | 'Richiesta'
   | 'Nota'
 
-export type CercaVeloceCampo = 'codBarre' | 'descrizione' | 'codProduttore'
+export type CercaVeloceCampo = 'codProdotto' | 'codBarre' | 'descrizione' | 'codProduttore'
 export type CercaVeloceModo = 'cominciaCon' | 'inizianoPer' | 'contengono'
 
 export type ColumnFilter =

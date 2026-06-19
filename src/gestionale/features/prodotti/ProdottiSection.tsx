@@ -1,17 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { doc, getDoc } from 'firebase/firestore'
 import { useAuth } from '../../../hooks/useAuth'
 import { useActiveStudio } from '../../../hooks/useActiveStudio'
+import { useStudioLiveQuery } from '../../../hooks/useStudioLiveQuery'
+import { useStudioPagedLiveQuery } from '../../../hooks/useStudioPagedLiveQuery'
 import {
   addProduct,
   deleteProduct,
-  getCategories,
-  getClients,
+  listenCategories,
   getNextProductCode,
-  getProducts,
-  getStockMovements,
+  listenProducts,
+  listenStockMovements,
   updateProduct,
   addStockMovement,
 } from '../../../lib/firestore'
+import { fetchProductsPage, fetchStockMovementsPage } from '../../../lib/firestorePagination'
+import { loadRecentSuppliers } from '../../../lib/loadStudioCatalog'
+import LoadMoreBar from '../../../components/ui/LoadMoreBar'
+import PaginatedFilterHint from '../../../components/ui/PaginatedFilterHint'
+import { db } from '../../../firebase'
+import type { Product } from '../../../types'
 import { callCommitStockMovement, isStockFunctionUnavailable } from '../../../lib/commitStockMovement'
 import type { Category } from '../../../types'
 import { exportProductsExcel } from '../../lib/exportProductsExcel'
@@ -52,10 +60,48 @@ export default function ProdottiSection() {
   const { user, userProfile } = useAuth()
   const { studioId, activeArchive } = useActiveStudio()
 
-  const [prodotti, setProdotti] = useState<Prodotto[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const liveEnabled = Boolean(studioId)
+  const {
+    data: productRows,
+    syncing: productsSyncing,
+    loadingMore: productsLoadingMore,
+    hasMore: productsHasMore,
+    truncated: productsTruncated,
+    error: productsError,
+    loadMore: loadMoreProducts,
+    showInitialSpinner: productsInitial,
+  } = useStudioPagedLiveQuery(studioId, listenProducts, fetchProductsPage, liveEnabled)
+  const {
+    data: movements,
+    syncing: movementsSyncing,
+    loadingMore: movementsLoadingMore,
+    hasMore: movementsHasMore,
+    truncated: movementsTruncated,
+    loadMore: loadMoreMovements,
+  } = useStudioPagedLiveQuery(studioId, listenStockMovements, fetchStockMovementsPage, liveEnabled)
+  const { data: categories, loading: categoriesLoading } = useStudioLiveQuery(
+    studioId,
+    listenCategories,
+    liveEnabled,
+    500,
+  )
+  const [fornitori, setFornitori] = useState<string[]>([])
+  useEffect(() => {
+    if (!studioId) return
+    void loadRecentSuppliers(studioId, 100).then(rows => {
+      setFornitori(rows.map(s => s.name).sort((a, b) => a.localeCompare(b, 'it')))
+    })
+  }, [studioId])
+  const showInitialSpinner = productsInitial || categoriesLoading
+  const syncing = productsSyncing || movementsSyncing
+  const [bannerError, setBannerError] = useState<string | null>(null)
+  const error = productsError || bannerError
+
+  const prodotti = useMemo(
+    () => sortProdotti(productRows.map(p => productToProdotto(p, movements))),
+    [productRows, movements],
+  )
+
   const [saving, setSaving] = useState(false)
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -63,16 +109,16 @@ export default function ProdottiSection() {
   const [previousId, setPreviousId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<SchedaTabId>('caratteristiche')
 
-  const [criterioRaggruppamento, setCriterioRaggruppamento] = useState<RaggruppaCriterio>('Nessuno')
+  const [criterioRaggruppamento, setCriterioRaggruppamento] = useState<RaggruppaCriterio>('Categoria')
   const [filtriColonna, setFiltriColonna] = useState<Partial<Record<ColonnaId, ColumnFilter>>>({})
   const [colonneVisibili, setColonneVisibili] = useState(DEFAULT_COLONNE)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [filtraAttivo, setFiltraAttivo] = useState(false)
+  const [filtraAttivo, setFiltraAttivo] = useState(true)
   const [mostraTotali, setMostraTotali] = useState(false)
 
-  const [cercaCampo, setCercaCampo] = useState<CercaVeloceCampo>('descrizione')
+  const [cercaCampo, setCercaCampo] = useState<CercaVeloceCampo>('codProdotto')
   const [cercaModo, setCercaModo] = useState<CercaVeloceModo>('contengono')
   const [cercaQuery, setCercaQuery] = useState('')
   const [prezziEspansi, setPrezziEspansi] = useState(false)
@@ -86,47 +132,14 @@ export default function ProdottiSection() {
   const [showStampa, setShowStampa] = useState<string | null>(null)
   const [movimentoTipo, setMovimentoTipo] = useState<'Carica' | 'Scarica' | 'Rettifica' | null>(null)
 
-  const [fornitori, setFornitori] = useState<string[]>([])
-
-  const reloadCategories = useCallback(async () => {
-    if (!studioId) return
-    const cats = await getCategories(studioId)
-    setCategories(cats)
-  }, [studioId])
-
   const showInfo = useCallback((msg: string) => {
-    setError(msg)
-    window.setTimeout(() => setError(e => (e === msg ? null : e)), 4000)
+    setBannerError(msg)
+    window.setTimeout(() => setBannerError(e => (e === msg ? null : e)), 4000)
   }, [])
 
-  const refresh = useCallback(async () => {
-    if (!studioId) return
-    try {
-      const [prods, cats, clients, movements] = await Promise.all([
-        getProducts(studioId),
-        getCategories(studioId),
-        getClients(studioId),
-        getStockMovements(studioId),
-      ])
-      setCategories(cats)
-      setProdotti(sortProdotti(prods.map(p => productToProdotto(p, movements))))
-      setFornitori(
-        clients
-          .filter(c => c.type === 'supplier' || c.type === 'both')
-          .map(c => c.name)
-          .sort((a, b) => a.localeCompare(b, 'it')),
-      )
-      setError(null)
-    } catch {
-      setError('Impossibile caricare i prodotti.')
-    }
-  }, [studioId])
-
-  useEffect(() => {
-    if (!studioId) return
-    setLoading(true)
-    refresh().finally(() => setLoading(false))
-  }, [studioId, refresh])
+  const reloadCategories = useCallback(async () => {
+    /* categorie sincronizzate in tempo reale */
+  }, [])
 
   const categorieLista = useMemo(() => {
     if (categories.length) return categories.filter(c => !c.parentId).map(c => c.name)
@@ -159,6 +172,14 @@ export default function ProdottiSection() {
     }
     return applyCercaVeloce(list, cercaCampo, cercaModo, cercaQuery)
   }, [prodotti, editing, cercaCampo, cercaModo, cercaQuery])
+
+  const listTruncated = productsTruncated || movementsTruncated
+  const hasScopedFilters = useMemo(
+    () =>
+      listTruncated &&
+      (Boolean(cercaQuery.trim()) || Object.keys(filtriColonna).length > 0 || filtraAttivo),
+    [listTruncated, cercaQuery, filtriColonna, filtraAttivo],
+  )
 
   const selected = useMemo(() => {
     if (editing && (editing.id === selectedId || editing.isDraft)) return editing
@@ -208,26 +229,21 @@ export default function ProdottiSection() {
       const payload = prodottoToProductPayload(editing, categories)
       if (editing.isDraft) {
         const ref = await addProduct(payload)
-        const saved: Prodotto = { ...editing, id: ref.id, isDraft: false }
-        setProdotti(prev => sortProdotti([...prev.filter(p => p.id !== editing.id), saved]))
         setSelectedId(ref.id)
       } else {
         await updateProduct(editing.id, payload)
-        setProdotti(prev => sortProdotti(prev.map(p => (p.id === editing.id ? { ...editing, isDraft: false } : p))))
       }
       setEditing(null)
-      setError(null)
-      await refresh()
+      setBannerError(null)
     } catch {
-      setError('Salvataggio non riuscito.')
+      setBannerError('Salvataggio non riuscito.')
     } finally {
       setSaving(false)
     }
-  }, [editing, studioId, categories, refresh])
+  }, [editing, studioId, categories])
 
   const handleAnnulla = useCallback(() => {
     if (editing?.isDraft) {
-      setProdotti(prev => prev.filter(p => p.id !== editing.id))
       setSelectedId(previousId)
     }
     setEditing(null)
@@ -245,12 +261,11 @@ export default function ProdottiSection() {
     }
     try {
       await deleteProduct(target.id)
-      setProdotti(prev => prev.filter(p => p.id !== target.id))
       setSelectedId(null)
       setEditing(null)
       setShowElimina(false)
     } catch {
-      setError('Eliminazione non riuscita.')
+      setBannerError('Eliminazione non riuscita.')
     }
   }, [selected])
 
@@ -277,9 +292,6 @@ export default function ProdottiSection() {
       next = { ...next, magazzino: aggiornaMagazzinoDisponibile(next.magazzino) }
     }
     setEditing(next)
-    if (!next.isDraft) {
-      setProdotti(prev => prev.map(x => (x.id === next.id ? next : x)))
-    }
   }, [activeTab])
 
   const handleAggiornaListini = useCallback(() => {
@@ -305,7 +317,7 @@ export default function ProdottiSection() {
       const typeMap = { Carica: 'load' as const, Scarica: 'unload' as const, Rettifica: 'adjust' as const }
       const today = new Date().toISOString().slice(0, 10)
       setSaving(true)
-      setError(null)
+      setBannerError(null)
       try {
         await callCommitStockMovement({
           movement: {
@@ -348,19 +360,18 @@ export default function ProdottiSection() {
                 : qta
           await updateProduct(target.id, { stock: newStock })
         } else {
-          setError(err instanceof Error ? err.message : 'Movimento non registrato.')
+          setBannerError(err instanceof Error ? err.message : 'Movimento non registrato.')
           return
         }
       }
-      await refresh()
-      const [prods, movements] = await Promise.all([getProducts(studioId), getStockMovements(studioId)])
-      const fresh = prods.find(p => p.id === target.id)
-      if (fresh) {
+      const snap = await getDoc(doc(db, 'products', target.id))
+      if (snap.exists()) {
+        const fresh = { id: snap.id, ...snap.data() } as Product
         setEditing(structuredClone(productToProdotto(fresh, movements)))
       }
       setMovimentoTipo(null)
     },
-    [editing, selected, studioId, user?.uid, userProfile?.name, refresh],
+    [editing, selected, studioId, user?.uid, userProfile?.name],
   )
 
   const handleExcel = useCallback(() => {
@@ -387,73 +398,100 @@ export default function ProdottiSection() {
     return <div className="prodotti-empty-scheda">Caricamento profilo…</div>
   }
 
-  if (loading) {
-    return <div className="prodotti-empty-scheda">Caricamento prodotti…</div>
-  }
-
   return (
-    <div className={`prodotti-section${selectedId && editing ? ' prodotti-section--scheda-open' : ''}`} data-tutorial="page-magazzino">
+    <div className={`gestionale-page prodotti-section${selectedId && editing ? ' prodotti-section--scheda-open' : ''}`} data-tutorial="page-prodotti">
+      {syncing && prodotti.length > 0 ? <div className="gestionale-sync-badge" aria-live="polite">Sincronizzazione…</div> : null}
+      {showInitialSpinner ? <div className="gestionale-page-skeleton">Caricamento prodotti…</div> : null}
       {error ? <div className="prodotti-section__banner">{error}</div> : null}
 
-      <ProdottiTopBar
-        criterioRaggruppamento={criterioRaggruppamento}
-        onRaggruppa={setCriterioRaggruppamento}
-        filtraAttivo={filtraAttivo}
-        onFiltra={() => setFiltraAttivo(v => !v)}
-        selectionMode={selectionMode}
-        onSelezione={() => setSelectionMode(v => !v)}
-        colonneVisibili={colonneVisibili}
-        onColonne={setColonneVisibili}
-        mostraTotali={mostraTotali}
-        onMostraTotali={setMostraTotali}
-      />
-
-      {filtraAttivo ? (
-        <div style={{ padding: '4px 8px', background: '#fafafa', borderBottom: '1px solid #ccc', fontSize: 11 }}>
-          Filtri avanzati: usa i filtri per colonna (icona imbuto nelle intestazioni).
-        </div>
-      ) : null}
-
       <div className="prodotti-section__body">
-        <ProdottiLista
-          prodotti={displayList}
-          selectedId={selectedId}
-          selectionMode={selectionMode}
-          selectedIds={selectedIds}
-          colonneVisibili={colonneVisibili}
-          criterioRaggruppamento={criterioRaggruppamento}
-          filtriColonna={filtriColonna}
-          collapsedGroups={collapsedGroups}
-          cercaCampo={cercaCampo}
-          cercaModo={cercaModo}
-          cercaQuery={cercaQuery}
-          onCercaCampo={setCercaCampo}
-          onCercaModo={setCercaModo}
-          onCercaQuery={setCercaQuery}
-          onSelect={p => {
-            if (!isEditing || p.isDraft) handleSelect(p)
-            else handleSelect(p)
-          }}
-          onToggleGroup={key => {
-            setCollapsedGroups(prev => {
-              const next = new Set(prev)
-              if (next.has(key)) next.delete(key)
-              else next.add(key)
-              return next
-            })
-          }}
-          onToggleSelect={id => {
-            setSelectedIds(prev => {
-              const next = new Set(prev)
-              if (next.has(id)) next.delete(id)
-              else next.add(id)
-              return next
-            })
-          }}
-          onFilterChange={(col, f) => setFiltriColonna(prev => ({ ...prev, [col]: f }))}
-        />
+        <div className="prodotti-section__lista-col">
+          <ProdottiLista
+            prodotti={displayList}
+            selectedId={selectedId}
+            selectionMode={selectionMode}
+            selectedIds={selectedIds}
+            colonneVisibili={colonneVisibili}
+            criterioRaggruppamento={criterioRaggruppamento}
+            filtriColonna={filtriColonna}
+            collapsedGroups={collapsedGroups}
+            filtraAttivo={filtraAttivo}
+            cercaCampo={cercaCampo}
+            cercaModo={cercaModo}
+            cercaQuery={cercaQuery}
+            onCercaCampo={setCercaCampo}
+            onCercaModo={setCercaModo}
+            onCercaQuery={setCercaQuery}
+            onSelect={p => {
+              if (!isEditing || p.isDraft) handleSelect(p)
+              else handleSelect(p)
+            }}
+            onToggleGroup={key => {
+              setCollapsedGroups(prev => {
+                const next = new Set(prev)
+                if (next.has(key)) next.delete(key)
+                else next.add(key)
+                return next
+              })
+            }}
+            onToggleSelect={id => {
+              setSelectedIds(prev => {
+                const next = new Set(prev)
+                if (next.has(id)) next.delete(id)
+                else next.add(id)
+                return next
+              })
+            }}
+            onFilterChange={(col, f) => {
+              setFiltriColonna(prev => {
+                const next = { ...prev }
+                if (f) next[col] = f
+                else delete next[col]
+                return next
+              })
+            }}
+            onOpenFilter={() => setFiltraAttivo(true)}
+          />
+          <PaginatedFilterHint
+            visible={hasScopedFilters}
+            loading={productsLoadingMore || movementsLoadingMore}
+            onLoadMore={() => {
+              if (productsHasMore) void loadMoreProducts()
+              else if (movementsHasMore) void loadMoreMovements()
+            }}
+          />
+          <LoadMoreBar
+            hasMore={productsHasMore || movementsHasMore}
+            loading={productsLoadingMore || movementsLoadingMore}
+            truncated={productsTruncated || movementsTruncated}
+            onLoadMore={() => {
+              if (productsHasMore) void loadMoreProducts()
+              else if (movementsHasMore) void loadMoreMovements()
+            }}
+          />
+        </div>
 
-        <ProdottiScheda
+        <div className="prodotti-section__scheda-col">
+          <ProdottiTopBar
+            criterioRaggruppamento={criterioRaggruppamento}
+            onRaggruppa={c => {
+              setCriterioRaggruppamento(c)
+              setCollapsedGroups(new Set())
+            }}
+            filtraAttivo={filtraAttivo || Object.keys(filtriColonna).length > 0}
+            onFiltra={() => setFiltraAttivo(v => !v)}
+            selectionMode={selectionMode}
+            onSelezione={() => {
+              setSelectionMode(v => !v)
+              if (selectionMode) setSelectedIds(new Set())
+            }}
+            colonneVisibili={colonneVisibili}
+            onColonne={setColonneVisibili}
+            mostraTotali={mostraTotali}
+            onMostraTotali={setMostraTotali}
+          />
+
+          <ProdottiScheda
           prodotto={selected}
           activeTab={activeTab}
           categorie={categorieLista}
@@ -480,6 +518,7 @@ export default function ProdottiSection() {
           onScarica={() => setMovimentoTipo('Scarica')}
           onRettifica={() => setMovimentoTipo('Rettifica')}
         />
+        </div>
       </div>
 
       <ProdottiActionBar

@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { useVirtualWindow } from '../../../hooks/useVirtualWindow'
 import { COLONNE_DEF, CERCA_VELOCE_CAMPI, CERCA_VELOCE_MODI } from './constants'
 import type { ColonnaId, ColumnFilter, Prodotto, CercaVeloceCampo, CercaVeloceModo } from './types'
 import type { RaggruppaCriterio } from './types'
@@ -13,6 +14,7 @@ type Props = {
   criterioRaggruppamento: RaggruppaCriterio
   filtriColonna: Partial<Record<ColonnaId, ColumnFilter>>
   collapsedGroups: Set<string>
+  filtraAttivo: boolean
   cercaCampo: CercaVeloceCampo
   cercaModo: CercaVeloceModo
   cercaQuery: string
@@ -23,6 +25,7 @@ type Props = {
   onToggleGroup: (key: string) => void
   onToggleSelect: (id: string) => void
   onFilterChange: (col: ColonnaId, filter: ColumnFilter | undefined) => void
+  onOpenFilter: () => void
 }
 
 function FilterPopover({
@@ -104,6 +107,7 @@ function FilterPopover({
           textFilter.kind === 'values' &&
           onChange({ ...textFilter, search: e.target.value, showAll: false })
         }
+        autoFocus
       />
       <label className="prodotti-dropdown__check">
         <input
@@ -126,9 +130,6 @@ function FilterPopover({
         />
         (Vuote)
       </label>
-      <button type="button" className="prodotti-link" onClick={() => alert('Filtro personalizzato…')}>
-        (Personalizzato…)
-      </button>
       <div style={{ maxHeight: 160, overflow: 'auto', marginTop: 4 }}>
         {values.map(v => (
           <label key={v} className="prodotti-dropdown__check">
@@ -162,7 +163,7 @@ function CercaVeloceMenu({
   onClose: () => void
 }) {
   return (
-    <div className="prodotti-filter-popover" style={{ right: 0, left: 'auto', minWidth: 220 }} onClick={e => e.stopPropagation()}>
+    <div className="prodotti-filter-popover prodotti-filter-popover--search" onClick={e => e.stopPropagation()}>
       <div style={{ fontWeight: 700, marginBottom: 4 }}>Tipologia di ricerca</div>
       {CERCA_VELOCE_CAMPI.map(c => (
         <label key={c.id} className="prodotti-dropdown__check">
@@ -193,6 +194,7 @@ export default function ProdottiLista({
   criterioRaggruppamento,
   filtriColonna,
   collapsedGroups,
+  filtraAttivo,
   cercaCampo,
   cercaModo,
   cercaQuery,
@@ -203,22 +205,61 @@ export default function ProdottiLista({
   onToggleGroup,
   onToggleSelect,
   onFilterChange,
+  onOpenFilter,
 }: Props) {
   const [filterCol, setFilterCol] = useState<ColonnaId | null>(null)
   const [showCercaMenu, setShowCercaMenu] = useState(false)
   const headerRef = useRef<HTMLTableSectionElement>(null)
 
   const filtered = useMemo(() => applyColumnFilters(prodotti, filtriColonna), [prodotti, filtriColonna])
+  const itemCount = filtered.length
   const rows: GroupedRow[] = useMemo(
     () => buildGroupedList(filtered, criterioRaggruppamento, collapsedGroups),
     [filtered, criterioRaggruppamento, collapsedGroups],
   )
 
   const visibleCols = COLONNE_DEF.filter(c => colonneVisibili[c.id])
+  const colSpan = visibleCols.length + (selectionMode ? 2 : 1)
+  const { scrollRef, start, end, enabled, topPad, bottomPad } = useVirtualWindow(rows.length, 28)
+  const visibleRows = enabled ? rows.slice(start, end) : rows
+  const cercaLabel = CERCA_VELOCE_CAMPI.find(c => c.id === cercaCampo)?.label ?? 'Cerca codice'
 
   return (
     <div className="prodotti-section__lista">
-      <div className="prodotti-grid-wrap">
+      <div className="prodotti-lista-search">
+        <div className="prodotti-lista-search__field">
+          <button
+            type="button"
+            className="prodotti-lista-search__tipo"
+            onClick={() => setShowCercaMenu(v => !v)}
+          >
+            {cercaLabel} ▼
+          </button>
+          {showCercaMenu ? (
+            <CercaVeloceMenu
+              campo={cercaCampo}
+              modo={cercaModo}
+              onCampo={c => {
+                onCercaCampo(c)
+                setShowCercaMenu(false)
+              }}
+              onModo={onCercaModo}
+              onClose={() => setShowCercaMenu(false)}
+            />
+          ) : null}
+        </div>
+        <input
+          className="prodotti-input prodotti-lista-search__input"
+          placeholder={cercaLabel}
+          value={cercaQuery}
+          onChange={e => onCercaQuery(e.target.value)}
+        />
+      </div>
+
+      <div
+        className={`prodotti-grid-wrap${filtraAttivo ? ' prodotti-grid-wrap--filtra' : ''}`}
+        ref={scrollRef}
+      >
         <table className="prodotti-grid">
           <thead ref={headerRef}>
             <tr>
@@ -230,16 +271,19 @@ export default function ProdottiLista({
                   style={{ position: 'relative' }}
                 >
                   {col.label}
-                  <span
-                    className="prodotti-grid__filter"
-                    title="Filtro"
-                    onClick={e => {
-                      e.stopPropagation()
-                      setFilterCol(filterCol === col.id ? null : col.id)
-                    }}
-                  >
-                    ▼
-                  </span>
+                  {filtraAttivo ? (
+                    <span
+                      className="prodotti-grid__filter"
+                      title="Filtro"
+                      onClick={e => {
+                        e.stopPropagation()
+                        onOpenFilter()
+                        setFilterCol(filterCol === col.id ? null : col.id)
+                      }}
+                    >
+                      ▼
+                    </span>
+                  ) : null}
                   {filterCol === col.id ? (
                     <FilterPopover
                       col={col.id}
@@ -251,87 +295,76 @@ export default function ProdottiLista({
                   ) : null}
                 </th>
               ))}
-              <th style={{ width: 80, position: 'relative' }}>
-                <button
-                  type="button"
-                  className="prodotti-grid__search-btn"
-                  title="Cerca veloce"
-                  onClick={() => setShowCercaMenu(v => !v)}
-                >
-                  🔍
-                </button>
-                {showCercaMenu ? (
-                  <CercaVeloceMenu
-                    campo={cercaCampo}
-                    modo={cercaModo}
-                    onCampo={onCercaCampo}
-                    onModo={onModo => onCercaModo(onModo)}
-                    onClose={() => setShowCercaMenu(false)}
-                  />
-                ) : null}
-              </th>
             </tr>
-            {cercaQuery ? (
-              <tr>
-                <td colSpan={visibleCols.length + (selectionMode ? 2 : 1)} style={{ padding: 2 }}>
-                  <input
-                    className="prodotti-input"
-                    placeholder={CERCA_VELOCE_CAMPI.find(c => c.id === cercaCampo)?.label}
-                    value={cercaQuery}
-                    onChange={e => onCercaQuery(e.target.value)}
-                  />
-                </td>
-              </tr>
-            ) : null}
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={visibleCols.length + (selectionMode ? 2 : 1)} style={{ textAlign: 'center', padding: 12 }}>
+                <td colSpan={colSpan} style={{ textAlign: 'center', padding: 12 }}>
                   Nessun prodotto in elenco.
                 </td>
               </tr>
             ) : (
-              rows.map((row, i) => {
-                if (row.kind === 'group') {
-                  const collapsed = collapsedGroups.has(row.key)
+              <>
+                {enabled && topPad > 0 ? (
+                  <tr aria-hidden="true">
+                    <td colSpan={colSpan} style={{ height: topPad, padding: 0, border: 'none' }} />
+                  </tr>
+                ) : null}
+                {visibleRows.map((row, i) => {
+                  if (row.kind === 'group') {
+                    const collapsed = collapsedGroups.has(row.key)
+                    return (
+                      <tr key={`g-${row.key}`} className="prodotti-grid__group" onClick={() => onToggleGroup(row.key)}>
+                        <td colSpan={colSpan}>
+                          <span className="prodotti-grid__group-toggle">{collapsed ? '[+]' : '[-]'}</span>
+                          {row.label}
+                        </td>
+                      </tr>
+                    )
+                  }
+                  const p = row.prodotto
+                  const selected = p.id === selectedId
+                  const draft = p.isDraft
                   return (
-                    <tr key={`g-${row.key}`} className="prodotti-grid__group" onClick={() => onToggleGroup(row.key)}>
-                      <td colSpan={visibleCols.length + (selectionMode ? 2 : 1)}>
-                        <span className="prodotti-grid__group-toggle">{collapsed ? '▶' : '▼'}</span>
-                        {row.label} ({row.count})
-                      </td>
+                    <tr
+                      key={p.id || i}
+                      className={`${selected ? 'prodotti-grid__row--selected' : ''} ${draft ? 'prodotti-grid__row--draft' : ''}`}
+                      onClick={() => onSelect(p)}
+                    >
+                      {selectionMode ? (
+                        <td onClick={e => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(p.id)}
+                            onChange={() => onToggleSelect(p.id)}
+                          />
+                        </td>
+                      ) : null}
+                      {visibleCols.map(col => (
+                        <td
+                          key={col.id}
+                          className={col.id === 'prezzo' ? 'prodotti-grid__td--num' : undefined}
+                        >
+                          {getColumnValue(p, col.id)}
+                        </td>
+                      ))}
                     </tr>
                   )
-                }
-                const p = row.prodotto
-                const selected = p.id === selectedId
-                const draft = p.isDraft
-                return (
-                  <tr
-                    key={p.id || i}
-                    className={`${selected ? 'prodotti-grid__row--selected' : ''} ${draft ? 'prodotti-grid__row--draft' : ''}`}
-                    onClick={() => onSelect(p)}
-                  >
-                    {selectionMode ? (
-                      <td onClick={e => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(p.id)}
-                          onChange={() => onToggleSelect(p.id)}
-                        />
-                      </td>
-                    ) : null}
-                    {visibleCols.map(col => (
-                      <td key={col.id}>{getColumnValue(p, col.id)}</td>
-                    ))}
-                    <td />
+                })}
+                {enabled && bottomPad > 0 ? (
+                  <tr aria-hidden="true">
+                    <td colSpan={colSpan} style={{ height: bottomPad, padding: 0, border: 'none' }} />
                   </tr>
-                )
-              })
+                ) : null}
+              </>
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="prodotti-lista-footer" aria-live="polite">
+        {itemCount} {itemCount === 1 ? 'voce' : 'voci'}
       </div>
     </div>
   )

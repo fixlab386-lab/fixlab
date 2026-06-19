@@ -81,6 +81,8 @@ export function buildGroupedList(
 
 export function getColumnValue(p: Prodotto, col: ColonnaId): string {
   switch (col) {
+    case 'categoria':
+      return p.categoria
     case 'cod':
       return p.codProdotto
     case 'descrizione':
@@ -124,13 +126,13 @@ export function applyColumnFilters(
         if (filter.mode === 'nonVuote' && empty) return false
         if (filter.mode === 'vuote' && !empty) return false
       } else if (filter.kind === 'values') {
-        const normalized = val.trim() || '(Vuote)'
-        if (!filter.showAll && !filter.selected.has(normalized)) return false
-        if (!filter.showEmpty && !val.trim()) return false
-        if (filter.search.trim()) {
-          const q = filter.search.toLowerCase()
-          if (!normalized.toLowerCase().includes(q)) return false
+        if (filter.showAll) continue
+        const raw = val.trim()
+        const normalized = raw || '(Vuote)'
+        if (filter.search.trim() && !normalized.toLowerCase().includes(filter.search.trim().toLowerCase())) {
+          return false
         }
+        if (!filter.selected.has(normalized) && !(filter.showEmpty && !raw)) return false
       }
     }
     return true
@@ -139,7 +141,7 @@ export function applyColumnFilters(
 
 export function applyCercaVeloce(
   prodotti: Prodotto[],
-  campo: 'codBarre' | 'descrizione' | 'codProduttore',
+  campo: 'codProdotto' | 'codBarre' | 'descrizione' | 'codProduttore',
   modo: 'cominciaCon' | 'inizianoPer' | 'contengono',
   query: string,
 ): Prodotto[] {
@@ -147,7 +149,8 @@ export function applyCercaVeloce(
   if (!q) return prodotti
   return prodotti.filter(p => {
     let hay = ''
-    if (campo === 'codBarre') hay = p.dettagli.codBarre
+    if (campo === 'codProdotto') hay = p.codProdotto
+    else if (campo === 'codBarre') hay = p.dettagli.codBarre
     else if (campo === 'descrizione') hay = p.descrizione
     else hay = p.dettagli.produttore
     hay = hay.toLowerCase()

@@ -17,6 +17,10 @@ type Props = {
   onMostraTotali: (v: boolean) => void
 }
 
+function actionBtnClass(active?: boolean) {
+  return `prodotti-topbar__btn${active ? ' prodotti-topbar__btn--active' : ''}`
+}
+
 function RaggruppaDropdown({
   value,
   onChange,
@@ -42,11 +46,11 @@ function RaggruppaDropdown({
 
   return (
     <div className="prodotti-dropdown" ref={ref}>
-      <button type="button" className="prodotti-topbar__btn" onClick={() => setOpen(v => !v)}>
+      <button type="button" className={actionBtnClass(value !== 'Nessuno')} onClick={() => setOpen(v => !v)}>
         Raggruppa <span style={{ fontSize: 9 }}>▼</span>
       </button>
       {open ? (
-        <div className="prodotti-dropdown__menu" style={{ bottom: 'auto', top: '100%' }}>
+        <div className="prodotti-dropdown__menu prodotti-dropdown__menu--down">
           {RAGGRUPPA_CRITERI.map(c => (
             <button
               key={c}
@@ -57,12 +61,10 @@ function RaggruppaDropdown({
                 setOpen(false)
               }}
             >
+              {c === value ? '✓ ' : ''}
               {RAGGRUPPA_LABELS[c]}
             </button>
           ))}
-          <button type="button" className="prodotti-dropdown__item" onClick={() => alert('Altri gruppi…')}>
-            Altri gruppi…
-          </button>
           <label className="prodotti-dropdown__check" style={{ borderTop: '1px solid #ccc', marginTop: 4 }}>
             <input type="checkbox" checked={mostraTotali} onChange={e => onMostraTotali(e.target.checked)} />
             Mostra totali parziali
@@ -93,19 +95,11 @@ export default function ProdottiTopBar({
         mostraTotali={mostraTotali}
         onMostraTotali={onMostraTotali}
       />
-      <button
-        type="button"
-        className={`prodotti-topbar__btn${filtraAttivo ? ' prodotti-topbar__btn--active' : ''}`}
-        onClick={onFiltra}
-      >
+      <button type="button" className={actionBtnClass(filtraAttivo)} onClick={onFiltra}>
         Filtra
       </button>
-      <button
-        type="button"
-        className={`prodotti-topbar__btn${selectionMode ? ' prodotti-topbar__btn--active' : ''}`}
-        onClick={onSelezione}
-      >
-        Selezione
+      <button type="button" className={actionBtnClass(selectionMode)} onClick={onSelezione}>
+        Seleziona
       </button>
       <ProdottiColonneMenu colonneVisibili={colonneVisibili} onChange={onColonne} />
     </div>

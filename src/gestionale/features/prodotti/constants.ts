@@ -1,7 +1,7 @@
 import type { ColonnaId, RaggruppaCriterio, SchedaTabId, TipologiaProdotto } from './types'
 
 export const SCHEDA_TABS: { id: SchedaTabId; label: string; requiresMagazzino?: boolean }[] = [
-  { id: 'caratteristiche', label: 'Caratteristiche' },
+  { id: 'caratteristiche', label: 'Prodotto' },
   { id: 'dimensioni', label: 'Dimensioni e peso' },
   { id: 'dettagli', label: 'Dettagli' },
   { id: 'magazzino', label: 'Magazzino', requiresMagazzino: true },
@@ -50,10 +50,11 @@ export const RAGGRUPPA_LABELS: Record<RaggruppaCriterio, string> = {
 }
 
 export const COLONNE_DEF: { id: ColonnaId; label: string; default: boolean }[] = [
+  { id: 'categoria', label: 'Categoria', default: true },
   { id: 'cod', label: 'Cod.', default: true },
   { id: 'descrizione', label: 'Descrizione', default: true },
+  { id: 'prezzo', label: 'Privati', default: true },
   { id: 'produttore', label: 'Produttore', default: true },
-  { id: 'prezzo', label: 'Prezzo', default: true },
 ]
 
 export const DEFAULT_COLONNE: Record<ColonnaId, boolean> = Object.fromEntries(
@@ -106,6 +107,7 @@ export const UTILITA_ITEMS = [
 ] as const
 
 export const CERCA_VELOCE_CAMPI = [
+  { id: 'codProdotto' as const, label: 'Cerca codice' },
   { id: 'codBarre' as const, label: 'Cerca cod. a barre' },
   { id: 'descrizione' as const, label: 'Cerca descrizione' },
   { id: 'codProduttore' as const, label: 'Cerca codice produttore' },
