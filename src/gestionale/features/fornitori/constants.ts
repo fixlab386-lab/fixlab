@@ -33,8 +33,8 @@ export const COLONNE_DEF: { id: ColonnaId; label: string; default: boolean }[] =
   { id: 'nazione', label: 'Nazione', default: false },
   { id: 'codDestinatario', label: 'Cod. destinatario', default: false },
   { id: 'partitaIva', label: 'Partita Iva', default: true },
-  { id: 'agente', label: 'Agente', default: true },
-  { id: 'dichIntento', label: 'Dich. d\'intento', default: true },
+  { id: 'agente', label: 'Agente', default: false },
+  { id: 'dichIntento', label: 'Dich. d\'intento', default: false },
 ]
 
 export const STAMPA_MODELLI = ['Scheda fornitore', 'Elenco'] as const

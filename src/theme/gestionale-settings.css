@@ -77,7 +77,7 @@
 
 .gestionale-settings-nav__btn--active {
   background: #eef4fa;
-  border-color: #c5ddf0;
+  border-color: var(--brand-border-soft);
   color: var(--gestionale-link);
 }
 
@@ -239,7 +239,7 @@
   line-height: 1.55;
   color: var(--gestionale-text);
   background: #eef4fa;
-  border: 1px solid #c5ddf0;
+  border: 1px solid var(--brand-border-soft);
   border-radius: var(--gestionale-radius-sm);
   margin-bottom: 10px;
 }

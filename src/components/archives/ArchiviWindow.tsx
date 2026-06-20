@@ -30,7 +30,6 @@ import {
   verifyArchivePassword,
 } from '../../lib/archivePassword'
 import { syncStudioClaimsAndRefreshToken } from '../../lib/syncStudioClaims'
-import { getClients } from '../../lib/firestore'
 import MoveClientToArchiveDialog from '../clients/MoveClientToArchiveDialog'
 import ClientSearchDialog from '../clients/ClientSearchDialog'
 import type { Client } from '../../types'
@@ -121,7 +120,6 @@ export default function ArchiviWindow() {
   const [altreOpen, setAltreOpen] = useState(false)
   const [moveClient, setMoveClient] = useState<Client | null>(null)
   const [clientSearchOpen, setClientSearchOpen] = useState(false)
-  const [clientsForMove, setClientsForMove] = useState<Client[]>([])
   const altreRef = useRef<HTMLDivElement>(null)
 
   const selectedArchive = useMemo(
@@ -337,7 +335,7 @@ export default function ArchiviWindow() {
     setBusyMsg('Esportazione backup…')
     setError('')
     try {
-      await exportArchiveBackupJson(selectedId, userId)
+      await exportArchiveBackupJson(selectedId, userId, msg => setBusyMsg(msg))
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Backup non riuscito')
     } finally {
@@ -452,7 +450,7 @@ export default function ArchiviWindow() {
                       onClick={() => {
                         setAltreOpen(false)
                         if (!activeStudioId) return
-                        void getClients(activeStudioId).then(setClientsForMove).finally(() => setClientSearchOpen(true))
+                        setClientSearchOpen(true)
                       }}
                     >
                       Sposta cliente in altro archivio…
@@ -736,7 +734,7 @@ export default function ArchiviWindow() {
 
       {clientSearchOpen ? (
         <ClientSearchDialog
-          clients={clientsForMove}
+          studioId={activeStudioId ?? undefined}
           onClose={() => setClientSearchOpen(false)}
           onSelect={client => {
             setClientSearchOpen(false)

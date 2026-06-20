@@ -1,11 +1,22 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { Category } from '../../../../types'
 import { addCategory, deleteCategory, updateCategory } from '../../../../lib/firestore'
 import { printHtmlInIframe } from '../../../../lib/printDocument'
+import {
+  buildCategoryPath,
+  collectDescendantIds,
+  computeCategoryLevel,
+  getChildCategories,
+  getRootCategories,
+  rebuildCategorySubtreePaths,
+  resolveCategorySelection,
+  type CategorySelection,
+} from '../../../lib/categoryUtils'
 import { buildProductPrintHtml } from '../../../lib/productPrint'
 import { LISTINI_GLOBALI, SAMPLE_CATEGORY_TREE } from '../constants'
 import type { PrezzoListino, Prodotto } from '../types'
 import { listinoLabel } from '../utils'
+import '../../../theme/category-tree.css'
 
 export function ConfermaEliminaDialog({ onSi, onNo }: { onSi: () => void; onNo: () => void }) {
   return (
@@ -26,6 +37,97 @@ export function ConfermaEliminaDialog({ onSi, onNo }: { onSi: () => void; onNo: 
   )
 }
 
+function CategorieTreeNode({
+  category,
+  categories,
+  selectedId,
+  depth = 0,
+  onSelect,
+}: {
+  category: Category
+  categories: Category[]
+  selectedId: string | null
+  depth?: number
+  onSelect: (id: string) => void
+}) {
+  const children = getChildCategories(categories, category.id)
+  const [expanded, setExpanded] = useState(depth < 1)
+  return (
+    <li>
+      <div
+        className={`prodotti-cat-tree__item${selectedId === category.id ? ' prodotti-cat-tree__item--selected' : ''}`}
+        style={{ paddingLeft: `${depth * 14}px` }}
+        onClick={() => onSelect(category.id)}
+      >
+        {children.length > 0 ? (
+          <button
+            type="button"
+            className="category-tree__toggle"
+            onClick={e => {
+              e.stopPropagation()
+              setExpanded(v => !v)
+            }}
+          >
+            {expanded ? '▼' : '▶'}
+          </button>
+        ) : (
+          <span style={{ display: 'inline-block', width: 14 }} />
+        )}
+        {category.name}
+      </div>
+      {expanded && children.length > 0 ? (
+        <ul>
+          {children.map(child => (
+            <CategorieTreeNode
+              key={child.id}
+              category={child}
+              categories={categories}
+              selectedId={selectedId}
+              depth={depth + 1}
+              onSelect={onSelect}
+            />
+          ))}
+        </ul>
+      ) : null}
+    </li>
+  )
+}
+
+function SampleCategoryTree({
+  selectedPath,
+  onPickSample,
+}: {
+  selectedPath: string
+  onPickSample: (cat: string, sub: string) => void
+}) {
+  return (
+    <ul className="prodotti-cat-tree">
+      {Object.entries(SAMPLE_CATEGORY_TREE).map(([cat, subs]) => (
+        <li key={cat}>
+          <div
+            className={`prodotti-cat-tree__item${selectedPath === cat ? ' prodotti-cat-tree__item--selected' : ''}`}
+            onClick={() => onPickSample(cat, '')}
+          >
+            {cat}
+          </div>
+          <ul>
+            {subs.map(sub => (
+              <li key={sub}>
+                <div
+                  className={`prodotti-cat-tree__item${selectedPath === `${cat} » ${sub}` ? ' prodotti-cat-tree__item--selected' : ''}`}
+                  onClick={() => onPickSample(cat, sub)}
+                >
+                  {sub}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function CategorieProdottiDialog({
   studioId,
   categories,
@@ -38,28 +140,27 @@ export function CategorieProdottiDialog({
   studioId: string
   categories: Category[]
   selectedPath: string
-  onSelect: (cat: string, sub: string, categoryId: string, subcategoryId: string) => void
+  onSelect: (selection: CategorySelection) => void
   onClose: () => void
   onApplica: () => void
   onRefresh: () => void | Promise<void>
 }) {
-  const [selCat, setSelCat] = useState('')
-  const [selSub, setSelSub] = useState('')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showNuovaSub, setShowNuovaSub] = useState(false)
   const [nuovaSubNome, setNuovaSubNome] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
 
-  const tree = categories.length
-    ? buildTreeFromCategories(categories)
-    : SAMPLE_CATEGORY_TREE
+  const roots = useMemo(() => getRootCategories(categories), [categories])
+  const selectedCategory = selectedId ? categories.find(c => c.id === selectedId) : null
+  const selectedPathLive = selectedCategory
+    ? buildCategoryPath(selectedCategory.id, categories)
+    : selectedPath
 
-  const pick = (cat: string, sub: string) => {
-    setSelCat(cat)
-    setSelSub(sub)
-    const root = categories.find(c => !c.parentId && c.name === cat)
-    const subCat = categories.find(c => c.parentId === root?.id && c.name === sub)
-    onSelect(cat, sub, root?.id || '', subCat?.id || '')
+  const pick = (id: string) => {
+    setSelectedId(id)
+    const resolved = resolveCategorySelection(id, categories)
+    if (resolved) onSelect(resolved)
   }
 
   const run = async (fn: () => Promise<void>) => {
@@ -76,12 +177,11 @@ export function CategorieProdottiDialog({
   }
 
   const handleNuova = () => {
-    const name = window.prompt('Nome nuova categoria')
+    const name = window.prompt('Nome nuova categoria principale')
     if (!name?.trim()) return
     void run(async () => {
-      const roots = categories.filter(c => !c.parentId)
       const maxOrder = roots.reduce((m, c) => Math.max(m, c.order ?? 0), 0)
-      await addCategory({
+      const ref = await addCategory({
         studioId,
         name: name.trim(),
         emoji: '',
@@ -89,100 +189,74 @@ export function CategorieProdottiDialog({
         path: name.trim(),
         order: maxOrder + 1,
       })
-      pick(name.trim(), '')
+      pick(ref.id)
     })
   }
 
   const handleModifica = () => {
-    if (!selCat) {
+    if (!selectedCategory) {
       setMsg('Seleziona una categoria.')
       return
     }
-    const root = categories.find(c => !c.parentId && c.name === selCat)
-    if (selSub && root) {
-      const sub = categories.find(c => c.parentId === root.id && c.name === selSub)
-      if (!sub) return
-      const name = window.prompt('Nuovo nome sottocategoria', selSub)
-      if (!name?.trim() || name.trim() === selSub) return
-      void run(async () => {
-        await updateCategory(sub.id, { name: name.trim(), path: `${selCat} » ${name.trim()}` })
-        pick(selCat, name.trim())
-      })
-      return
-    }
-    if (!root) return
-    const name = window.prompt('Nuovo nome categoria', selCat)
-    if (!name?.trim() || name.trim() === selCat) return
+    const name = window.prompt('Nuovo nome categoria', selectedCategory.name)
+    if (!name?.trim() || name.trim() === selectedCategory.name) return
     void run(async () => {
-      await updateCategory(root.id, { name: name.trim(), path: name.trim() })
-      const subs = categories.filter(c => c.parentId === root.id)
-      for (const s of subs) {
-        await updateCategory(s.id, { path: `${name.trim()} » ${s.name}` })
-      }
-      pick(name.trim(), selSub)
+      await updateCategory(selectedCategory.id, { name: name.trim() })
+      const nextCategories = categories.map(c =>
+        c.id === selectedCategory.id ? { ...c, name: name.trim() } : c,
+      )
+      await rebuildCategorySubtreePaths(selectedCategory.id, nextCategories, updateCategory)
+      pick(selectedCategory.id)
     })
   }
 
   const handleElimina = () => {
-    if (!selCat) {
+    if (!selectedCategory) {
       setMsg('Seleziona una categoria.')
       return
     }
-    const root = categories.find(c => !c.parentId && c.name === selCat)
-    if (selSub && root) {
-      const sub = categories.find(c => c.parentId === root.id && c.name === selSub)
-      if (!sub) return
-      if (!window.confirm(`Eliminare la sottocategoria «${selSub}»?`)) return
-      void run(async () => {
-        await deleteCategory(sub.id)
-        pick(selCat, '')
-      })
-      return
-    }
-    if (!root) return
-    const subs = categories.filter(c => c.parentId === root.id)
-    if (subs.length > 0 && !window.confirm(`La categoria «${selCat}» ha ${subs.length} sottocategorie. Eliminarle tutte?`)) return
-    if (!window.confirm(`Eliminare la categoria «${selCat}»?`)) return
+    const descendants = collectDescendantIds(selectedCategory.id, categories)
+    const childCount = descendants.length - 1
+    const msgConfirm =
+      childCount > 0
+        ? `La categoria «${selectedCategory.name}» ha ${childCount} sottocategorie. Eliminarle tutte?`
+        : `Eliminare la categoria «${selectedCategory.name}»?`
+    if (!window.confirm(msgConfirm)) return
     void run(async () => {
-      for (const s of subs) await deleteCategory(s.id)
-      await deleteCategory(root.id)
-      setSelCat('')
-      setSelSub('')
+      const toDelete = [...descendants].reverse()
+      for (const id of toDelete) await deleteCategory(id)
+      setSelectedId(null)
     })
   }
 
   const handleNuovaSubOk = () => {
-    if (!selCat || !nuovaSubNome.trim()) {
+    if (!selectedCategory || !nuovaSubNome.trim()) {
       setMsg('Seleziona una categoria e inserisci un nome.')
       return
     }
-    const root = categories.find(c => !c.parentId && c.name === selCat)
-    if (!root) return
     void run(async () => {
-      const subs = categories.filter(c => c.parentId === root.id)
-      const maxOrder = subs.reduce((m, c) => Math.max(m, c.order ?? 0), 0)
-      await addCategory({
+      const siblings = getChildCategories(categories, selectedCategory.id)
+      const maxOrder = siblings.reduce((m, c) => Math.max(m, c.order ?? 0), 0)
+      const parentPath = buildCategoryPath(selectedCategory.id, categories)
+      const ref = await addCategory({
         studioId,
         name: nuovaSubNome.trim(),
         emoji: '',
-        parentId: root.id,
-        level: 1,
-        path: `${selCat} » ${nuovaSubNome.trim()}`,
+        parentId: selectedCategory.id,
+        level: computeCategoryLevel(selectedCategory.id, categories) + 1,
+        path: `${parentPath} » ${nuovaSubNome.trim()}`,
         order: maxOrder + 1,
       })
-      pick(selCat, nuovaSubNome.trim())
+      pick(ref.id)
       setNuovaSubNome('')
       setShowNuovaSub(false)
     })
   }
 
   const handleExcel = () => {
-    const lines = ['Categoria;Sottocategoria;Percorso']
-    for (const c of categories.filter(x => !x.parentId)) {
-      lines.push(`${c.name};;${c.path}`)
-      for (const s of categories.filter(x => x.parentId === c.id)) {
-        lines.push(`${c.name};${s.name};${s.path}`)
-      }
+    const lines = ['Nome;Percorso;Livello']
+    for (const c of [...categories].sort((a, b) => a.path.localeCompare(b.path, 'it'))) {
+      lines.push(`${c.name};${c.path};${c.level}`)
     }
     const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -191,6 +265,17 @@ export function CategorieProdottiDialog({
     a.download = 'categorie-prodotti.csv'
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const handlePickSample = (cat: string, sub: string) => {
+    onSelect({
+      leafId: '',
+      categoryPath: sub ? `${cat} » ${sub}` : cat,
+      categoryId: '',
+      subcategoryId: '',
+      categoria: cat,
+      sottocategoria: sub,
+    })
   }
 
   return (
@@ -203,31 +288,24 @@ export function CategorieProdottiDialog({
           </button>
         </div>
         <div className="prodotti-dialog__body">
-          <ul className="prodotti-cat-tree">
-            {Object.entries(tree).map(([cat, subs]) => (
-              <li key={cat}>
-                <div
-                  className={`prodotti-cat-tree__item${selCat === cat && !selSub ? ' prodotti-cat-tree__item--selected' : ''}`}
-                  onClick={() => pick(cat, '')}
-                >
-                  {cat}
-                </div>
-                <ul>
-                  {subs.map((sub: string) => (
-                    <li key={sub}>
-                      <div
-                        className={`prodotti-cat-tree__item${selCat === cat && selSub === sub ? ' prodotti-cat-tree__item--selected' : ''}`}
-                        onClick={() => pick(cat, sub)}
-                      >
-                        {sub}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            ))}
-          </ul>
-          {selectedPath ? <div style={{ marginTop: 8, fontSize: 11 }}>Selezionato: {selectedPath}</div> : null}
+          {categories.length ? (
+            <ul className="prodotti-cat-tree">
+              {roots.map(root => (
+                <CategorieTreeNode
+                  key={root.id}
+                  category={root}
+                  categories={categories}
+                  selectedId={selectedId}
+                  onSelect={pick}
+                />
+              ))}
+            </ul>
+          ) : (
+            <SampleCategoryTree selectedPath={selectedPath} onPickSample={handlePickSample} />
+          )}
+          {selectedPathLive ? (
+            <div style={{ marginTop: 8, fontSize: 11 }}>Selezionato: {selectedPathLive}</div>
+          ) : null}
           {msg ? <div style={{ marginTop: 8, fontSize: 11, color: '#c00' }}>{msg}</div> : null}
         </div>
         <div className="prodotti-dialog__footer" style={{ justifyContent: 'space-between' }}>
@@ -241,10 +319,15 @@ export function CategorieProdottiDialog({
             <button type="button" className="prodotti-dialog__btn" onClick={handleModifica} disabled={busy}>
               Modifica
             </button>
-            <button type="button" className="prodotti-dialog__btn" onClick={() => setShowNuovaSub(true)} disabled={busy || !selCat}>
+            <button
+              type="button"
+              className="prodotti-dialog__btn"
+              onClick={() => setShowNuovaSub(true)}
+              disabled={busy || !selectedCategory}
+            >
               Nuova sottocategoria
             </button>
-            <button type="button" className="prodotti-dialog__btn" onClick={handleElimina} disabled={busy || !selCat}>
+            <button type="button" className="prodotti-dialog__btn" onClick={handleElimina} disabled={busy || !selectedCategory}>
               Elimina
             </button>
             <button type="button" className="prodotti-dialog__btn" onClick={handleExcel} disabled={busy}>
@@ -259,7 +342,9 @@ export function CategorieProdottiDialog({
 
       {showNuovaSub ? (
         <div className="prodotti-dialog" style={{ position: 'fixed', top: '40%', left: '50%', transform: 'translate(-50%)' }}>
-          <div className="prodotti-dialog__titlebar">Nome nuova sottocategoria</div>
+          <div className="prodotti-dialog__titlebar">
+            Nuova sottocategoria di «{selectedCategory?.name}»
+          </div>
           <div className="prodotti-dialog__body">
             <input className="prodotti-input" value={nuovaSubNome} onChange={e => setNuovaSubNome(e.target.value)} autoFocus />
           </div>
@@ -275,15 +360,6 @@ export function CategorieProdottiDialog({
       ) : null}
     </div>
   )
-}
-
-function buildTreeFromCategories(categories: Category[]): Record<string, string[]> {
-  const roots = categories.filter(c => !c.parentId)
-  const tree: Record<string, string[]> = {}
-  for (const r of roots) {
-    tree[r.name] = categories.filter(c => c.parentId === r.id).map(c => c.name)
-  }
-  return tree
 }
 
 export function ImpostazioniListinoDialog({
@@ -616,37 +692,6 @@ export function StampaProdottoDialog({
           </button>
           <button type="button" className="prodotti-dialog__btn" onClick={onClose}>
             Chiudi
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export function MovimentoMagazzinoDialog({
-  tipo,
-  onOk,
-  onClose,
-}: {
-  tipo: 'Carica' | 'Scarica' | 'Rettifica'
-  onOk: (qta: number) => void
-  onClose: () => void
-}) {
-  const [qta, setQta] = useState(1)
-  return (
-    <div className="prodotti-dialog-overlay" onClick={onClose}>
-      <div className="prodotti-dialog" onClick={e => e.stopPropagation()}>
-        <div className="prodotti-dialog__titlebar">{tipo} magazzino</div>
-        <div className="prodotti-dialog__body">
-          <label className="prodotti-field__label">Quantità</label>
-          <input className="prodotti-input prodotti-input--short" type="number" value={qta} onChange={e => setQta(parseFloat(e.target.value) || 0)} />
-        </div>
-        <div className="prodotti-dialog__footer">
-          <button type="button" className="prodotti-dialog__btn" onClick={() => { onOk(qta); onClose() }}>
-            OK
-          </button>
-          <button type="button" className="prodotti-dialog__btn" onClick={onClose}>
-            Annulla
           </button>
         </div>
       </div>

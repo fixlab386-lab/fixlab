@@ -1,0 +1,35 @@
+/**
+ * FixLab — design tokens dal logo (fi gradient: cyan → blue → purple).
+ * Importato globalmente; usato da index.css, gestionale e auth.
+ */
+:root {
+  --brand-cyan: #00d4ff;
+  --brand-blue: #6366f1;
+  --brand-blue-dark: #4f46e5;
+  --brand-purple: #9333ea;
+  --brand-deep: #0d0b21;
+  --brand-indigo: #312e81;
+
+  --brand-gradient: linear-gradient(135deg, #00d4ff 0%, #6366f1 52%, #9333ea 100%);
+  --brand-gradient-header: linear-gradient(135deg, #312e81 0%, #6366f1 55%, #7c3aed 100%);
+  --brand-gradient-toolbar: linear-gradient(180deg, #ede9fe 0%, #ddd6fe 100%);
+  --brand-gradient-soft: linear-gradient(145deg, #12103a 0%, #312e81 38%, #6d28d9 72%, #c4b5fd 100%);
+
+  --brand-surface-hover: #f5f3ff;
+  --brand-surface-tint: #eef2ff;
+  --brand-surface-group: #ede9fe;
+  --brand-border-accent: #c7d2fe;
+  --brand-border-soft: #ddd6fe;
+  --brand-link: #6366f1;
+  --brand-overlay: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.22) 0%,
+    rgba(147, 51, 234, 0.12) 50%,
+    rgba(200, 208, 218, 0.35) 100%
+  );
+
+  --brand-accent-bg: rgba(99, 102, 241, 0.1);
+  --brand-accent-border: rgba(99, 102, 241, 0.28);
+  --brand-accent-border2: rgba(99, 102, 241, 0.42);
+  --brand-shadow-accent: 0 10px 36px rgba(99, 102, 241, 0.22);
+}

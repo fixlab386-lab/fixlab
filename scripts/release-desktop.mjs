@@ -1,8 +1,10 @@
 /**
  * Rilascio desktop: verifica GH_TOKEN e avvia bump + build + publish.
  * Uso: node scripts/release-desktop.mjs patch|minor|major
+ * GH_TOKEN: variabile d'ambiente, oppure riga GH_TOKEN=... in .env (non committare).
  */
 import { spawnSync } from 'node:child_process'
+import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -14,12 +16,31 @@ if (!valid.has(bump)) {
   process.exit(1)
 }
 
-if (!process.env.GH_TOKEN) {
-  console.error('Errore: imposta GH_TOKEN prima di pubblicare (vedi docs/RELEASE.md).')
-  process.exit(1)
+const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+
+function loadEnvFile() {
+  const envPath = join(root, '.env')
+  if (!existsSync(envPath)) return
+  for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+    const eq = trimmed.indexOf('=')
+    if (eq <= 0) continue
+    const key = trimmed.slice(0, eq).trim()
+    let value = trimmed.slice(eq + 1).trim()
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1)
+    }
+    if (!process.env[key]) process.env[key] = value
+  }
 }
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+loadEnvFile()
+
+if (!process.env.GH_TOKEN) {
+  console.error('Errore: imposta GH_TOKEN (env o .env) prima di pubblicare (vedi docs/RELEASE.md).')
+  process.exit(1)
+}
 const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm'
 const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx'
 

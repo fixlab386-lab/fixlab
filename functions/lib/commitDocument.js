@@ -47,6 +47,18 @@ function stripUndefined(value) {
     return out;
 }
 exports.commitDocument = (0, https_1.onCall)({ region: 'europe-west1' }, async (request) => {
+    try {
+        return await commitDocumentHandler(request);
+    }
+    catch (err) {
+        if (err instanceof https_1.HttpsError)
+            throw err;
+        console.error('commitDocument unexpected error', err);
+        const detail = err instanceof Error ? err.message : String(err);
+        throw new https_1.HttpsError('internal', detail || 'Errore commit documento.');
+    }
+});
+async function commitDocumentHandler(request) {
     if (!request.auth?.uid) {
         throw new https_1.HttpsError('unauthenticated', 'Autenticazione richiesta.');
     }
@@ -65,8 +77,9 @@ exports.commitDocument = (0, https_1.onCall)({ region: 'europe-west1' }, async (
     let stockCommitted = Boolean(document.stockCommitted);
     const stockWarning = undefined;
     await db.runTransaction(async (tx) => {
-        let existingStockCommitted = false;
         const docRef = documentId ? db.collection('documents').doc(documentId) : db.collection('documents').doc();
+        // --- Fase letture (Firestore: tutte le read prima delle write) ---
+        let existingStockCommitted = false;
         if (documentId) {
             const existingSnap = await tx.get(docRef);
             if (!existingSnap.exists) {
@@ -78,19 +91,34 @@ exports.commitDocument = (0, https_1.onCall)({ region: 'europe-west1' }, async (
         else {
             resultDocId = docRef.id;
         }
+        let counterLast = 0;
         if (assignNumber) {
             const counterSnap = await tx.get(counterRef);
-            const last = counterSnap.exists ? Number(counterSnap.data()?.lastNumber || 0) : 0;
-            assignedNumber = last + 1;
+            counterLast = counterSnap.exists ? Number(counterSnap.data()?.lastNumber || 0) : 0;
+        }
+        const nextStockCommitted = existingStockCommitted || stockCommitted;
+        const deduct = shouldDeductStock(document.type, document.status, nextStockCommitted);
+        const stockRows = deduct ? (document.rows || []).filter(r => r.productId && r.quantity > 0) : [];
+        const productReads = [];
+        for (const row of stockRows) {
+            const productRef = db.collection('products').doc(row.productId);
+            const productSnap = await tx.get(productRef);
+            if (!productSnap.exists)
+                continue;
+            const product = productSnap.data();
+            if (product.studioId !== document.studioId)
+                continue;
+            productReads.push({ row, productRef, product });
+        }
+        // --- Calcolo numerazione e payload ---
+        if (assignNumber) {
+            assignedNumber = counterLast + 1;
             assignedFullNumber = buildFullNumber(assignedNumber, year, document.numbering);
-            tx.set(counterRef, { lastNumber: assignedNumber, studioId: document.studioId, type: document.type, year, updatedAt: firestore_1.FieldValue.serverTimestamp() }, { merge: true });
         }
         else {
             assignedNumber = document.number || assignedNumber;
             assignedFullNumber = document.fullNumber || buildFullNumber(assignedNumber, year, document.numbering);
         }
-        const nextStockCommitted = existingStockCommitted || stockCommitted;
-        const deduct = shouldDeductStock(document.type, document.status, nextStockCommitted);
         const savePayload = {
             ...stripUndefined(document),
             number: assignedNumber,
@@ -102,20 +130,16 @@ exports.commitDocument = (0, https_1.onCall)({ region: 'europe-west1' }, async (
         if (!documentId) {
             savePayload.createdAt = firestore_1.FieldValue.serverTimestamp();
         }
+        // --- Fase scritture ---
+        if (assignNumber) {
+            tx.set(counterRef, { lastNumber: assignedNumber, studioId: document.studioId, type: document.type, year, updatedAt: firestore_1.FieldValue.serverTimestamp() }, { merge: true });
+        }
         if (deduct) {
-            const rows = (document.rows || []).filter(r => r.productId && r.quantity > 0);
-            for (const row of rows) {
-                const productRef = db.collection('products').doc(row.productId);
-                const productSnap = await tx.get(productRef);
-                if (!productSnap.exists)
-                    continue;
-                const product = productSnap.data();
-                if (product.studioId !== document.studioId)
-                    continue;
+            for (const { row, productRef, product } of productReads) {
                 (0, stock_1.applyStockDelta)(tx, productRef, product, { type: 'unload', unloaded: row.quantity }, { allowNegative, requireWithStock: true });
                 const movementRef = db.collection('stockMovements').doc();
                 const cause = `${typeLabel(document.type)} ${assignedFullNumber} del ${document.date}`;
-                tx.set(movementRef, {
+                tx.set(movementRef, stripUndefined({
                     studioId: document.studioId,
                     date: document.date,
                     productId: row.productId,
@@ -131,7 +155,7 @@ exports.commitDocument = (0, https_1.onCall)({ region: 'europe-west1' }, async (
                     linkedDocumentType: document.type,
                     operatorId: request.auth.uid,
                     createdAt: firestore_1.FieldValue.serverTimestamp(),
-                });
+                }));
             }
             savePayload.stockCommitted = true;
             stockCommitted = true;
@@ -151,5 +175,5 @@ exports.commitDocument = (0, https_1.onCall)({ region: 'europe-west1' }, async (
         stockCommitted,
         stockWarning,
     };
-});
+}
 //# sourceMappingURL=commitDocument.js.map

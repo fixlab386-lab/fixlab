@@ -1,12 +1,8 @@
+import { VENDITA_CLIENTE_TAB_DEFS } from '../shared/clienteDocumentTabs'
 import type { TabVenditaBancoId } from './types'
 
-export const VENDITA_BANCO_TABS: { id: TabVenditaBancoId; label: string }[] = [
-  { id: 'righe', label: 'Righe documento' },
-  { id: 'pagamento', label: 'Pagamento' },
-  { id: 'note', label: 'Note' },
-  { id: 'indirizzi', label: 'Indirizzi' },
-  { id: 'opzioni', label: 'Opzioni' },
-]
+export const VENDITA_BANCO_TABS: { id: TabVenditaBancoId; label: string }[] =
+  VENDITA_CLIENTE_TAB_DEFS as { id: TabVenditaBancoId; label: string }[]
 
 /** Voci esatte del dropdown Tipo pagamento (ordine FIXLab). */
 export const TIPI_PAGAMENTO_VENDITA_BANCO = [

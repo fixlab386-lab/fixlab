@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../hooks/useAuth'
 import { useActiveStudio } from '../../../hooks/useActiveStudio'
-import { getProducts, getStockMovements } from '../../../lib/firestore'
-import type { Product, StockMovement } from '../../../types'
+import { useStudioPagedLiveQuery } from '../../../hooks/useStudioPagedLiveQuery'
+import { listenProducts, listenStockMovements } from '../../../lib/firestore'
+import { fetchProductsPage, fetchStockMovementsPage } from '../../../lib/firestorePagination'
+import LoadMoreBar from '../../../components/ui/LoadMoreBar'
 import type { StockStatus } from '../../lib/stockAvailability'
 import {
   ActionBar,
@@ -30,53 +32,35 @@ export default function SituazioneScorteSection() {
   const { studioId } = useActiveStudio()
   const navigate = useNavigate()
 
-  const [products, setProducts] = useState<Product[]>([])
-  const [movements, setMovements] = useState<StockMovement[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const liveEnabled = !authLoading && Boolean(studioId)
+  const {
+    data: products,
+    syncing: productsSyncing,
+    loadingMore: productsLoadingMore,
+    hasMore: productsHasMore,
+    truncated: productsTruncated,
+    loadMore: loadMoreProducts,
+    showInitialSpinner: productsInitial,
+  } = useStudioPagedLiveQuery(studioId, listenProducts, fetchProductsPage, liveEnabled)
+  const {
+    data: movements,
+    syncing: movementsSyncing,
+    loadingMore: movementsLoadingMore,
+    hasMore: movementsHasMore,
+    truncated: movementsTruncated,
+    error: loadError,
+    loadMore: loadMoreMovements,
+    showInitialSpinner: movementsInitial,
+  } = useStudioPagedLiveQuery(studioId, listenStockMovements, fetchStockMovementsPage, liveEnabled)
+
+  const showInitialSpinner = productsInitial || movementsInitial
+  const syncing = productsSyncing || movementsSyncing
+
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StockStatus | 'all'>('all')
   const [selected, setSelected] = useState<StockSituationRow | null>(null)
   const [sortColumnId, setSortColumnId] = useState<string | null>('code')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
-
-  const refresh = useCallback(async () => {
-    if (!studioId) return
-    try {
-      const [p, m] = await Promise.all([getProducts(studioId), getStockMovements(studioId)])
-      setProducts(p)
-      setMovements(m)
-      setLoadError(null)
-    } catch {
-      setLoadError('Impossibile aggiornare la situazione scorte.')
-    }
-  }, [studioId])
-
-  useEffect(() => {
-    if (authLoading) return
-    if (!studioId) {
-      setLoading(false)
-      return
-    }
-    let cancelled = false
-    setLoading(true)
-    Promise.all([getProducts(studioId), getStockMovements(studioId)])
-      .then(([p, m]) => {
-        if (!cancelled) {
-          setProducts(p)
-          setMovements(m)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setLoadError('Impossibile caricare la situazione scorte.')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [authLoading, studioId])
 
   const allRows = useMemo(() => buildStockSituationRows(products, movements), [products, movements])
 
@@ -125,16 +109,11 @@ export default function SituazioneScorteSection() {
 
   const actionBarActions: ActionBarAction[] = useMemo(
     () => [
-      { id: 'refresh', label: 'Aggiorna', icon: '↻', onClick: () => void refresh() },
       { id: 'excel', label: 'Excel', icon: '📊', onClick: handleExcel, disabled: tableRows.length === 0 },
       { id: 'print', label: 'Stampa', icon: '🖨', onClick: () => window.print() },
     ],
-    [refresh, handleExcel, tableRows.length],
+    [handleExcel, tableRows.length],
   )
-
-  if (authLoading || loading) {
-    return <div className="gestionale-page gestionale-datatable__empty">Caricamento situazione scorte…</div>
-  }
 
   if (!studioId) {
     return <div className="gestionale-page gestionale-datatable__empty">Studio non disponibile.</div>
@@ -142,6 +121,8 @@ export default function SituazioneScorteSection() {
 
   return (
     <div className="gestionale-page" data-tutorial="page-situazione-scorte">
+      {syncing && tableRows.length > 0 ? <div className="gestionale-sync-badge" aria-live="polite">Sincronizzazione…</div> : null}
+      {showInitialSpinner ? <div className="gestionale-page-skeleton">Caricamento situazione scorte…</div> : null}
       {loadError ? <div className="gestionale-page__banner gestionale-page__banner--error">{loadError}</div> : null}
 
       <SectionHeader
@@ -219,6 +200,16 @@ export default function SituazioneScorteSection() {
             </div>
           )
         }
+      />
+
+      <LoadMoreBar
+        hasMore={productsHasMore || movementsHasMore}
+        loading={productsLoadingMore || movementsLoadingMore}
+        truncated={productsTruncated || movementsTruncated}
+        onLoadMore={() => {
+          if (productsHasMore) void loadMoreProducts()
+          else if (movementsHasMore) void loadMoreMovements()
+        }}
       />
 
       <ActionBar count={tableRows.length} countLabel="articoli" actions={actionBarActions} />

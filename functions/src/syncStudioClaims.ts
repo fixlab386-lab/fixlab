@@ -50,7 +50,7 @@ export async function collectVerifiedStudioIds(uid: string): Promise<string[]> {
   return Array.from(studioIds).sort()
 }
 
-/** Scrive { studioIds } nei custom claims dell'utente. */
+/** Scrive { studioIds } nei custom claims dell'utente, preservando claim esistenti (es. superAdmin). */
 export async function applyStudioClaimsForUser(uid: string): Promise<StudioClaimsPayload> {
   const studioIds = await collectVerifiedStudioIds(uid)
   const bytes = estimateClaimsPayloadBytes(studioIds)
@@ -64,7 +64,9 @@ export async function applyStudioClaimsForUser(uid: string): Promise<StudioClaim
     )
   }
 
-  await getAuth().setCustomUserClaims(uid, { studioIds })
+  const userRecord = await getAuth().getUser(uid)
+  const existing = (userRecord.customClaims ?? {}) as Record<string, unknown>
+  await getAuth().setCustomUserClaims(uid, { ...existing, studioIds })
   return { studioIds }
 }
 

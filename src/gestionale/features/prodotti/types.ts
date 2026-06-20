@@ -1,4 +1,5 @@
 import type { Category, Product, StockMovement } from '../../../types'
+import { buildCategoryPath, getRootCategoryId } from '../../lib/categoryUtils'
 import { LISTINI_GLOBALI, TIPOLOGIE_PRODOTTO } from './constants'
 
 export type TipologiaProdotto =
@@ -31,6 +32,7 @@ export type ColumnFilter =
   | { kind: 'text'; search: string }
   | { kind: 'values'; selected: Set<string>; showAll: boolean; showEmpty: boolean; search: string }
   | { kind: 'produttore'; mode: 'tutti' | 'personalizzato' | 'nonVuote' | 'vuote' }
+  | { kind: 'categoryTree'; categoryId: string }
 
 export interface RegolaListino {
   base?: string
@@ -78,6 +80,8 @@ export interface Prodotto {
   tipologia: TipologiaProdotto
   categoria: string
   sottocategoria: string
+  /** Percorso completo es. "Accessori » Appendiabiti » Ferro" */
+  categoryPath: string
   categoryId: string
   subcategoryId: string
   um: string
@@ -174,9 +178,10 @@ export function productToProdotto(
     return { listinoId: l.id, modalita: 'manuale', valore: val, ivato: l.ivatoDefault }
   })
 
-  const parts = (p.categoryName || '').split('»').map(s => s.trim())
+  const categoryPath = (p.categoryName || '').trim()
+  const parts = categoryPath.split('»').map(s => s.trim()).filter(Boolean)
   const categoria = parts[0] || ''
-  const sottocategoria = p.subcategoryName || parts[1] || ''
+  const sottocategoria = parts.length > 1 ? parts[parts.length - 1] : p.subcategoryName || ''
 
   const prodotto: Prodotto = {
     id: p.id,
@@ -186,6 +191,7 @@ export function productToProdotto(
     tipologia,
     categoria,
     sottocategoria,
+    categoryPath,
     categoryId: p.categoryId || '',
     subcategoryId: p.subcategoryId || '',
     um: p.unitOfMeasure || 'Kg',
@@ -255,23 +261,23 @@ export function prodottoToProductPayload(
   if (prodotto.tipologia === 'ArtLottiSeriali') variants = prodotto.lottiSeriali || 'lotti'
   if (prodotto.tipologia === 'ArtTaglieColori') variants = prodotto.variantiTagliaColore || 'taglie'
 
-  const cat = categories.find(c => c.id === prodotto.categoryId)
-  const sub = categories.find(c => c.id === prodotto.subcategoryId)
-  const categoryName = cat
-    ? sub
-      ? `${cat.name} » ${sub.name}`
-      : cat.name
-    : prodotto.categoria
+  const leafId = prodotto.subcategoryId || prodotto.categoryId
+  const rootId = leafId ? getRootCategoryId(leafId, categories) : ''
+  const categoryName = leafId
+    ? buildCategoryPath(leafId, categories) || prodotto.categoryPath
+    : prodotto.categoryPath || prodotto.categoria
+  const leaf = leafId ? categories.find(c => c.id === leafId) : undefined
+  const root = rootId ? categories.find(c => c.id === rootId) : undefined
 
   return {
     studioId: prodotto.studioId,
     code: prodotto.codProdotto,
     name: prodotto.descrizione.slice(0, 80) || prodotto.codProdotto,
     description: prodotto.descrizione,
-    categoryId: prodotto.categoryId || cat?.id || '',
+    categoryId: rootId || prodotto.categoryId || root?.id || '',
     categoryName,
-    subcategoryId: prodotto.subcategoryId || undefined,
-    subcategoryName: prodotto.sottocategoria || sub?.name,
+    subcategoryId: leafId && leafId !== rootId ? leafId : undefined,
+    subcategoryName: prodotto.sottocategoria || leaf?.name,
     brand: prodotto.dettagli.produttore,
     model: '',
     typology: tipologiaToProductTypology(prodotto.tipologia),
@@ -301,6 +307,7 @@ export function emptyProdotto(studioId: string, code: string): Prodotto {
     tipologia: 'ArtMagazzino',
     categoria: '',
     sottocategoria: '',
+    categoryPath: '',
     categoryId: '',
     subcategoryId: '',
     um: 'Kg',

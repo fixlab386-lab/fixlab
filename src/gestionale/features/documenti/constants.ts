@@ -1,15 +1,25 @@
 import type { DocumentType } from '../../../types'
+import {
+  ORDINE_CLIENTE_TAB_DEFS,
+  VENDITA_CLIENTE_TAB_DEFS,
+  type ClienteDocumentTabId,
+} from '../shared/clienteDocumentTabs'
 
-/** Tipi creabili da UI (vendite + acquisti, senza fatture elettroniche). */
+/** Tipi creabili da UI (vendite + acquisti). */
 export const ACTIVE_DOCUMENT_TYPES = [
   'preventivo',
   'ordine_cliente',
   'ddt',
   'rapporto_intervento',
+  'fattura',
+  'fattura_proforma',
+  'fattura_acconto',
+  'fattura_accomp',
   'vendita_banco',
   'preventivo_fornitore',
   'ordine_fornitore',
   'arrivo_merce',
+  'reg_fattura_fornitore',
 ] as const
 
 export type ActiveDocumentType = (typeof ACTIVE_DOCUMENT_TYPES)[number]
@@ -19,6 +29,10 @@ export const SALES_DOCUMENT_TYPES: ActiveDocumentType[] = [
   'ordine_cliente',
   'ddt',
   'rapporto_intervento',
+  'fattura',
+  'fattura_proforma',
+  'fattura_acconto',
+  'fattura_accomp',
   'vendita_banco',
 ]
 
@@ -26,6 +40,7 @@ export const PURCHASE_DOCUMENT_TYPES: ActiveDocumentType[] = [
   'preventivo_fornitore',
   'ordine_fornitore',
   'arrivo_merce',
+  'reg_fattura_fornitore',
 ]
 
 export const ACTIVE_DOCUMENT_LABELS: Record<ActiveDocumentType, string> = {
@@ -33,10 +48,15 @@ export const ACTIVE_DOCUMENT_LABELS: Record<ActiveDocumentType, string> = {
   ordine_cliente: 'Ordine cliente',
   ddt: 'DDT',
   rapporto_intervento: "Rapporto d'intervento",
+  fattura: 'Fattura',
+  fattura_proforma: 'Fattura pro-forma',
+  fattura_acconto: "Fattura d'acconto",
+  fattura_accomp: 'Fattura accomp.',
   vendita_banco: 'Vendita al banco',
   preventivo_fornitore: 'Preventivo fornitore',
   ordine_fornitore: 'Ordine fornitore',
   arrivo_merce: 'Arrivo merce',
+  reg_fattura_fornitore: 'Reg. fattura fornitore',
 }
 
 /** Titolo elenco (plurale) come Danea Easyfatt. */
@@ -45,20 +65,35 @@ export const ACTIVE_DOCUMENT_LIST_LABELS: Record<ActiveDocumentType, string> = {
   ordine_cliente: 'Ordini cliente',
   ddt: 'Documenti di trasporto',
   rapporto_intervento: "Rapporti d'intervento",
+  fattura: 'Fatture',
+  fattura_proforma: 'Fatture pro-forma',
+  fattura_acconto: "Fatture d'acconto",
+  fattura_accomp: 'Fatture accomp.',
   vendita_banco: 'Vendite al banco',
   preventivo_fornitore: 'Preventivi fornitore',
   ordine_fornitore: 'Ordini fornitore',
   arrivo_merce: 'Arrivi merce',
+  reg_fattura_fornitore: 'Reg. fatture fornitore',
 }
 
 export const DOCUMENT_HUB_GROUPS: { title: string; types: ActiveDocumentType[] }[] = [
   {
     title: 'Documenti clienti',
-    types: ['preventivo', 'ordine_cliente', 'rapporto_intervento', 'ddt', 'vendita_banco'],
+    types: [
+      'preventivo',
+      'ordine_cliente',
+      'rapporto_intervento',
+      'ddt',
+      'fattura',
+      'fattura_proforma',
+      'fattura_acconto',
+      'fattura_accomp',
+      'vendita_banco',
+    ],
   },
   {
     title: 'Documenti fornitori',
-    types: ['preventivo_fornitore', 'ordine_fornitore', 'arrivo_merce'],
+    types: ['preventivo_fornitore', 'ordine_fornitore', 'arrivo_merce', 'reg_fattura_fornitore'],
   },
 ]
 
@@ -74,10 +109,14 @@ export const ALL_DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   rapporto_intervento: "Rapporto d'intervento",
   ddt: 'DDT',
   vendita_banco: 'Vendita al banco',
+  fattura_proforma: 'Fattura pro-forma',
+  fattura_acconto: "Fattura d'acconto",
+  fattura_accomp: 'Fattura accomp.',
   fattura: 'Fattura (non disponibile)',
   preventivo_fornitore: 'Preventivo fornitore',
   ordine_fornitore: 'Ordine fornitore',
   arrivo_merce: 'Arrivo merce',
+  reg_fattura_fornitore: 'Reg. fattura fornitore',
 }
 
 export const DOCUMENT_STATUS_LABELS: Record<string, string> = {
@@ -125,24 +164,20 @@ export const DOCUMENT_PAYMENT_METHODS_SHORT = [
   'Altro',
 ] as const
 
-export type DocumentFormTabId = 'righe' | 'pagamento' | 'note' | 'indirizzi' | 'opzioni' | 'trasporto'
+export type DocumentFormTabId = ClienteDocumentTabId
 
 export const DOCUMENT_FORM_TABS: { id: DocumentFormTabId; label: string }[] = [
-  { id: 'righe', label: 'Righe documento' },
-  { id: 'indirizzi', label: 'Destinazione' },
-  { id: 'pagamento', label: 'Pagamento' },
-  { id: 'trasporto', label: 'Trasporto' },
-  { id: 'note', label: 'Note' },
-  { id: 'opzioni', label: 'Opzioni' },
-]
-
-export const VENDITA_BANCO_FORM_TABS: { id: DocumentFormTabId; label: string }[] = [
   { id: 'righe', label: 'Righe documento' },
   { id: 'pagamento', label: 'Pagamento' },
   { id: 'note', label: 'Note' },
   { id: 'indirizzi', label: 'Indirizzi' },
   { id: 'opzioni', label: 'Opzioni' },
 ]
+
+export const VENDITA_BANCO_FORM_TABS: { id: DocumentFormTabId; label: string }[] = VENDITA_CLIENTE_TAB_DEFS
+
+/** Tab ordine cliente nel form pagina documenti (allineate al modal dedicato). */
+export const ORDINE_CLIENTE_FORM_TABS: { id: DocumentFormTabId; label: string }[] = ORDINE_CLIENTE_TAB_DEFS
 
 /** Genera doc. — solo modalità dettagliata (stesso soggetto). */
 export const DOCUMENT_TRANSFORM_MAP: Partial<
@@ -156,15 +191,21 @@ export const DOCUMENT_TRANSFORM_MAP: Partial<
   rapporto_intervento: [{ label: 'DDT', type: 'ddt' }],
   preventivo_fornitore: [{ label: 'Ordine fornitore', type: 'ordine_fornitore' }],
   ordine_fornitore: [{ label: 'Arrivo merce', type: 'arrivo_merce' }],
+  arrivo_merce: [{ label: 'Reg. fattura fornitore', type: 'reg_fattura_fornitore' }],
 }
 
 /** Documenti includibili nel documento destinazione (stesso soggetto). */
 export const INCLUDABLE_FROM: Partial<Record<ActiveDocumentType, DocumentType[]>> = {
   ordine_cliente: ['preventivo'],
+  rapporto_intervento: ['preventivo', 'ordine_cliente'],
   ddt: ['preventivo', 'ordine_cliente', 'rapporto_intervento'],
   ordine_fornitore: ['preventivo_fornitore'],
   arrivo_merce: ['ordine_fornitore', 'preventivo_fornitore'],
+  reg_fattura_fornitore: ['arrivo_merce', 'ordine_fornitore', 'preventivo_fornitore'],
   vendita_banco: ['preventivo', 'ordine_cliente', 'ddt'],
+  fattura_proforma: ['preventivo', 'ordine_cliente'],
+  fattura_acconto: ['preventivo', 'ordine_cliente'],
+  fattura_accomp: ['preventivo', 'ordine_cliente', 'rapporto_intervento', 'ddt'],
 }
 
 export function isPurchaseDocumentType(type: string): boolean {

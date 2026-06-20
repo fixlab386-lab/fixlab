@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react'
 import { addClient, updateClient, getNextClientCode } from '../lib/firestore'
 import type { Client } from '../types'
-import { FiscalCodeAssistField, AddressCapAssistFields } from './anagrafica/assist'
+import { FiscalCodeAssistField, AddressCapAssistFields, VatNumberAssistField } from './anagrafica/assist'
+import DaneaSelectionHeader from './anagrafica/DaneaSelectionHeader'
+import { WinButton, WinField, WinInput, WinSelect, WinTextarea } from '../gestionale/features/vendita-banco/WinControls'
 import '../theme/gestionale-dialog.css'
+import '../gestionale/theme/gestionale-tokens.css'
+import '../gestionale/theme/vendita-al-banco.css'
+import '../gestionale/theme/ordine-cliente.css'
 
 interface Props {
   studioId: string
@@ -65,111 +70,189 @@ export default function ClientFormModal({ studioId, client, onSave, onClose }: P
     }
   }
 
-  const inp: React.CSSProperties = {
-    background: 'var(--bg-tertiary)', border: '1px solid var(--border-secondary)',
-    borderRadius: '8px', padding: '8px 12px', color: 'var(--text-primary)',
-    fontSize: '13px', fontFamily: 'inherit', outline: 'none', width: '100%', boxSizing: 'border-box'
-  }
-  const lbl: React.CSSProperties = { fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }
-
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background: 'rgba(0,0,0,0.5)', position: 'absolute', inset: 0 }} onClick={onClose} />
-      <div style={{
-        position: 'relative', width: '520px', maxWidth: '95vw', maxHeight: '90vh',
-        background: 'var(--bg-primary)', border: '1px solid var(--border-primary)',
-        borderRadius: '16px', overflow: 'hidden', display: 'flex', flexDirection: 'column'
-      }}>
-        {/* Header */}
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-          <div style={{ fontSize: '16px', fontWeight: 700 }}>{editing ? '✏️ Modifica cliente' : '👤 Nuovo cliente'}</div>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', fontSize: '18px', cursor: 'pointer', padding: '4px' }}>×</button>
+    <div
+      className="vb-dialog-overlay vb-dialog-overlay--anagrafica"
+      role="dialog"
+      aria-modal="true"
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="vb-dialog vb-dialog--anagrafica">
+        <div className="vb-dialog__titlebar vb-dialog__titlebar--brand">
+          <span>{editing ? 'Modifica cliente' : 'Nuovo cliente'}</span>
+          <button type="button" className="vb-icon-btn vb-dialog__titlebar-close" onClick={onClose}>
+            ✕
+          </button>
         </div>
 
-        {/* Body — scrollable */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div className="vb-dialog__body oc-selezione-cliente">
+          <DaneaSelectionHeader
+            title={editing ? 'Modifica cliente' : 'Nuovo cliente'}
+            subtitle="Inserisci i dati anagrafici del cliente"
+          />
 
-            {/* Codice + Nome */}
-            <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: '8px' }}>
-              <div><div style={lbl}>Codice</div><input style={{ ...inp, background: 'var(--bg-primary)' }} value={form.code} readOnly /></div>
-              <div><div style={lbl}>Nome *</div><input style={inp} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Mario Rossi" /></div>
-            </div>
+          <div className="oc-selezione-cliente__row2" style={{ gridTemplateColumns: '110px 1fr' }}>
+            <WinField label="Codice">
+              <WinInput value={form.code} readOnly />
+            </WinField>
+            <WinField label="Nome *" htmlFor="cf-name">
+              <WinInput
+                id="cf-name"
+                value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Mario Rossi"
+              />
+            </WinField>
+          </div>
 
-            {/* Tipo */}
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                <input type="checkbox" checked={form.type === 'client' || form.type === 'both'} onChange={() => {
+          <div className="oc-anagrafica__tipi">
+            <label>
+              <input
+                type="checkbox"
+                checked={form.type === 'client' || form.type === 'both'}
+                onChange={() =>
                   setForm(f => ({ ...f, type: f.type === 'both' ? 'supplier' : f.type === 'client' ? 'client' : 'both' }))
-                }} style={{ accentColor: 'var(--accent)' }} /> Cliente
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                <input type="checkbox" checked={form.type === 'supplier' || form.type === 'both'} onChange={() => {
+                }
+              />
+              Cliente
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={form.type === 'supplier' || form.type === 'both'}
+                onChange={() =>
                   setForm(f => ({ ...f, type: f.type === 'both' ? 'client' : f.type === 'supplier' ? 'supplier' : 'both' }))
-                }} style={{ accentColor: 'var(--accent)' }} /> Fornitore
-              </label>
-            </div>
+                }
+              />
+              Fornitore
+            </label>
+          </div>
 
-            {/* P.IVA + CF */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <div><div style={lbl}>P. IVA</div><input style={inp} value={form.vatNumber || ''} onChange={e => setForm(f => ({ ...f, vatNumber: e.target.value }))} /></div>
+          <div className="oc-selezione-cliente__row2">
+            <WinField label="Partita IVA" htmlFor="cf-piva">
+              <VatNumberAssistField
+                variant="win"
+                id="cf-piva"
+                value={form.vatNumber || ''}
+                onChange={v => setForm(f => ({ ...f, vatNumber: v }))}
+                onResolved={data =>
+                  setForm(f => ({
+                    ...f,
+                    ...(data.name && !f.name.trim() ? { name: data.name } : {}),
+                    ...(data.address ? { address: data.address } : {}),
+                    ...(data.cap ? { cap: data.cap } : {}),
+                    ...(data.city ? { city: data.city } : {}),
+                    ...(data.province ? { province: data.province } : {}),
+                  }))
+                }
+              />
+            </WinField>
+            <WinField label="Cod. fiscale">
               <FiscalCodeAssistField
+                variant="win"
                 value={form.fiscalCode || ''}
                 onChange={fiscalCode => setForm(f => ({ ...f, fiscalCode }))}
-                inp={inp}
-                lbl={lbl}
               />
-            </div>
-
-            {/* Sede */}
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '6px' }}>Sede</div>
-            <div><div style={lbl}>Indirizzo</div><input style={inp} value={form.address || ''} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} /></div>
-            <AddressCapAssistFields
-              value={{ cap: form.cap, city: form.city, province: form.province }}
-              onChange={patch => setForm(f => ({ ...f, ...patch }))}
-              inp={inp}
-              lbl={lbl}
-            />
-
-            {/* Contatti */}
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '6px' }}>Contatti</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <div><div style={lbl}>Telefono</div><input style={inp} value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="333 1234567" /></div>
-              <div><div style={lbl}>Cellulare</div><input style={inp} value={form.cellPhone || ''} onChange={e => setForm(f => ({ ...f, cellPhone: e.target.value }))} /></div>
-            </div>
-            <div><div style={lbl}>Email</div><input style={inp} value={form.email || ''} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="mario@email.com" /></div>
-            <div><div style={lbl}>PEC</div><input style={inp} value={form.pec || ''} onChange={e => setForm(f => ({ ...f, pec: e.target.value }))} /></div>
-            <div><div style={lbl}>Referente</div><input style={inp} value={form.contactPerson || ''} onChange={e => setForm(f => ({ ...f, contactPerson: e.target.value }))} /></div>
-
-            {/* Commerciale */}
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '6px' }}>Commerciale</div>
-            <div><div style={lbl}>Listino prezzi</div>
-              <select style={inp} value={form.priceList} onChange={e => setForm(f => ({ ...f, priceList: e.target.value as any }))}>
-                <option value="privati">Privati</option><option value="aziende">Aziende</option>
-                <option value="convenzionati">Convenzionati</option><option value="vip">VIP</option>
-              </select>
-            </div>
-            <div><div style={lbl}>Modalità pagamento</div><input style={inp} value={form.paymentMethod || ''} onChange={e => setForm(f => ({ ...f, paymentMethod: e.target.value }))} placeholder="Es: Contanti, Bonifico 30gg..." /></div>
-            <div><div style={lbl}>Note</div><textarea style={{ ...inp, minHeight: '50px', resize: 'vertical' }} value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
+            </WinField>
           </div>
+
+          <p className="oc-anagrafica-section">Sede</p>
+          <WinField label="Indirizzo" htmlFor="cf-address">
+            <WinInput
+              id="cf-address"
+              value={form.address || ''}
+              onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+            />
+          </WinField>
+          <AddressCapAssistFields
+            variant="win"
+            value={{ cap: form.cap, city: form.city, province: form.province }}
+            onChange={patch => setForm(f => ({ ...f, ...patch }))}
+          />
+          <WinField label="Nazione" htmlFor="cf-nation">
+            <WinSelect
+              id="cf-nation"
+              value={form.nation || 'Italia'}
+              onChange={e => setForm(f => ({ ...f, nation: e.target.value }))}
+            >
+              <option value="Italia">Italia</option>
+              <option value="San Marino">San Marino</option>
+              <option value="Svizzera">Svizzera</option>
+            </WinSelect>
+          </WinField>
+
+          <p className="oc-anagrafica-section">Contatti</p>
+          <div className="oc-selezione-cliente__row2">
+            <WinField label="Telefono" htmlFor="cf-phone">
+              <WinInput
+                id="cf-phone"
+                value={form.phone}
+                onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                placeholder="333 1234567"
+              />
+            </WinField>
+            <WinField label="Cellulare" htmlFor="cf-cell">
+              <WinInput
+                id="cf-cell"
+                value={form.cellPhone || ''}
+                onChange={e => setForm(f => ({ ...f, cellPhone: e.target.value }))}
+              />
+            </WinField>
+          </div>
+          <WinField label="Email" htmlFor="cf-email">
+            <WinInput
+              id="cf-email"
+              value={form.email || ''}
+              onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+              placeholder="mario@email.com"
+            />
+          </WinField>
+          <WinField label="PEC" htmlFor="cf-pec">
+            <WinInput id="cf-pec" value={form.pec || ''} onChange={e => setForm(f => ({ ...f, pec: e.target.value }))} />
+          </WinField>
+          <WinField label="Referente" htmlFor="cf-ref">
+            <WinInput
+              id="cf-ref"
+              value={form.contactPerson || ''}
+              onChange={e => setForm(f => ({ ...f, contactPerson: e.target.value }))}
+            />
+          </WinField>
+
+          <p className="oc-anagrafica-section">Commerciale</p>
+          <WinField label="Listino prezzi" htmlFor="cf-listino">
+            <WinSelect
+              id="cf-listino"
+              value={form.priceList}
+              onChange={e => setForm(f => ({ ...f, priceList: e.target.value as Client['priceList'] }))}
+            >
+              <option value="privati">Privati</option>
+              <option value="aziende">Aziende</option>
+              <option value="convenzionati">Convenzionati</option>
+              <option value="vip">VIP</option>
+            </WinSelect>
+          </WinField>
+          <WinField label="Modalità pagamento" htmlFor="cf-pay">
+            <WinInput
+              id="cf-pay"
+              value={form.paymentMethod || ''}
+              onChange={e => setForm(f => ({ ...f, paymentMethod: e.target.value }))}
+              placeholder="Es: Contanti, Bonifico 30gg..."
+            />
+          </WinField>
+          <WinField label="Note" htmlFor="cf-notes">
+            <WinTextarea
+              id="cf-notes"
+              value={form.notes || ''}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+            />
+          </WinField>
         </div>
 
-        {/* Footer */}
-        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border-primary)', display: 'flex', gap: '8px', flexShrink: 0 }}>
-          <button onClick={handleSave} disabled={saving || !form.name} style={{
-            flex: 1, padding: '10px', background: 'var(--accent)', color: 'var(--accent-text)',
-            border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
-            cursor: 'pointer', fontFamily: 'inherit', opacity: saving || !form.name ? 0.5 : 1
-          }}>
-            {saving ? '⏳ Salvataggio...' : editing ? 'Aggiorna cliente' : '✅ Salva cliente'}
-          </button>
-          <button onClick={onClose} style={{
-            padding: '10px 18px', background: 'transparent', border: '1px solid var(--border-secondary)',
-            borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit'
-          }}>
-            Annulla
-          </button>
+        <div className="vb-dialog__footer oc-selezione-cliente__footer">
+          <WinButton onClick={() => void handleSave()} disabled={saving || !form.name}>
+            {saving ? 'Salvataggio…' : editing ? 'Aggiorna' : 'OK'}
+          </WinButton>
+          <WinButton onClick={onClose}>Annulla</WinButton>
         </div>
       </div>
     </div>

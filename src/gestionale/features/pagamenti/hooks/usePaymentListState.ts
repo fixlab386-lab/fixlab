@@ -5,6 +5,7 @@ import {
   type PaymentFlowFilter,
   type PaymentPeriodFilter,
   type PaymentStatusFilter,
+  type PaymentMethodFilter,
 } from '../utils'
 import type { Payment, PaymentResource } from '../../../../types'
 
@@ -17,6 +18,9 @@ export function usePaymentListState(payments: Payment[], resources: PaymentResou
   const [flowFilter, setFlowFilter] = useState<PaymentFlowFilter>('all')
   const [statusFilter, setStatusFilter] = useState<PaymentStatusFilter>('all')
   const [resourceFilter, setResourceFilter] = useState('all')
+  const [subjectFilter, setSubjectFilter] = useState('all')
+  const [methodFilter, setMethodFilter] = useState<PaymentMethodFilter>('all')
+  const [settleByDate, setSettleByDate] = useState<string | undefined>(undefined)
   const [selectionMode, setSelectionMode] = useState(false)
   const [showFilterMenu, setShowFilterMenu] = useState(false)
   const [sortColumnId, setSortColumnId] = useState<string | null>('date')
@@ -33,9 +37,12 @@ export function usePaymentListState(payments: Payment[], resources: PaymentResou
         flowFilter,
         statusFilter,
         resourceFilter,
+        subjectFilter,
         resources,
+        methodFilter,
+        settleByDate,
       ),
-    [payments, searchLower, period, flowFilter, statusFilter, resourceFilter, resources],
+    [payments, searchLower, period, flowFilter, statusFilter, resourceFilter, subjectFilter, resources, methodFilter, settleByDate],
   )
 
   const handleSort = useCallback((columnId: string) => {
@@ -72,6 +79,9 @@ export function usePaymentListState(payments: Payment[], resources: PaymentResou
     setFlowFilter('all')
     setStatusFilter('all')
     setResourceFilter('all')
+    setSubjectFilter('all')
+    setMethodFilter('all')
+    setSettleByDate(undefined)
   }, [])
 
   return {
@@ -91,6 +101,12 @@ export function usePaymentListState(payments: Payment[], resources: PaymentResou
     setStatusFilter,
     resourceFilter,
     setResourceFilter,
+    subjectFilter,
+    setSubjectFilter,
+    methodFilter,
+    setMethodFilter,
+    settleByDate,
+    setSettleByDate,
     selectionMode,
     showFilterMenu,
     sortColumnId,

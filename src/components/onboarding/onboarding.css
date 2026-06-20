@@ -8,7 +8,7 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: linear-gradient(135deg, rgba(78, 166, 214, 0.35) 0%, rgba(58, 155, 208, 0.2) 40%, rgba(200, 208, 218, 0.45) 100%);
+  background: var(--brand-overlay);
   backdrop-filter: blur(2px);
 }
 
@@ -25,7 +25,7 @@
 .gestionale-onboarding-card__header {
   flex-shrink: 0;
   padding: 20px 24px 18px;
-  background: linear-gradient(180deg, #4ea6d6 0%, #3a9bd0 100%);
+  background: var(--brand-gradient-header);
   color: #ffffff;
 }
 
@@ -75,7 +75,7 @@
   justify-content: flex-end;
   gap: 10px;
   padding: 12px 20px;
-  background: linear-gradient(180deg, #4ea6d6 0%, #3a9bd0 100%);
+  background: var(--brand-gradient-header);
 }
 
 .gestionale-onboarding-card__footer::before {
@@ -119,7 +119,7 @@
   padding: 6px 14px;
   font-size: 12px;
   font-weight: 600;
-  color: #1a5fb4;
+  color: var(--brand-link);
   background: #ffffff;
   border: 1px solid #c8d0da;
   border-radius: 3px;
@@ -180,7 +180,7 @@
   margin-top: 2px;
   width: 15px;
   height: 15px;
-  accent-color: #3a9bd0;
+  accent-color: var(--brand-purple);
   flex-shrink: 0;
 }
 
@@ -247,10 +247,10 @@
 .gestionale-onboarding-summary__tag {
   padding: 3px 8px;
   font-size: 11px;
-  background: #eaf2fb;
-  border: 1px solid #c5ddf0;
+  background: var(--brand-surface-hover);
+  border: 1px solid var(--brand-border-soft);
   border-radius: 3px;
-  color: #1a5fb4;
+  color: var(--brand-link);
 }
 
 .gestionale-onboarding-error-banner {

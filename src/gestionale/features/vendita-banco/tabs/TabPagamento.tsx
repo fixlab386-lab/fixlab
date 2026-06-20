@@ -1,9 +1,8 @@
-import { useMemo, useRef, useState } from 'react'
-import { addCustomTipoPagamento, getCustomTipiPagamento } from '../../../../lib/userPrefs'
-import { TIPI_PAGAMENTO_VENDITA_BANCO } from '../constants'
+import { useMemo, useRef } from 'react'
+import { useStudioTables } from '../../../../contexts/StudioTablesContext'
+import { newTableId } from '../../../../lib/studioTables'
 import { WinField, WinIconBtn, WinSelect } from '../WinControls'
 import type { DocumentoVenditaBanco } from '../types'
-import { buildScadenzario } from '../utils'
 
 type Props = {
   doc: DocumentoVenditaBanco
@@ -13,21 +12,22 @@ type Props = {
 
 export default function TabPagamento({ doc, protetto, onChange }: Props) {
   const selectRef = useRef<HTMLSelectElement>(null)
-  const [prefsVersion, setPrefsVersion] = useState(0)
-  const tipiPagamento = useMemo(
-    () => [...TIPI_PAGAMENTO_VENDITA_BANCO, ...getCustomTipiPagamento()],
-    [prefsVersion],
-  )
-  void prefsVersion
-
-  const scadenze = buildScadenzario(doc.tipoPagamento, doc.totaleDocumento, doc.data)
+  const { tables, saveTipiPagamento } = useStudioTables()
+  const tipiPagamento = useMemo(() => {
+    const names = tables.tipiPagamento.map(t => t.nome)
+    // Mantiene visibile il valore già salvato nel documento anche se rimosso dalla tabella.
+    if (doc.tipoPagamento && !names.includes(doc.tipoPagamento)) names.push(doc.tipoPagamento)
+    return names
+  }, [tables.tipiPagamento, doc.tipoPagamento])
 
   const addTipoPagamento = () => {
     const label = window.prompt('Nuovo tipo di pagamento:')
     if (!label?.trim()) return
-    addCustomTipoPagamento(label.trim())
-    setPrefsVersion(v => v + 1)
-    onChange({ tipoPagamento: label.trim() })
+    const nome = label.trim()
+    if (!tables.tipiPagamento.some(t => t.nome === nome)) {
+      void saveTipiPagamento([...tables.tipiPagamento, { id: newTableId(), nome, scadenza: 'immediata' }])
+    }
+    onChange({ tipoPagamento: nome })
   }
 
   return (
@@ -57,30 +57,6 @@ export default function TabPagamento({ doc, protetto, onChange }: Props) {
           </WinIconBtn>
         </div>
       </WinField>
-
-      {scadenze.length > 0 ? (
-        <div className="vb-scadenzario">
-          <p className="vb-section-title">Scadenzario (predisposto)</p>
-          <table>
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th style={{ textAlign: 'right' }}>Importo</th>
-                <th>Descrizione</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scadenze.map((s, i) => (
-                <tr key={i}>
-                  <td>{s.data}</td>
-                  <td style={{ textAlign: 'right' }}>€ {s.importo.toFixed(2)}</td>
-                  <td>{s.descrizione}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
     </div>
   )
 }

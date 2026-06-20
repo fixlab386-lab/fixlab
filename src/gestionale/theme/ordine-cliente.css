@@ -1,0 +1,770 @@
+/* Ordine cliente — modal stile Danea (estende vendita al banco) */
+
+.vb-dialog--ordine-cliente {
+  width: min(960px, 98vw);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.vb-dialog__titlebar--brand {
+  background: linear-gradient(180deg, #4a7fc4 0%, #3568a8 100%);
+  color: #fff;
+}
+
+.vb-dialog__titlebar--brand .vb-dialog__titlebar-close,
+.vb-dialog__titlebar--brand .vb-icon-btn {
+  color: #fff;
+}
+
+.oc-selezione-overlay {
+  z-index: 22000;
+}
+
+/* Intestazione stile Danea (titolo blu + sottotitolo + icona circolare) */
+.danea-sel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 2px 2px 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #d9d6cb;
+}
+
+.danea-sel-header__text {
+  min-width: 0;
+}
+
+.danea-sel-header__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.2;
+  color: #1a5fb4;
+}
+
+.danea-sel-header__subtitle {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #555;
+}
+
+.danea-sel-header__icon {
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.danea-sel-header__icon svg {
+  display: block;
+}
+
+/* Pulsante di assistenza (lente / calcolo) in stile Windows/Danea */
+.gestionale-field-action-btn--win {
+  width: 22px;
+  height: 22px;
+  border-radius: 0;
+  border: 1px solid #7f9db9;
+  background: linear-gradient(180deg, #fefefe 0%, #e8e8e8 100%);
+  color: #2e7d32;
+  font-size: 12px;
+}
+
+.gestionale-field-action-btn--win:hover:not(:disabled) {
+  border-color: var(--brand-blue);
+  background: linear-gradient(180deg, #fff 0%, #f0f0f0 100%);
+}
+
+.oc-selezione-cliente {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: auto;
+  max-height: calc(92vh - 100px);
+}
+
+.oc-selezione-cliente__intro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.oc-selezione-cliente__intro p {
+  margin: 0;
+  color: #1a4f8f;
+  font-weight: 600;
+}
+
+.oc-selezione-cliente__intro-icon {
+  font-size: 28px;
+  opacity: 0.85;
+}
+
+.oc-selezione-cliente__radio {
+  margin-left: 4px;
+}
+
+.oc-selezione-cliente__existing-panel {
+  margin: 0 0 10px 22px;
+}
+
+.oc-selezione-cliente__existing-grid {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 16px;
+  align-items: start;
+}
+
+.oc-selezione-cliente__existing-left {
+  min-width: 0;
+}
+
+.oc-selezione-cliente__existing-right .vb-field__label {
+  font-size: 11px;
+  color: #444;
+}
+
+.oc-selezione-cliente__client-select {
+  font-weight: 600;
+  color: #1a4f8f;
+}
+
+.oc-selezione-cliente__binoculars {
+  color: #2d8a2d;
+  font-size: 16px;
+}
+
+.oc-selezione-cliente__address {
+  margin: 6px 0 0 2px;
+  padding: 0;
+}
+
+.oc-selezione-cliente__address-line {
+  margin: 0;
+  font-size: 12px;
+  color: #333;
+  line-height: 1.45;
+}
+
+.oc-selezione-cliente__modifica {
+  margin-top: 4px;
+  font-size: 12px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.oc-selezione-cliente__form--disabled {
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+.oc-selezione-cliente__footer {
+  justify-content: center;
+  gap: 12px;
+}
+
+.oc-arretrati-overlay {
+  z-index: 23000;
+}
+
+.oc-arretrati {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px 16px;
+  align-items: start;
+}
+
+.oc-arretrati__icon {
+  width: 36px;
+  height: 36px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: #856404;
+}
+
+.oc-arretrati__question {
+  margin: 0 0 10px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.oc-arretrati__list-wrap {
+  border: 1px solid #c8c8c8;
+  background: #fff;
+  max-height: 160px;
+  overflow: auto;
+  margin-bottom: 10px;
+}
+
+.oc-arretrati__list {
+  margin: 0;
+  padding: 6px 8px;
+  list-style: none;
+}
+
+.oc-arretrati__list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 3px 0;
+  font-size: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.oc-arretrati__amount {
+  font-weight: 600;
+  min-width: 90px;
+}
+
+.oc-arretrati__meta {
+  color: #444;
+}
+
+.oc-arretrati__total {
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  background: #f4f4f4;
+  border-top: 1px solid #c8c8c8;
+}
+
+.oc-arretrati__hide {
+  grid-column: 1 / -1;
+  font-size: 12px;
+}
+
+.oc-selezione-cliente__search {
+  margin: 0;
+}
+
+.oc-selezione-cliente__autocomplete {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.oc-selezione-cliente__suggest {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #7eb4ea;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  max-height: 240px;
+  overflow: auto;
+}
+
+.oc-selezione-cliente__suggest button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  color: #222;
+}
+
+.oc-selezione-cliente__suggest button:hover,
+.oc-selezione-cliente__suggest button:focus {
+  background: #e8f2fc;
+}
+
+.oc-selezione-cliente__suggest-meta {
+  color: #666;
+  font-weight: 400;
+}
+
+.oc-selezione-cliente__suggest-create {
+  color: #1a4f8f !important;
+  font-weight: 600;
+}
+
+.oc-selezione-cliente__suggest-divider {
+  height: 1px;
+  margin: 2px 0;
+  background: #d8d8d8;
+  list-style: none;
+}
+
+.oc-selezione-cliente__form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 28px;
+  margin-left: 22px;
+  padding: 6px 2px 2px;
+  background: transparent;
+  border: none;
+}
+
+.oc-selezione-cliente__col {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+/* Modal anagrafica cliente/fornitore (scheda completa) in stile Danea */
+.vb-dialog-overlay--anagrafica {
+  z-index: 24000;
+}
+
+.vb-dialog--anagrafica {
+  width: min(600px, 96vw);
+  display: flex;
+  flex-direction: column;
+  max-height: 94vh;
+}
+
+.oc-anagrafica__tipi {
+  display: flex;
+  gap: 18px;
+  margin: 2px 0;
+  font-size: 12px;
+}
+
+.oc-anagrafica__tipi label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.oc-anagrafica-section {
+  margin: 8px 0 1px;
+  padding-top: 8px;
+  border-top: 1px solid #e2e0d6;
+  font-weight: 700;
+  font-size: 12px;
+  color: #333;
+}
+
+.oc-anagrafica-section:first-of-type {
+  margin-top: 2px;
+  padding-top: 0;
+  border-top: none;
+}
+
+.oc-selezione-cliente__col-title {
+  margin: 0 0 1px;
+  font-weight: 700;
+  font-size: 12px;
+  color: #333;
+}
+
+.oc-selezione-cliente__row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.oc-selezione-cliente__error {
+  margin: 8px 0 0;
+  color: #b00020;
+  font-size: 12px;
+}
+
+.oc-conferma-vb {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px 16px;
+  align-items: start;
+}
+
+.oc-conferma-vb__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #3568a8;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.oc-conferma-vb__question {
+  margin: 0;
+  font-weight: 600;
+}
+
+.oc-conferma-vb__hint {
+  grid-column: 2;
+  margin: 0;
+  font-size: 11px;
+  color: #555;
+}
+
+.oc-conferma-vb__check {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+}
+
+.gestionale-mdi-window--ordine-cliente {
+  width: min(1180px, 98vw);
+  height: min(820px, 94vh);
+  background: #ece9d8;
+}
+
+.gestionale-mdi-window--ordine-cliente .gestionale-mdi-window__body {
+  background: #ece9d8;
+}
+
+.oc-backdrop {
+  z-index: 21000;
+}
+
+.oc-cliente-link {
+  text-align: left;
+  background: #fff;
+  border: 1px solid #a8a8a8;
+  padding: 2px 6px;
+  cursor: pointer;
+  min-height: 22px;
+}
+
+.oc-footer-row .vb-footer-fields {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.85fr) minmax(220px, 2fr);
+  gap: 8px 10px;
+  align-items: end;
+  flex: 1;
+  min-width: 0;
+}
+
+.oc-footer-row .vb-footer-field--commento {
+  grid-column: auto;
+}
+
+.oc-righe__code-cell {
+  position: relative;
+}
+
+.oc-righe__suggest {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #7eb4ea;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 200px;
+  overflow: auto;
+}
+
+.oc-righe__suggest button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.oc-righe__suggest button:hover {
+  background: #e8f2fc;
+}
+
+.oc-righe .vb-righe__foot td {
+  vertical-align: middle;
+}
+
+.oc-righe__foot-qta {
+  margin-left: 48px;
+  font-weight: 600;
+}
+
+.oc-concludi-dropdown .vb-btn--menu {
+  background: linear-gradient(180deg, #f8f8f8 0%, #e0e0e0 100%);
+  border-color: #888;
+  font-weight: 600;
+}
+
+.oc-concludi-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dc-backdrop {
+  z-index: 21900;
+}
+
+.dc-seguira {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
+@media (max-width: 800px) {
+  .oc-selezione-cliente__form {
+    grid-template-columns: 1fr;
+  }
+
+  .oc-selezione-cliente__existing-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Stampa Danea-style */
+.vb-dialog--stampa {
+  width: min(520px, 96vw);
+  background: #f5f5f5;
+}
+
+.vb-stampa-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 8px;
+  background: linear-gradient(180deg, #fff 0%, #ece9d8 100%);
+  border-bottom: 1px solid #a0a0a0;
+}
+
+.vb-stampa-header__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 400;
+  color: #1a5fb4;
+}
+
+.vb-stampa-header__subtitle {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #555;
+}
+
+.vb-stampa-header__icon {
+  font-size: 42px;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+.vb-dialog__body--stampa {
+  padding: 12px 16px;
+  background: #fff;
+  border: 1px solid #c0c0c0;
+  margin: 0 12px;
+}
+
+.vb-dialog--stampa .vb-dialog__footer {
+  margin-top: 8px;
+}
+
+/* Includi preventivi */
+.vb-dialog--includi {
+  width: min(820px, 98vw);
+}
+
+.vb-dialog__body--includi {
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.vb-includi-subtitle {
+  margin: 0 0 10px;
+  font-size: 11px;
+  color: #444;
+}
+
+.vb-includi-fieldset {
+  border: 1px solid #b8b8b8;
+  margin: 0 0 10px;
+  padding: 6px 10px 8px;
+  background: #fafafa;
+}
+
+.vb-includi-fieldset legend {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0 4px;
+}
+
+.vb-includi-radio,
+.vb-includi-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 14px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.vb-includi-grid-wrap {
+  border: 1px solid #888;
+  overflow: auto;
+  max-height: 220px;
+  background: #fff;
+}
+
+.vb-includi-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.vb-includi-grid th,
+.vb-includi-grid td {
+  border: 1px solid #c8c8c8;
+  padding: 3px 6px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.vb-includi-grid th {
+  background: #ece9d8;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+}
+
+.vb-includi-grid__row--selected td {
+  background: #316ac5;
+  color: #fff;
+}
+
+.vb-includi-grid__num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.vb-includi-grid__comment {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vb-includi-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: #e8e8e8;
+  border: 1px solid #b0b0b0;
+  font-size: 11px;
+}
+
+.vb-includi-summary__total {
+  font-weight: 600;
+}
+
+.oc-includi-dropdown .vb-dropdown__trigger {
+  font: inherit;
+}
+
+/* Tab Proprietà fattura elettronica — riga orizzontale stile Danea */
+.vb-tab-proprieta-fe {
+  padding: 8px 4px;
+}
+
+.vb-proprieta-fe__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+}
+
+.vb-proprieta-fe__tipo {
+  flex: 1 1 200px;
+  min-width: 180px;
+  max-width: 280px;
+}
+
+.vb-proprieta-fe__numero {
+  flex: 0 0 72px;
+}
+
+.vb-proprieta-fe__data {
+  flex: 0 0 132px;
+}
+
+.vb-proprieta-fe__cig {
+  flex: 1 1 100px;
+  min-width: 88px;
+  max-width: 140px;
+}
+
+.vb-proprieta-fe__cup {
+  flex: 1 1 100px;
+  min-width: 88px;
+  max-width: 140px;
+}
+
+.vb-proprieta-fe__commessa {
+  flex: 2 1 180px;
+  min-width: 160px;
+}
+
+/* Header colonna "Prezzo netto/ivato" cliccabile (scelta modalità prezzi). */
+.oc-righe__prezzo-header {
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Tab pagamento: campo acconto compatto come Danea. */
+.oc-pagamento .oc-acconto-input {
+  width: 120px;
+  flex: 0 0 120px;
+}
+
+/* Tab note: riquadro informazioni dispositivo (stampa). */
+.oc-device-info {
+  margin-top: 12px;
+  border: 1px solid #c4c4c4;
+  border-radius: 4px;
+  padding: 8px 12px 12px;
+}
+
+.oc-device-info > legend {
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+  padding: 0 6px;
+}
+
+.oc-device-info__hint {
+  margin: 0 0 10px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #666;
+}
+
+.oc-device-info__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+}
+
+.oc-device-info__notes {
+  grid-column: 1 / -1;
+}
+

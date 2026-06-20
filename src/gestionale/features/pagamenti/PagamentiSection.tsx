@@ -2,75 +2,125 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../../hooks/useAuth'
 import { useActiveStudio } from '../../../hooks/useActiveStudio'
+import { useAppWindows } from '../../../contexts/AppWindowsContext'
+import { useStudioLiveQuery } from '../../../hooks/useStudioLiveQuery'
+import { useStudioPagedLiveQuery } from '../../../hooks/useStudioPagedLiveQuery'
 import { usePaymentListState } from './hooks/usePaymentListState'
 import {
-  getPayments,
+  listenPayments,
+  listenPaymentResources,
+  listenClients,
+  listenSuppliers,
   addPayment,
   updatePayment,
   deletePayment,
-  getClients,
-  getSuppliers,
   ensureDefaultPaymentResources,
-  getPaymentResources,
-  addPaymentResource,
-  updatePaymentResource,
-  deletePaymentResource,
 } from '../../../lib/firestore'
+import { fetchPaymentsPage } from '../../../lib/firestorePagination'
+import LoadMoreBar from '../../../components/ui/LoadMoreBar'
 import {
   computePaymentSummary,
   getDefaultResource,
   resourceTypeToLegacy,
-  resolvePaymentResourceName,
 } from '../../lib/paymentResources'
 import type { Client, Payment, PaymentResource, Supplier } from '../../../types'
-import {
-  createPaymentTableColumns,
-} from './paymentTableColumns'
+import { createPaymentTableColumns } from './paymentTableColumns'
 import {
   createEmptyPaymentForm,
+  paymentToFormState,
   type PaymentFormState,
-} from './PaymentFormPanel'
+} from './PagamentoModal'
+import PagamentoModal from './PagamentoModal'
+import PagamentoDettaglioModal, { createDettaglioStateFromPayment } from './PagamentoDettaglioModal'
+import { buildPaymentUpdateFromDettaglio } from './paymentDettaglio'
+import type { PagamentoDettaglioState } from './paymentDettaglio'
 import { exportPaymentsExcel } from './exportPaymentsExcel'
-import {
-  formatPaymentAmount,
-  formatPaymentDate,
-  linkedDocumentLabel,
-  paymentFlowType,
-  sortPaymentRows,
-} from './utils'
-import { PAYMENT_FLOW_LABELS, PAYMENT_STATUS_LABELS } from './constants'
-import PaymentFilterBar from './PaymentFilterBar'
-import PaymentFormPanel from './PaymentFormPanel'
-import PaymentResourceManagerPopup from './PaymentResourceManagerPopup'
-import PaymentSectionActions from './PaymentSectionActions'
-import PaymentSummaryBar from './PaymentSummaryBar'
+import { sortPaymentRows } from './utils'
+import PagamentiSidebar from './PagamentiSidebar'
+import PagamentiActionBar from './PagamentiActionBar'
+import SchedaSoggettoModal, {
+  buildSchedaPayloadFromPayment,
+  type SchedaSoggettoPayload,
+} from '../shared/SchedaSoggettoModal'
+import type { SoggettoRicercaRecord } from '../../lib/ricercaSoggetto'
 import { invalidateDashboardCache } from '../start/dashboardCache'
-import {
-  SectionHeader,
-  MasterDetailLayout,
-  DataTable,
-  DetailPanel,
-  ActionBar,
-  ToolButton,
-  type ActionBarAction,
-} from '../../../components/ui'
+import { SectionHeader, DataTable } from '../../../components/ui'
+import '../../theme/pagamenti-section.css'
+
+type ModalMode = 'new' | null
+
+function buildPaymentPayload(
+  form: PaymentFormState,
+  studioId: string,
+  resource: PaymentResource,
+): Omit<Payment, 'id' | 'createdAt'> {
+  return {
+    studioId,
+    date: form.dueDate,
+    resource: resourceTypeToLegacy(resource.type),
+    resourceId: resource.id,
+    resourceName: resource.name,
+    subjectType: form.subjectType,
+    subjectId: form.subjectId || undefined,
+    subjectName: form.subjectName || undefined,
+    description: form.description.trim(),
+    paymentMethod: form.paymentMethod || resource.name,
+    amountIn: form.amountIn > 0 ? form.amountIn : undefined,
+    amountOut: form.amountOut > 0 ? form.amountOut : undefined,
+    settled: form.settled,
+    settledDate: form.settled ? form.settledDate || form.dueDate : undefined,
+    linkedDocumentId: form.linkedDocumentId || undefined,
+    linkedDocumentNumber: form.linkedDocumentNumber || undefined,
+    notes: form.notes || undefined,
+  }
+}
 
 export default function PagamentiSection() {
-  const { userProfile, loading: authLoading } = useAuth()
-  const { studioId, activeArchive } = useActiveStudio()
+  const { loading: authLoading } = useAuth()
+  const { studioId, activeArchive, loading: studioLoading } = useActiveStudio()
+  const { openPagamentiRisorse } = useAppWindows()
   const [searchParams] = useSearchParams()
 
-  const [payments, setPayments] = useState<Payment[]>([])
-  const [resources, setResources] = useState<PaymentResource[]>([])
-  const [clients, setClients] = useState<Client[]>([])
-  const [suppliers, setSuppliers] = useState<Supplier[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [formMode, setFormMode] = useState<'new' | null>(null)
+  const liveEnabled = !authLoading && Boolean(studioId)
+
+  const {
+    data: payments,
+    syncing,
+    loadingMore,
+    hasMore,
+    truncated,
+    error: loadError,
+    loadMore,
+    showInitialSpinner,
+  } = useStudioPagedLiveQuery(studioId, listenPayments, fetchPaymentsPage, liveEnabled)
+  const { data: resources, loading: resourcesLoading } = useStudioLiveQuery(
+    studioId,
+    listenPaymentResources,
+    liveEnabled,
+    50,
+  )
+  const { data: clients } = useStudioLiveQuery(studioId, listenClients, liveEnabled, 300)
+  const { data: suppliers } = useStudioLiveQuery(studioId, listenSuppliers, liveEnabled, 300)
+
+  const showInitialSpinnerCombined = showInitialSpinner || resourcesLoading
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!studioId) return
+    void ensureDefaultPaymentResources(studioId)
+  }, [studioId])
+
+  const [modalMode, setModalMode] = useState<ModalMode>(null)
+  const [detailPayment, setDetailPayment] = useState<Payment | null>(null)
+  const [detailState, setDetailState] = useState<PagamentoDettaglioState | null>(null)
+  const [detailSaving, setDetailSaving] = useState(false)
+  const [detailSaveError, setDetailSaveError] = useState<string | null>(null)
   const [form, setForm] = useState<PaymentFormState>(() => createEmptyPaymentForm())
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [showResourceManager, setShowResourceManager] = useState(false)
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
+  const [schedaPayment, setSchedaPayment] = useState<Payment | null>(null)
+  const [schedaPayload, setSchedaPayload] = useState<SchedaSoggettoPayload | null>(null)
 
   const filterClientId = searchParams.get('clientId') || undefined
   const filterSupplierId = searchParams.get('supplierId') || undefined
@@ -91,66 +141,148 @@ export default function PagamentiSection() {
   }, [payments, filterSubjectId, filterSubjectType])
 
   const list = usePaymentListState(scopedPayments, resources)
-  const columns = useMemo(() => createPaymentTableColumns(resources), [resources])
 
   useEffect(() => {
-    if (searchParams.get('status') === 'to_settle') {
-      list.setStatusFilter('to_settle')
-      list.setShowFilterMenu(true)
+    const status = searchParams.get('status')
+    if (status === 'to_settle') list.setStatusFilter('to_settle')
+    else if (status === 'settled') list.setStatusFilter('settled')
+    else if (searchParams.get('flow') || searchParams.get('method') || searchParams.get('settleBy')) {
+      // keep status from URL only when explicitly set
+    } else if (!filterSubjectId) {
+      list.setStatusFilter('all')
     }
-  }, [searchParams, list.setStatusFilter, list.setShowFilterMenu])
 
-  const refresh = useCallback(async () => {
-    if (!studioId) return
-    try {
-      const [p, r, c, s] = await Promise.all([
-        getPayments(studioId),
-        ensureDefaultPaymentResources(studioId),
-        getClients(studioId),
-        getSuppliers(studioId),
-      ])
-      setPayments(p)
-      setResources(r)
-      setClients(c)
-      setSuppliers(s)
-      setLoadError(null)
-    } catch {
-      setLoadError('Impossibile aggiornare i pagamenti.')
-    }
-  }, [studioId])
+    const flow = searchParams.get('flow')
+    if (flow === 'in' || flow === 'out') list.setFlowFilter(flow)
+    else if (!searchParams.get('method') && !searchParams.get('settleBy')) list.setFlowFilter('all')
 
-  useEffect(() => {
-    if (authLoading) return
-    if (!studioId) {
-      setLoading(false)
-      return
-    }
-    let cancelled = false
-    setLoading(true)
-    Promise.all([
-      getPayments(studioId),
-      ensureDefaultPaymentResources(studioId),
-      getClients(studioId),
-      getSuppliers(studioId),
-    ])
-      .then(([p, r, c, s]) => {
-        if (!cancelled) {
-          setPayments(p)
-          setResources(r)
-          setClients(c)
-          setSuppliers(s)
+    const method = searchParams.get('method')
+    if (method === 'riba' || method === 'bonifico') list.setMethodFilter(method)
+    else list.setMethodFilter('all')
+
+    const settleBy = searchParams.get('settleBy')
+    list.setSettleByDate(settleBy && /^\d{4}-\d{2}-\d{2}$/.test(settleBy) ? settleBy : undefined)
+
+    if (filterSubjectId) list.setSubjectFilter(filterSubjectId)
+  }, [
+    searchParams,
+    filterSubjectId,
+    list.setStatusFilter,
+    list.setFlowFilter,
+    list.setMethodFilter,
+    list.setSettleByDate,
+    list.setSubjectFilter,
+  ])
+
+  const openNewModal = useCallback(() => {
+    const def = getDefaultResource(resources)
+    setForm(createEmptyPaymentForm(def?.id || ''))
+    setSaveError(null)
+    setModalMode('new')
+    setDetailPayment(null)
+    setDetailState(null)
+    list.clearSelection()
+  }, [resources, list])
+
+  const openDetailModal = useCallback(
+    (p: Payment) => {
+      setDetailPayment(p)
+      setDetailState(createDettaglioStateFromPayment(p, resources))
+      setDetailSaveError(null)
+      setModalMode(null)
+      setSchedaPayment(null)
+      setSchedaPayload(null)
+      list.selectItem(p)
+    },
+    [resources, list],
+  )
+
+  const studioSoggettiRecords = useMemo<SoggettoRicercaRecord[]>(() => {
+    const fromClients = clients.map(c => ({
+      denominazione: c.name,
+      indirizzo: c.address,
+      cap: c.cap,
+      citta: c.city,
+      prov: c.province,
+      cf: c.fiscalCode,
+      piva: c.vatNumber,
+    }))
+    const fromSuppliers = suppliers.map(s => ({
+      denominazione: s.name,
+      indirizzo: s.address,
+      cap: s.cap,
+      citta: s.city,
+      prov: s.province,
+      cf: s.fiscalCode,
+      piva: s.vatNumber,
+    }))
+    return [...fromClients, ...fromSuppliers]
+  }, [clients, suppliers])
+
+  const openSchedaFromPayment = useCallback(
+    (p: Payment) => {
+      const payload = buildSchedaPayloadFromPayment(p, clients, suppliers)
+      if (!payload) {
+        setActionError(
+          p.subjectName
+            ? `Soggetto «${p.subjectName}» non trovato nell'archivio. Collega il pagamento a un cliente o fornitore.`
+            : 'Nessun soggetto collegato a questo pagamento.',
+        )
+        if (!p.subjectName && !p.subjectType) {
+          openDetailModal(p)
         }
-      })
-      .catch(() => {
-        if (!cancelled) setLoadError('Impossibile caricare i pagamenti.')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [authLoading, studioId])
+        return
+      }
+      setActionError(null)
+      setSchedaPayment(p)
+      setSchedaPayload(payload)
+      setDetailPayment(null)
+      setDetailState(null)
+      setModalMode(null)
+      list.selectItem(p)
+    },
+    [clients, suppliers, list, openDetailModal],
+  )
+
+  const closeSchedaModal = useCallback(() => {
+    setSchedaPayment(null)
+    setSchedaPayload(null)
+  }, [])
+
+  const closeDetailModal = useCallback(() => {
+    if (detailSaving) return
+    setDetailPayment(null)
+    setDetailState(null)
+    setDetailSaveError(null)
+  }, [detailSaving])
+
+  const handleToggleSettled = useCallback(
+    async (p: Payment) => {
+      const next = !p.settled
+      const settledDate = next ? new Date().toISOString().split('T')[0] : ''
+      try {
+        await updatePayment(p.id, { settled: next, settledDate })
+        invalidateDashboardCache(studioId!)
+        if (list.selected?.id === p.id) {
+          list.setSelected({ ...p, settled: next, settledDate })
+        }
+      } catch {
+        setActionError('Aggiornamento stato non riuscito.')
+      }
+    },
+    [list, studioId],
+  )
+
+  const columns = useMemo(
+    () =>
+      createPaymentTableColumns(
+        resources,
+        p => void handleToggleSettled(p),
+        p => openSchedaFromPayment(p),
+        p => openSchedaFromPayment(p),
+      ),
+    [resources, handleToggleSettled, openSchedaFromPayment],
+  )
 
   const tableRows = useMemo(
     () =>
@@ -167,84 +299,53 @@ export default function PagamentiSection() {
     [list.filtered, resources],
   )
 
-  const hasActiveFilters =
-    list.period !== 'all' ||
-    list.flowFilter !== 'all' ||
-    list.statusFilter !== 'all' ||
-    list.resourceFilter !== 'all'
-
-  const handleNew = useCallback(
-    (flowType: 'in' | 'out' = 'in') => {
-      const def = getDefaultResource(resources)
-      setForm({ ...createEmptyPaymentForm(def?.id || ''), flowType })
-      setSaveError(null)
-      setFormMode('new')
-      list.clearSelection()
-      list.setDetailCollapsed(false)
-    },
-    [resources, list],
-  )
-
   const handleSave = useCallback(async () => {
     if (!studioId || !form.description.trim() || !form.resourceId) return
     const resource = resources.find(r => r.id === form.resourceId)
     if (!resource) return
+    if (form.amountIn <= 0 && form.amountOut <= 0) return
 
     setSaving(true)
     setSaveError(null)
     try {
-      const payload: Omit<Payment, 'id' | 'createdAt'> = {
-        studioId,
-        date: form.date,
-        resource: resourceTypeToLegacy(resource.type),
-        resourceId: resource.id,
-        resourceName: resource.name,
-        subjectType: form.subjectType,
-        subjectId: form.subjectId || undefined,
-        subjectName: form.subjectName || undefined,
-        description: form.description.trim(),
-        paymentMethod: resource.name,
-        amountIn: form.flowType === 'in' ? form.amount : undefined,
-        amountOut: form.flowType === 'out' ? form.amount : undefined,
-        settled: form.settled,
-        ...(form.settled ? { settledDate: form.date } : {}),
-        linkedDocumentId: form.linkedDocumentId || undefined,
-        linkedDocumentNumber: form.linkedDocumentNumber || undefined,
-        notes: form.notes || undefined,
-      }
+      const payload = buildPaymentPayload(form, studioId, resource)
       await addPayment(payload)
       invalidateDashboardCache(studioId)
-      setFormMode(null)
+      setModalMode(null)
       list.clearSelection()
-      await refresh()
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Salvataggio non riuscito.')
     } finally {
       setSaving(false)
     }
-  }, [studioId, form, resources, refresh, list])
+  }, [studioId, form, resources, list])
 
-  const handleToggleSettled = useCallback(
-    async (p: Payment) => {
-      const next = !p.settled
-      try {
-        await updatePayment(p.id, {
-          settled: next,
-          settledDate: next ? new Date().toISOString().split('T')[0] : '',
-        })
-        setPayments(prev =>
-          prev.map(x => (x.id === p.id ? { ...x, settled: next, settledDate: next ? new Date().toISOString().split('T')[0] : '' } : x)),
-        )
-        invalidateDashboardCache(studioId!)
-        if (list.selected?.id === p.id) {
-          list.setSelected({ ...p, settled: next })
-        }
-      } catch {
-        setLoadError('Aggiornamento stato non riuscito.')
-      }
-    },
-    [list, studioId],
-  )
+  const handleSaveDettaglio = useCallback(async () => {
+    if (!studioId || !detailPayment || !detailState) return
+    const resource = resources.find(r => r.id === detailState.resourceId)
+    if (!resource) return
+
+    setDetailSaving(true)
+    setDetailSaveError(null)
+    try {
+      const payload = buildPaymentUpdateFromDettaglio(detailState, studioId, resource)
+      await updatePayment(detailPayment.id, payload)
+      invalidateDashboardCache(studioId)
+      const updated = { ...detailPayment, ...payload, id: detailPayment.id }
+      setDetailPayment(updated)
+      setDetailState(createDettaglioStateFromPayment(updated, resources))
+    } catch (e) {
+      setDetailSaveError(e instanceof Error ? e.message : 'Salvataggio non riuscito.')
+    } finally {
+      setDetailSaving(false)
+    }
+  }, [studioId, detailPayment, detailState, resources])
+
+  const closeModal = useCallback(() => {
+    if (saving) return
+    setModalMode(null)
+    setSaveError(null)
+  }, [saving])
 
   const handleDelete = useCallback(async () => {
     const target =
@@ -256,12 +357,25 @@ export default function PagamentiSection() {
       await deletePayment(target.id)
       invalidateDashboardCache(studioId!)
       list.clearSelection()
-      setFormMode(null)
-      await refresh()
+      setModalMode(null)
+      setDetailPayment(null)
+      setDetailState(null)
     } catch {
-      setLoadError('Eliminazione non riuscita.')
+      setActionError('Eliminazione non riuscita.')
     }
-  }, [list, payments, refresh])
+  }, [list, payments, studioId])
+
+  const handleDuplicate = useCallback(() => {
+    const target = list.selected
+    if (!target) return
+    const dup = paymentToFormState(target, resources)
+    dup.description = `${dup.description} (copia)`
+    setForm(dup)
+    setSaveError(null)
+    setModalMode('new')
+    setDetailPayment(null)
+    setDetailState(null)
+  }, [list.selected, resources])
 
   const handlePrint = useCallback(() => window.print(), [])
   const handleExcel = useCallback(() => {
@@ -269,43 +383,20 @@ export default function PagamentiSection() {
     exportPaymentsExcel(tableRows, resources, archiveName)
   }, [tableRows, resources, activeArchive?.name, studioId])
 
-  const handleSetDefaultResource = useCallback(
-    async (id: string) => {
-      await Promise.all(
-        resources.map(r => updatePaymentResource(r.id, { isDefault: r.id === id })),
-      )
-      const updated = await getPaymentResources(studioId)
-      setResources(updated)
-    },
-    [resources, studioId],
-  )
+  const showToast = useCallback((msg: string) => {
+    setActionMessage(msg)
+    window.setTimeout(() => setActionMessage(null), 2500)
+  }, [])
 
-  const actionBarActions: ActionBarAction[] = useMemo(
-    () => [
-      { id: 'new', label: 'Nuovo', icon: '➕', onClick: () => handleNew('in') },
-      {
-        id: 'del',
-        label: 'Elimina',
-        icon: '🗑',
-        variant: 'danger',
-        onClick: () => void handleDelete(),
-        disabled: !list.selected && list.selectedKeys.length === 0,
-      },
-      { id: 'print', label: 'Stampa', icon: '🖨', onClick: handlePrint },
-      { id: 'excel', label: 'Excel', icon: '📊', onClick: handleExcel, disabled: tableRows.length === 0 },
-    ],
-    [handleNew, handleDelete, handlePrint, handleExcel, list.selected, list.selectedKeys.length, tableRows.length],
-  )
-
-  if (authLoading || loading) {
-    return <div className="gestionale-page gestionale-datatable__empty">Caricamento pagamenti…</div>
+  if (authLoading || studioLoading) {
+    return <div className="gestionale-page gestionale-page-skeleton">Caricamento pagamenti…</div>
   }
 
   if (!studioId) {
     return <div className="gestionale-page gestionale-datatable__empty">Studio non disponibile.</div>
   }
 
-  if (loadError && payments.length === 0) {
+  if (loadError && payments.length === 0 && !showInitialSpinnerCombined) {
     return (
       <div className="gestionale-page gestionale-datatable__empty" data-tutorial="page-pagamenti">
         {loadError}
@@ -314,170 +405,124 @@ export default function PagamentiSection() {
   }
 
   return (
-    <div className="gestionale-page" data-tutorial="page-pagamenti">
-      {loadError ? <div className="gestionale-page__banner gestionale-page__banner--error">{loadError}</div> : null}
+    <div className="pagamenti-section gestionale-page" data-tutorial="page-pagamenti">
+      {syncing && payments.length > 0 ? <div className="gestionale-sync-badge" aria-live="polite">Sincronizzazione…</div> : null}
+      {showInitialSpinnerCombined ? <div className="gestionale-page-skeleton">Caricamento pagamenti…</div> : null}
+      {loadError || actionError ? (
+        <div className="gestionale-page__banner gestionale-page__banner--error">{loadError || actionError}</div>
+      ) : null}
+      {actionMessage ? <div className="gestionale-page__banner gestionale-page__banner--ok">{actionMessage}</div> : null}
 
       <SectionHeader
-        title="Pagamenti — Prima nota"
+        title="Pagamenti"
         searchValue={list.search}
         onSearchChange={list.setSearch}
-        searchPlaceholder="Cerca descrizione, cliente, risorsa…"
-        actions={
-          <PaymentSectionActions
-            showFilterMenu={list.showFilterMenu}
-            hasActiveFilters={hasActiveFilters}
-            onToggleFilterMenu={list.toggleFilterMenu}
-            selectionMode={list.selectionMode}
-            onToggleSelectionMode={list.toggleSelectionMode}
-            onManageResources={() => setShowResourceManager(true)}
-          />
-        }
+        searchPlaceholder="Cerca descrizione…"
+        className="pagamenti-section__header"
       />
 
-      <PaymentSummaryBar summary={summary} />
-
-      {list.showFilterMenu ? (
-        <PaymentFilterBar
-          period={list.period}
-          flowFilter={list.flowFilter}
-          statusFilter={list.statusFilter}
-          resourceFilter={list.resourceFilter}
-          resources={resources}
-          onPeriodChange={list.setPeriod}
-          onFlowFilterChange={list.setFlowFilter}
-          onStatusFilterChange={list.setStatusFilter}
-          onResourceFilterChange={list.setResourceFilter}
-          onClear={list.resetFilters}
-        />
-      ) : null}
-
-      <MasterDetailLayout
-        detailCollapsed={list.detailCollapsed}
-        onToggleDetail={() => list.setDetailCollapsed(c => !c)}
-        master={
+      <div className="pagamenti-section__body">
+        <div className="pagamenti-section__lista">
           <DataTable
             rows={tableRows}
             columns={columns}
             rowKey={p => p.id}
-            selectable={list.selectionMode}
             selectedKeys={list.selectedKeys}
             onSelectionChange={keys => {
               list.setSelectedKeys(keys)
               if (keys.length === 1) {
                 const p = payments.find(x => x.id === keys[0])
-                if (p) {
-                  list.selectItem(p)
-                  setFormMode(null)
-                }
+                if (p) list.selectItem(p)
+              } else if (keys.length === 0) {
+                list.clearSelection()
               }
             }}
             sortColumnId={list.sortColumnId}
             sortDirection={list.sortDirection}
             onSort={list.handleSort}
-            onRowClick={item => {
-              list.selectItem(item)
-              setFormMode(null)
-            }}
-            emptyMessage="Nessun movimento. Usa «Nuovo» per registrarne uno."
+            onRowClick={item => openSchedaFromPayment(item)}
+            emptyMessage="Nessun movimento. Usa «Nuovo pagam.» per registrarne uno."
             virtualize
             virtualizeThreshold={80}
           />
-        }
-        detail={
-          formMode === 'new' ? (
-            <PaymentFormPanel
-              resources={resources}
-              clients={clients}
-              suppliers={suppliers}
-              form={form}
-              onChange={setForm}
-              saving={saving}
-              saveError={saveError}
-              onSave={() => void handleSave()}
-              onCancel={() => {
-                setFormMode(null)
-                setSaveError(null)
-              }}
-              onManageResources={() => setShowResourceManager(true)}
-            />
-          ) : list.selected ? (
-            <DetailPanel
-              title={`${PAYMENT_FLOW_LABELS[paymentFlowType(list.selected)]} — ${list.selected.description}`}
-              tabs={[{ id: 'riepilogo', label: 'Riepilogo', content: null }]}
-              activeTabId="riepilogo"
-              onTabChange={() => {}}
-              fields={[
-                { label: 'Data', value: formatPaymentDate(list.selected.date) },
-                { label: 'Tipo', value: PAYMENT_FLOW_LABELS[paymentFlowType(list.selected)] },
-                { label: 'Importo', value: formatPaymentAmount(list.selected) },
-                { label: 'Risorsa', value: resolvePaymentResourceName(list.selected, resources) },
-                { label: 'Cliente/Fornitore', value: list.selected.subjectName || '—' },
-                {
-                  label: 'Stato',
-                  value: list.selected.settled
-                    ? PAYMENT_STATUS_LABELS.settled
-                    : PAYMENT_STATUS_LABELS.to_settle,
-                },
-                { label: 'Documento', value: linkedDocumentLabel(list.selected) },
-                ...(list.selected.notes ? [{ label: 'Note', value: list.selected.notes }] : []),
-              ]}
-              footer={
-                <>
-                  <ToolButton
-                    label={list.selected.settled ? 'Segna da saldare' : 'Segna saldato'}
-                    icon={list.selected.settled ? '○' : '✓'}
-                    onClick={() => void handleToggleSettled(list.selected!)}
-                  />
-                  <ToolButton label="Elimina" icon="🗑" onClick={() => void handleDelete()} />
-                </>
-              }
-            />
-          ) : (
-            <div className="gestionale-detail-panel gestionale-detail-panel--empty">
-              <p className="gestionale-detail-panel__empty-msg">
-                <strong>Nessun movimento selezionato</strong>
-                Seleziona una riga per i dettagli oppure registra una nuova entrata/uscita.
-              </p>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <ToolButton label="Nuova entrata" icon="➕" onClick={() => handleNew('in')} />
-                <ToolButton label="Nuova uscita" icon="➖" onClick={() => handleNew('out')} />
-              </div>
-            </div>
-          )
-        }
+          <LoadMoreBar hasMore={hasMore} loading={loadingMore} truncated={truncated} onLoadMore={loadMore} />
+
+          <div className="pagamenti-section__foot">
+            <span className="pagamenti-section__foot-count">{list.filtered.length} voci</span>
+            <span />
+            <span />
+            <span />
+            <span />
+            <span className="pagamenti-section__foot-in">€ {summary.totalIn.toFixed(2)}</span>
+            <span className="pagamenti-section__foot-out">€ {summary.totalOut.toFixed(2)}</span>
+            <span />
+          </div>
+        </div>
+
+        <PagamentiSidebar
+          period={list.period}
+          statusFilter={list.statusFilter}
+          resourceFilter={list.resourceFilter}
+          subjectFilter={list.subjectFilter}
+          resources={resources}
+          payments={scopedPayments}
+          onPeriodChange={list.setPeriod}
+          onStatusFilterChange={list.setStatusFilter}
+          onResourceFilterChange={list.setResourceFilter}
+          onSubjectFilterChange={list.setSubjectFilter}
+        />
+      </div>
+
+      <PagamentiActionBar
+        hasSelection={!!list.selected}
+        hasMultiSelection={list.selectedKeys.length > 1}
+        canDelete={!!list.selected || list.selectedKeys.length > 0}
+        onNuovoPagamento={openNewModal}
+        onNuovoGiroconto={() => showToast('Giroconto tra risorse — in arrivo.')}
+        onModifica={() => list.selected && openDetailModal(list.selected)}
+        onDuplica={handleDuplicate}
+        onElimina={() => void handleDelete()}
+        onStampa={() => handlePrint()}
+        onExcel={handleExcel}
+        onSaldoMultiplo={() => openPagamentiRisorse()}
+        onModificaSelez={() => showToast('Modifica selezione multipla — in arrivo.')}
       />
 
-      <ActionBar count={list.filtered.length} countLabel="movimenti" actions={actionBarActions} />
+      <PagamentoModal
+        open={modalMode === 'new'}
+        mode="new"
+        form={form}
+        resources={resources}
+        studioId={studioId}
+        saving={saving}
+        saveError={saveError}
+        onChange={setForm}
+        onSave={() => void handleSave()}
+        onClose={closeModal}
+        onManageResources={() => openPagamentiRisorse()}
+      />
 
-      {showResourceManager ? (
-        <PaymentResourceManagerPopup
+      {schedaPayment && schedaPayload && studioId ? (
+        <SchedaSoggettoModal
+          payment={schedaPayment}
+          studioId={studioId}
+          studioRecords={studioSoggettiRecords}
+          payload={schedaPayload}
+          onClose={closeSchedaModal}
+        />
+      ) : null}
+
+      {detailPayment && detailState ? (
+        <PagamentoDettaglioModal
+          payment={detailPayment}
+          state={detailState}
           resources={resources}
-          payments={payments}
-          onClose={() => setShowResourceManager(false)}
-          onAdd={async data => {
-            const sortOrder = resources.length
-            await addPaymentResource({
-              studioId,
-              name: data.name,
-              type: data.type,
-              initialBalance: data.initialBalance,
-              isDefault: data.isDefault,
-              sortOrder,
-            })
-            const updated = await getPaymentResources(studioId)
-            setResources(updated)
-          }}
-          onUpdate={async (id, data) => {
-            await updatePaymentResource(id, data)
-            const updated = await getPaymentResources(studioId)
-            setResources(updated)
-          }}
-          onDelete={async id => {
-            await deletePaymentResource(id)
-            const updated = await getPaymentResources(studioId)
-            setResources(updated)
-          }}
-          onSetDefault={handleSetDefaultResource}
+          studioId={studioId}
+          saving={detailSaving}
+          saveError={detailSaveError}
+          onChange={setDetailState}
+          onSave={() => void handleSaveDettaglio()}
+          onClose={closeDetailModal}
         />
       ) : null}
     </div>

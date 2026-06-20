@@ -2,9 +2,9 @@
 .clienti-section {
   --win-bg: #F0F0F0;
   --win-panel-bg: #FFFFFF;
-  --win-focus-blue: #0078D7;
+  --win-focus-blue: #0078d7;
   --win-col-header-bg: #E6E6E6;
-  --win-group-bg: #E6F2FF;
+  --win-group-bg: #EDEDED;
   --win-text-main: #000000;
   --win-text-muted: #222222;
   --win-border: #CCCCCC;
@@ -81,6 +81,13 @@
   flex-wrap: wrap;
   overflow-x: auto;
   overflow-y: visible;
+}
+
+.clienti-topbar .gestionale-section-header__action-btn {
+  min-height: 28px;
+  height: auto;
+  padding: 4px 12px;
+  font-size: 12px;
 }
 
 .clienti-topbar__btn {
@@ -208,12 +215,17 @@
   border: 1px solid var(--win-border);
   border-bottom: none;
   margin-right: -1px;
-  background: #E1E1E1;
-  color: #666;
+  background: #e1e1e1;
+  color: #333;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   border-radius: 0;
+}
+
+.clienti-scheda__tab:hover {
+  background: #ececec;
+  color: #111;
 }
 
 .clienti-scheda__tab--active {
@@ -248,7 +260,7 @@
 .clienti-section-title {
   font-size: 11px;
   font-weight: 700;
-  color: #1a5fb4;
+  color: #0066cc;
   margin: 8px 0 4px;
   display: flex;
   align-items: center;
@@ -358,7 +370,10 @@
 }
 
 .clienti-actionbar__btn:disabled {
-  opacity: 0.5;
+  opacity: 1;
+  color: #757575;
+  background: #e4e4e4;
+  border-color: #bdbdbd;
   cursor: default;
 }
 
@@ -482,8 +497,75 @@
   border: 1px solid var(--win-border);
   background: linear-gradient(180deg, #fff 0%, #e0e0e0 100%);
   font-size: 12px;
+  font-weight: 600;
+  color: #1a1a1a;
   cursor: pointer;
   border-radius: 0;
+}
+
+.clienti-dialog__btn--primary {
+  background: linear-gradient(180deg, #4a7fc4 0%, #3568a8 100%);
+  border-color: #2a5080;
+  color: #fff;
+}
+
+.clienti-dialog__hint {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: #444;
+  line-height: 1.4;
+}
+
+.clienti-dialog__hint--warn {
+  color: #8b4513;
+}
+
+.clienti-grid--selectable tbody tr {
+  cursor: pointer;
+}
+
+.clienti-grid__row--selected td {
+  background: #316ac5 !important;
+  color: #fff;
+}
+
+.clienti-grid__badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #2e7d32;
+}
+
+.clienti-grid__row--selected .clienti-grid__badge {
+  color: #c8f7c5;
+}
+
+.clienti-cap-picker {
+  position: absolute;
+  z-index: 30;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 2px;
+  max-height: 140px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--win-border);
+  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.clienti-cap-picker__item {
+  display: block;
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 11px;
+  text-align: left;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.clienti-cap-picker__item:hover {
+  background: #d8e8f8;
 }
 
 .clienti-empty {
@@ -538,6 +620,44 @@
   cursor: pointer;
   color: #333;
   padding: 0 2px;
+}
+
+.clienti-section-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.clienti-section-header__action-btn {
+  height: 22px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+  background: #4a4a4a;
+  border: 1px solid #666666;
+  border-radius: 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.clienti-section-header__action-btn:hover:not(:disabled) {
+  background: #555555;
+  border-color: #777777;
+}
+
+.clienti-section-header__action-btn--active {
+  background: #6a8aaa;
+  border-color: #8aaccc;
+}
+
+.clienti-section-header__action-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .clienti-section__banner {
@@ -602,7 +722,7 @@
   border-radius: 0;
 }
 
-.clienti-scheda__save--cancel { color: #0056b3; }
+.clienti-scheda__save--cancel { color: var(--brand-blue-dark); }
 
 .clienti-dropdown__menu--down {
   top: 100%;
@@ -618,6 +738,14 @@
   z-index: 10000;
   max-height: min(320px, calc(100vh - 16px));
   min-width: 280px;
+  background: var(--win-panel-bg, #ffffff);
+  border: 1px solid var(--win-border, #cccccc);
+  color: var(--win-text-main, #000000);
+}
+
+.clienti-dropdown__menu--fixed .clienti-dropdown__item {
+  background: var(--win-panel-bg, #ffffff);
+  color: var(--win-text-main, #000000);
 }
 
 .clienti-actionbar .clienti-dropdown__item {
@@ -730,11 +858,23 @@
 
 .clienti-icon-btn {
   padding: 2px 6px;
-  border: 1px solid var(--win-border);
-  background: #f8f8f8;
+  border: 1px solid #7a7a7a;
+  background: linear-gradient(180deg, #fff 0%, #e8e8e8 100%);
   cursor: pointer;
   font-size: 12px;
+  font-weight: 700;
+  color: #333;
   border-radius: 0;
+}
+
+.clienti-icon-btn--close {
+  color: #9b1c1c;
+}
+
+.clienti-icon-btn--close:hover {
+  background: #e81123;
+  border-color: #a00;
+  color: #fff;
 }
 
 .clienti-allegati-drop {
@@ -799,6 +939,127 @@
     min-width: 36px;
     padding: 6px 10px;
   }
+}
+
+.clienti-linked-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.clienti-linked-panel__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.clienti-linked-panel__hint {
+  margin: 0;
+  color: var(--win-text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.clienti-linked-empty {
+  margin: 12px 0;
+  color: var(--win-text-muted);
+  font-size: 12px;
+}
+
+.clienti-linked-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--win-cell-border);
+  border-radius: 2px;
+  max-height: min(420px, 50vh);
+}
+
+.clienti-linked-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.clienti-linked-table th,
+.clienti-linked-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--win-cell-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.clienti-linked-table th {
+  position: sticky;
+  top: 0;
+  background: var(--win-col-header-bg);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.clienti-linked-table tbody tr:hover {
+  background: #f7fbff;
+}
+
+.clienti-linked-table__link {
+  font-family: inherit;
+  font-size: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.clienti-linked-table__sub {
+  font-size: 10px;
+  color: var(--win-text-muted);
+  margin-top: 2px;
+}
+
+.clienti-linked-table__desc {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Elenco documenti soggetto (scheda cliente/fornitore) */
+.subject-documents-overlay {
+  z-index: 26000;
+}
+
+.subject-documents-dialog {
+  width: min(560px, 96vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.subject-documents-dialog__subtitle {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: #444;
+  background: #f5f5f5;
+  border-bottom: 1px solid #ccc;
+}
+
+.subject-documents-dialog__body {
+  flex: 1;
+  min-height: 120px;
+  max-height: 55vh;
+  overflow: auto;
+  padding: 8px 10px;
+}
+
+.subject-documents-dialog__list {
+  margin: 0;
+  padding: 0;
+}
+
+.subject-documents-dialog__footer {
+  justify-content: center;
 }
 
 @media (max-width: 768px) {

@@ -1,15 +1,82 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { signInWithEmailAndPassword } from 'firebase/auth'
+import { Link, useNavigate } from 'react-router-dom'
 import { auth } from '../firebase'
-import { useNavigate, Link } from 'react-router-dom'
-import PageHeader from '../components/page/PageHeader'
+import AuthShell, {
+  AuthDivider,
+  AuthError,
+  AuthFooter,
+  AuthFormHeader,
+  AuthLegalLinks,
+} from '../components/auth/AuthShell'
+import GoogleSignInButton from '../components/auth/GoogleSignInButton'
+import {
+  handleGoogleRedirectResult,
+  mapAuthError,
+  resolvePostAuthPath,
+  signInWithGoogle,
+} from '../lib/auth'
+import '../theme/auth.css'
+
+function PasswordToggle({ visible, onToggle }: { visible: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      className="auth-input-toggle"
+      onClick={onToggle}
+      aria-label={visible ? 'Nascondi password' : 'Mostra password'}
+    >
+      {visible ? (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+          <line x1="1" y1="1" x2="23" y2="23" />
+        </svg>
+      ) : (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      )}
+    </button>
+  )
+}
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+
+  const afterAuth = useCallback(async () => {
+    const user = auth.currentUser
+    if (!user) return
+    navigate(await resolvePostAuthPath(user))
+  }, [navigate])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      setLoading(true)
+      try {
+        const result = await handleGoogleRedirectResult()
+        if (cancelled || !result?.user) return
+        await afterAuth()
+      } catch (err: unknown) {
+        if (!cancelled) {
+          const code = (err as { code?: string })?.code || ''
+          setError(mapAuthError(code))
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [afterAuth])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -17,49 +84,93 @@ export default function Login() {
     setError('')
     try {
       await signInWithEmailAndPassword(auth, email, password)
-      navigate('/')
-    } catch {
-      setError('Email o password errati')
-    } finally { setLoading(false) }
+      await afterAuth()
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code || ''
+      setError(mapAuthError(code))
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const inp: React.CSSProperties = { width: '100%', background: 'var(--bg-tertiary)', border: '1px solid var(--border-secondary)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }
+  const handleGoogle = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const cred = await signInWithGoogle()
+      if (cred?.user) await afterAuth()
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code || ''
+      setError(mapAuthError(code))
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
-      <div style={{ width: '100%', maxWidth: '400px', background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-card)', padding: '36px 32px' }}>
-        <PageHeader
-          eyebrow="FIXLAB"
-          title="Accedi"
-          subtitle="Inserisci email e password dello studio: dopo l’accesso torni alla dashboard con riparazioni e magazzino."
-        />
-        <form onSubmit={handleLogin} style={{ marginTop: '28px' }}>
-          <div style={{ marginBottom: '12px' }}>
-            <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '5px' }}>EMAIL</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required style={inp} placeholder="email@esempio.com" />
-          </div>
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '5px' }}>PASSWORD</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required style={inp} placeholder="••••••••" />
-          </div>
-          {error && <div style={{ background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: 'var(--danger)', marginBottom: '16px' }}>{error}</div>}
-          <button type="submit" disabled={loading} style={{ width: '100%', padding: '11px', background: 'var(--accent)', color: 'var(--accent-text)', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-            {loading ? 'Accesso...' : 'Accedi'}
-          </button>
-        </form>
-        <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '12px', color: 'var(--text-tertiary)' }}>
-          Non hai un account?{' '}
-          <Link to="/register" style={{ color: 'var(--accent)', textDecoration: 'none' }}>Registrati</Link>
-          <div style={{ marginTop: '14px', display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <Link to="/privacy" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '11px' }}>
-              Privacy
-            </Link>
-            <Link to="/cookie" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '11px' }}>
-              Cookie
-            </Link>
-          </div>
+    <AuthShell
+      heroEyebrow="Benvenuto in FixLab"
+      heroTitle="Il gestionale per laboratori di riparazione, sempre con te"
+      heroSubtitle="Clienti, magazzino, riparazioni, cassa e documenti in un unico posto."
+    >
+      <AuthFormHeader
+        title="Accedi"
+        subtitle="Accedi con email e password oppure continua con Google per entrare nel tuo studio."
+      />
+
+      <form onSubmit={handleLogin} className="auth-form">
+        <div className="auth-field">
+          <label className="auth-label" htmlFor="login-email">
+            Email
+          </label>
+          <input
+            id="login-email"
+            type="email"
+            className="auth-input"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+            placeholder="email@esempio.com"
+            autoComplete="email"
+          />
         </div>
-      </div>
-    </div>
+        <div className="auth-field auth-field--last">
+          <label className="auth-label" htmlFor="login-password">
+            Password
+          </label>
+          <div className="auth-input-wrap">
+            <input
+              id="login-password"
+              type={showPassword ? 'text' : 'password'}
+              className="auth-input"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              placeholder="••••••••"
+              autoComplete="current-password"
+            />
+            <PasswordToggle visible={showPassword} onToggle={() => setShowPassword(v => !v)} />
+          </div>
+          <span className="auth-forgot">
+            <Link to="/forgot-password">Password dimenticata?</Link>
+          </span>
+        </div>
+
+        <AuthError message={error} />
+
+        <button type="submit" disabled={loading} className="auth-btn">
+          {loading ? 'Accesso...' : 'Accedi'}
+        </button>
+      </form>
+
+      <AuthDivider />
+
+      <GoogleSignInButton loading={loading} onClick={() => void handleGoogle()} />
+
+      <AuthFooter>
+        Non hai un account? <Link to="/register">Registrati</Link>
+        <AuthLegalLinks />
+      </AuthFooter>
+    </AuthShell>
   )
 }

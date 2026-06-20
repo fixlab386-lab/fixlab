@@ -367,65 +367,6 @@ export function getPageStepsForPath(path: string): DriveStep[] {
     ]
   }
 
-  if (path === '/dispositivi') {
-    return [
-      {
-        element: '[data-tutorial="page-dispositivi"]',
-        popover: {
-          title: 'Registro dispositivi',
-          description:
-            'Traccia IMEI/seriali/barcode collegati a clienti e riparazioni. Utile per garanzie, furto e riacquisti.',
-          side: 'bottom',
-        },
-      },
-      {
-        element: '[data-tutorial="dispositivi-toolbar"]',
-        popover: {
-          title: 'Nuovo e fotocamera',
-          description:
-            '«+ Nuovo dispositivo» apre la scheda vuota. «Scansiona» usa la fotocamera per leggere un codice senza digitare.',
-          side: 'bottom',
-        },
-      },
-      {
-        element: '[data-tutorial="dispositivi-scan"]',
-        popover: {
-          title: 'Ricerca veloce',
-          description:
-            'Digita o incolla IMEI/seriale/barcode e premi Invio oppure «Cerca». Se non esiste, puoi registrarlo da qui con i dati precompilati.',
-          side: 'bottom',
-        },
-      },
-      {
-        element: '[data-tutorial="dispositivi-filters"]',
-        popover: {
-          title: 'Filtri elenco',
-          description:
-            'Ricerca testuale sulla tabella e menu marca per restringere i risultati quando hai molti record.',
-          side: 'bottom',
-        },
-      },
-      {
-        element: '[data-tutorial="dispositivi-status-chips"]',
-        popover: {
-          title: 'Chip di stato',
-          description:
-            'Conta quanti dispositivi sono in laboratorio, consegnati, ecc. Clicca per filtrare la tabella sotto.',
-          side: 'bottom',
-        },
-      },
-      {
-        element: '[data-tutorial="dispositivi-table"]',
-        popover: {
-          title: 'Tabella',
-          description:
-            'Clicca una riga per aprire la scheda completa del dispositivo e modificarlo. Scroll orizzontale su schermi piccoli.',
-          side: 'top',
-        },
-      },
-    ]
-  }
-
   if (path === '/documenti') {
     return [
       {

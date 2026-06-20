@@ -57,7 +57,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
-  registerUpdateIpc()
+  registerUpdateIpc(getMainWindow)
   createWindow()
   initAutoUpdater(getMainWindow)
 

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '../../firebase'
 import { useActiveStudio } from '../../hooks/useActiveStudio'
-import { getClients } from '../../lib/firestore'
+import { loadRecentClients } from '../../lib/loadStudioCatalog'
+import { searchClients } from '../../lib/firestorePagination'
 import type { Client, Repair } from '../../types'
 import ClientFormModal from '../ClientFormModal'
 import FormField from '../ui/FormField'
@@ -22,19 +25,43 @@ export default function TabCliente({ form, s }: Props) {
 
   useEffect(() => {
     if (!studioId) return
-    void getClients(studioId).then(setClients)
-  }, [studioId])
+    let cancelled = false
+    const term = clientSearch.trim()
+    const timer = window.setTimeout(
+      () => {
+        const load = term ? searchClients(studioId, term) : loadRecentClients(studioId, 40)
+        void load.then(data => {
+          if (!cancelled) setClients(data)
+        })
+      },
+      term ? 250 : 0,
+    )
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [studioId, clientSearch])
 
   useEffect(() => {
-    if (form.clientId) {
-      const c = clients.find(x => x.id === form.clientId)
-      if (c) setSelectedClient(c)
+    if (!studioId || !form.clientId) return
+    const c = clients.find(x => x.id === form.clientId)
+    if (c) {
+      setSelectedClient(c)
+      return
     }
-  }, [form.clientId, clients])
+    let cancelled = false
+    void getDoc(doc(db, 'clients', form.clientId)).then(snap => {
+      if (cancelled || !snap.exists()) return
+      const client = { id: snap.id, ...snap.data() } as Client
+      setSelectedClient(client)
+      setClients(prev => (prev.some(x => x.id === client.id) ? prev : [client, ...prev]))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [studioId, form.clientId, clients])
 
-  const filteredClients = clients.filter(c =>
-    (c.name + (c.phone || '') + (c.email || '') + (c.vatNumber || '')).toLowerCase().includes(clientSearch.toLowerCase()),
-  )
+  const filteredClients = clients
 
   const selectClient = (c: Client) => {
     setSelectedClient(c)

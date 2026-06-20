@@ -10,7 +10,6 @@ export const WIZARD_STEPS = [
 export const FEATURE_OPTIONS: { key: keyof StudioFeatures; label: string }[] = [
   { key: 'warehouse', label: 'Gestione magazzino ricambi' },
   { key: 'pos', label: 'Cassa / Vendita al banco' },
-  { key: 'devices', label: 'Gestione dispositivi e IMEI' },
   { key: 'whatsapp', label: 'Invio automatico WhatsApp ai clienti' },
   { key: 'rtPrinter', label: 'Stampa scontrino RT' },
 ]

@@ -47,7 +47,7 @@
   top: 0;
   z-index: 1;
   background: #eef4fa;
-  color: #1a5fb4;
+  color: var(--brand-link);
   font-weight: 700;
   text-align: left;
   padding: 6px 8px;

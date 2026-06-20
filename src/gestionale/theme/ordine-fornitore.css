@@ -1,0 +1,104 @@
+/* Ordine fornitore — stesso stile MDI di ordine cliente */
+
+.vb-dialog--ordine-fornitore {
+  width: min(960px, 98vw);
+}
+
+.gestionale-mdi-window--ordine-fornitore {
+  width: min(1180px, 98vw);
+  height: min(820px, 94vh);
+}
+
+.of-backdrop {
+  z-index: 21000;
+}
+
+.of-selezione-overlay {
+  z-index: 22000;
+}
+
+.of-fornitore-link {
+  text-align: left;
+  background: #fff;
+  border: 1px solid #a8a8a8;
+  padding: 2px 6px;
+  cursor: pointer;
+  min-height: 22px;
+}
+
+.of-footer-row .vb-footer-fields {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.1fr) 52px 88px minmax(110px, 1fr) minmax(130px, 1.1fr);
+  gap: 8px 10px;
+  align-items: end;
+  flex: 1;
+  min-width: 0;
+}
+
+.of-footer-row .vb-footer-field--commento {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 1100px) {
+  .of-footer-row .vb-footer-fields {
+    grid-template-columns: minmax(120px, 1fr) 52px 88px minmax(100px, 0.9fr) minmax(130px, 1fr) minmax(180px, 1.4fr);
+  }
+
+  .of-footer-row .vb-footer-field--commento {
+    grid-column: auto;
+  }
+}
+
+.of-concludi-dropdown .vb-btn--menu {
+  background: linear-gradient(180deg, #f8f8f8 0%, #e0e0e0 100%);
+  border-color: #888;
+  font-weight: 600;
+}
+
+.of-concludi-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Arrivo merce — stesso layout Danea di ordine fornitore / vendita al banco */
+
+.gestionale-mdi-window--arrivo-merce,
+.am-window {
+  width: min(1180px, 98vw);
+  height: min(820px, 94vh);
+}
+
+.am-causale-row {
+  margin-top: 4px;
+  padding: 0 8px 6px;
+}
+
+.am-causale-field {
+  width: 100%;
+}
+
+.am-causale-field .vb-field__control {
+  width: 100%;
+}
+
+.am-righe-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px 18px;
+  padding: 4px 8px 2px;
+  font-size: 12px;
+}
+
+.am-righe-options__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.am-reg-fattura-btn {
+  font-weight: 600;
+}

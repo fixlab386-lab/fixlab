@@ -2,38 +2,51 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../../hooks/useAuth'
 import { useActiveStudio } from '../../../hooks/useActiveStudio'
-import { getRepairs, updateRepair } from '../../../lib/firestore'
+import { useAppWindows } from '../../../contexts/AppWindowsContext'
+import { useStudioFeatures } from '../../../hooks/useStudioFeatures'
+import { useStudioPagedLiveQuery } from '../../../hooks/useStudioPagedLiveQuery'
+import { updateRepair, listenRepairs } from '../../../lib/firestore'
+import { fetchRepairsPage } from '../../../lib/firestorePagination'
+import LoadMoreBar from '../../../components/ui/LoadMoreBar'
 import type { Repair } from '../../../types'
 import { exportRepairsExcel } from '../../../components/repairs/exportRepairsExcel'
 import {
   SectionHeader,
   MasterDetailLayout,
   DataTable,
-  DetailPanel,
   ActionBar,
-  ToolButton,
   type ActionBarAction,
 } from '../../../components/ui'
 import RepairFilterBar from './RepairFilterBar'
 import RepairSectionActions from './RepairSectionActions'
+import RepairDetailPanel from './RepairDetailPanel'
 import { createRepairTableColumns } from './repairTableColumns'
 import { useRepairListState } from './hooks/useRepairListState'
-import { REPAIR_PRIORITIES, REPAIR_STATUS_ORDER } from './constants'
-import { formatRepairDate, repairStatusLabel } from './utils'
+import { REPAIR_STATUS_ORDER } from './constants'
+import { openOrdineForRepair } from './openOrdineForRepair'
 import '../../theme/gestionale-tokens.css'
-
-const columns = createRepairTableColumns()
 
 export default function RiparazioniSection() {
   const { loading: authLoading } = useAuth()
   const { studioId, activeArchive } = useActiveStudio()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { openOrdineCliente, openOrdineClienteEdit } = useAppWindows()
+  const { isEnabled } = useStudioFeatures()
+  const posEnabled = isEnabled('pos')
 
-  const [repairs, setRepairs] = useState<Repair[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const {
+    data: repairs,
+    syncing,
+    loadingMore,
+    hasMore,
+    truncated,
+    error: loadError,
+    loadMore,
+    showInitialSpinner,
+  } = useStudioPagedLiveQuery(studioId, listenRepairs, fetchRepairsPage, !authLoading && Boolean(studioId))
   const [staleDays, setStaleDays] = useState<number | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const list = useRepairListState(repairs, staleDays)
 
@@ -41,6 +54,7 @@ export default function RiparazioniSection() {
     const status = searchParams.get('status')
     const open = searchParams.get('open')
     const stale = searchParams.get('stale')
+    const repairId = searchParams.get('repairId')
 
     if (status === 'ready') list.setStatusFilter('ready')
     else if (status === 'completed') list.setStatusFilter('completed')
@@ -49,30 +63,12 @@ export default function RiparazioniSection() {
       list.setStatusFilter('active')
       setStaleDays(parseInt(stale, 10) || 7)
     }
-  }, [searchParams])
 
-  useEffect(() => {
-    if (authLoading) return
-    if (!studioId) {
-      setLoading(false)
-      return
+    if (repairId && repairs.length) {
+      const repair = repairs.find(r => r.id === repairId)
+      if (repair) list.selectItem(repair)
     }
-    let cancelled = false
-    setLoading(true)
-    getRepairs(studioId)
-      .then(data => {
-        if (!cancelled) setRepairs(data)
-      })
-      .catch(() => {
-        if (!cancelled) setLoadError('Impossibile caricare le riparazioni.')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [authLoading, studioId])
+  }, [searchParams, repairs])
 
   const statusCounts = useMemo(() => {
     const counts: Partial<Record<string, number>> = {}
@@ -96,26 +92,33 @@ export default function RiparazioniSection() {
       const next = REPAIR_STATUS_ORDER[idx + 1]
       try {
         await updateRepair(repair.id, { status: next })
-        setRepairs(prev => prev.map(r => (r.id === repair.id ? { ...r, status: next } : r)))
         if (list.selected?.id === repair.id) list.setSelected({ ...repair, status: next })
-        setLoadError(null)
       } catch {
-        setLoadError('Aggiornamento stato non riuscito.')
+        setActionError('Aggiornamento stato non riuscito.')
       }
     },
     [list],
   )
 
-  const handleOpen = useCallback(
-    (id: string) => {
-      navigate(`/riparazioni/${id}`)
+  const openOrdineFromRepair = useCallback(
+    (repair: Repair) => {
+      openOrdineForRepair(repair, openOrdineCliente, openOrdineClienteEdit)
     },
-    [navigate],
+    [openOrdineCliente, openOrdineClienteEdit],
   )
 
-  const handleNew = useCallback(() => {
-    navigate('/riparazioni/nuova')
-  }, [navigate])
+  const columns = useMemo(
+    () => createRepairTableColumns({ onTicketClick: openOrdineFromRepair }),
+    [openOrdineFromRepair],
+  )
+
+  const handleNewOrdine = useCallback(() => {
+    if (list.selected) {
+      openOrdineFromRepair(list.selected)
+      return
+    }
+    openOrdineCliente()
+  }, [list.selected, openOrdineFromRepair, openOrdineCliente])
 
   const handleExcel = useCallback(() => {
     exportRepairsExcel(list.filtered, activeArchive?.name ?? studioId ?? 'riparazioni')
@@ -123,36 +126,29 @@ export default function RiparazioniSection() {
 
   const handleRapportoIntervento = useCallback(
     (repair: Repair) => {
-      const params = new URLSearchParams({ type: 'rapporto_intervento' })
-      if (repair.clientId) {
-        params.set('subjectId', repair.clientId)
-        params.set('subjectType', 'client')
-      }
-      navigate(`/documenti/nuovo?${params.toString()}`)
+      openOrdineFromRepair(repair)
     },
-    [navigate],
+    [openOrdineFromRepair],
   )
 
   const actionBarActions: ActionBarAction[] = useMemo(
     () => [
-      { id: 'new', label: 'Nuovo', icon: '➕', onClick: handleNew },
+      { id: 'new', label: 'Nuovo', icon: '➕', onClick: handleNewOrdine },
       { id: 'excel', label: 'Excel', icon: '📊', onClick: handleExcel, disabled: list.filtered.length === 0 },
-      { id: 'cassa', label: 'Cassa', icon: '💰', onClick: () => navigate('/cassa') },
+      ...(posEnabled
+        ? [{ id: 'cassa', label: 'Cassa', icon: '💰', onClick: () => navigate('/cassa') } satisfies ActionBarAction]
+        : []),
     ],
-    [handleNew, handleExcel, list.filtered.length, navigate],
+    [handleNewOrdine, handleExcel, list.filtered.length, navigate, posEnabled],
   )
 
   const filterBanner = staleDays != null ? `Filtro attivo: ticket fermi da almeno ${staleDays} giorni` : null
-
-  if (authLoading || loading) {
-    return <div className="gestionale-page gestionale-datatable__empty">Caricamento riparazioni…</div>
-  }
 
   if (!studioId) {
     return <div className="gestionale-page gestionale-datatable__empty">Studio non disponibile.</div>
   }
 
-  if (loadError && repairs.length === 0) {
+  if (loadError && repairs.length === 0 && !showInitialSpinner) {
     return (
       <div className="gestionale-page gestionale-datatable__empty" data-tutorial="page-riparazioni">
         {loadError}
@@ -162,7 +158,11 @@ export default function RiparazioniSection() {
 
   return (
     <div className="gestionale-page" data-tutorial="page-riparazioni">
-      {loadError ? <div className="gestionale-page__banner gestionale-page__banner--error">{loadError}</div> : null}
+      {syncing && repairs.length > 0 ? <div className="gestionale-sync-badge" aria-live="polite">Sincronizzazione…</div> : null}
+      {showInitialSpinner ? <div className="gestionale-page-skeleton">Caricamento riparazioni…</div> : null}
+      {loadError || actionError ? (
+        <div className="gestionale-page__banner gestionale-page__banner--error">{loadError || actionError}</div>
+      ) : null}
       {filterBanner ? <div className="gestionale-page__banner">{filterBanner}</div> : null}
 
       <SectionHeader
@@ -176,7 +176,7 @@ export default function RiparazioniSection() {
             hasActiveFilters={hasActiveFilters}
             onToggleFilterMenu={list.toggleFilterMenu}
             activeCount={activeCount}
-            onCassa={() => navigate('/cassa')}
+            onCassa={posEnabled ? () => navigate('/cassa') : undefined}
           />
         }
       />
@@ -198,6 +198,7 @@ export default function RiparazioniSection() {
       ) : null}
 
       <MasterDetailLayout
+        detailWidth={420}
         detailCollapsed={list.detailCollapsed}
         onToggleDetail={() => list.setDetailCollapsed(c => !c)}
         master={
@@ -217,68 +218,40 @@ export default function RiparazioniSection() {
             sortDirection={list.sortDirection}
             onSort={list.handleSort}
             onRowClick={item => list.selectItem(item)}
-            emptyMessage="Nessuna riparazione. Usa «Nuovo» per aprire un ticket officina."
+            onRowDoubleClick={openOrdineFromRepair}
+            emptyMessage="Nessuna riparazione. Usa «Nuovo» per aprire un ordine cliente."
             virtualize
             virtualizeThreshold={50}
           />
         }
         detail={
           list.selected ? (
-            <DetailPanel
-              title={list.selected.ticketNumber ? `Ticket ${list.selected.ticketNumber}` : 'Ticket riparazione'}
-              tabs={[{ id: 'riepilogo', label: 'Riepilogo', content: null }]}
-              activeTabId="riepilogo"
-              onTabChange={() => {}}
-              fields={[
-                { label: 'Stato', value: repairStatusLabel(list.selected.status) },
-                { label: 'Cliente', value: list.selected.clientName },
-                { label: 'Telefono', value: list.selected.clientPhone },
-                { label: 'Dispositivo', value: `${list.selected.deviceBrand} ${list.selected.deviceModel}`.trim() },
-                { label: 'Problema', value: list.selected.problem, span: 2 },
-                {
-                  label: 'Priorità',
-                  value: REPAIR_PRIORITIES[list.selected.priority]?.label || list.selected.priority,
-                },
-                { label: 'Totale', value: `€ ${(list.selected.totalCost || 0).toFixed(2)}` },
-                { label: 'Apertura', value: formatRepairDate(list.selected.createdAt) },
-                ...(list.selected.diagnosis ? [{ label: 'Diagnosi', value: list.selected.diagnosis, span: 2 as const }] : []),
-              ]}
-              footer={
-                <>
-                  <ToolButton label="Apri ticket" icon="🔧" onClick={() => handleOpen(list.selected!.id)} />
-                  {list.selected.status === 'ready' ? (
-                    <ToolButton
-                      label="Incassa"
-                      icon="💰"
-                      onClick={() => navigate(`/cassa?repairId=${list.selected!.id}`)}
-                    />
-                  ) : null}
-                  {list.selected.status !== 'completed' && list.selected.status !== 'on_hold' ? (
-                    <ToolButton label="Avanti stato" icon="▶" onClick={() => void advanceStatus(list.selected!)} />
-                  ) : null}
-                  <ToolButton
-                    label="Rapporto d'intervento"
-                    icon="📄"
-                    onClick={() => handleRapportoIntervento(list.selected!)}
-                  />
-                </>
-              }
+            <RepairDetailPanel
+              repair={list.selected}
+              activeTab={list.detailTab}
+              onTabChange={list.setDetailTab}
+              onAdvanceStatus={() => void advanceStatus(list.selected!)}
+              onRapportoIntervento={() => handleRapportoIntervento(list.selected!)}
+              onIncassa={posEnabled ? () => navigate(`/cassa?repairId=${list.selected!.id}`) : undefined}
+              canAdvance={list.selected.status !== 'completed' && list.selected.status !== 'on_hold'}
+              isReady={list.selected.status === 'ready'}
             />
           ) : (
             <div className="gestionale-detail-panel gestionale-detail-panel--empty">
               <p className="gestionale-detail-panel__empty-msg">
                 <strong>Nessun ticket selezionato</strong>
-                Seleziona una riga per il riepilogo oppure usa «Nuovo» per aprire un ticket officina.
+                Seleziona una riga per il dettaglio oppure usa «Nuovo» per aprire un ordine cliente.
                 <br />
                 <span style={{ fontSize: 12, color: 'var(--gestionale-text-muted, #666)' }}>
-                  Nei documenti il rapporto d&apos;intervento commerciale si crea da Documenti; qui gestisci il flusso officina
-                  (stati, diagnosi, incasso cassa).
+                  Da ordine cliente puoi concludere in rapporto d&apos;intervento, DDT, vendita al banco e fatture pro-forma.
                 </span>
               </p>
             </div>
           )
         }
       />
+
+      <LoadMoreBar hasMore={hasMore} loading={loadingMore} truncated={truncated} onLoadMore={loadMore} />
 
       <ActionBar
         count={list.filtered.length}

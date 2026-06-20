@@ -3,7 +3,9 @@ import { NUOVO_DOC_ITEMS, SCHEDA_TABS } from './constants'
 import type { Cliente, SchedaTabId } from './types'
 import TabAnagrafica from './tabs/TabAnagrafica'
 import TabRapportiCommerciali from './tabs/TabRapportiCommerciali'
+import TabRiparazioniCliente from './tabs/TabRiparazioniCliente'
 import TabVarie from './tabs/TabVarie'
+import { DaneaFormRow } from '../../components/DaneaFormRow'
 
 function NuovoDocDropdown({ onPick, disabled }: { onPick: (tipo: string) => void; disabled?: boolean }) {
   const [open, setOpen] = useState(false)
@@ -21,7 +23,7 @@ function NuovoDocDropdown({ onPick, disabled }: { onPick: (tipo: string) => void
   return (
     <div className="clienti-dropdown" ref={ref}>
       <button type="button" className="clienti-scheda-footer__btn" disabled={disabled} onClick={() => setOpen(v => !v)}>
-        📄 Nuovo Doc. <span className="caret">▼</span>
+        Nuovo Doc. <span className="caret">▼</span>
       </button>
       {open ? (
         <div className="clienti-dropdown__menu clienti-dropdown__menu--up">
@@ -55,7 +57,6 @@ type Props = {
   onAnnulla: () => void
   onCloseScheda?: () => void
   onRicercaNazionale: () => void
-  onRicercaCap: () => void
   onProprietaComplete: () => void
   onSedeLegale: () => void
   onSediAmmin: () => void
@@ -63,7 +64,6 @@ type Props = {
   onAggiungiIndirizzo: () => void
   onContattiExtra: () => void
   onAggiungiContatto: () => void
-  onAllegati: () => void
   onNuovoDoc: (tipo: string) => void
   onDocumenti: () => void
   onPagamenti: () => void
@@ -81,7 +81,6 @@ export default function ClientiScheda({
   onAnnulla,
   onCloseScheda,
   onRicercaNazionale,
-  onRicercaCap,
   onProprietaComplete,
   onSedeLegale,
   onSediAmmin,
@@ -89,7 +88,6 @@ export default function ClientiScheda({
   onAggiungiIndirizzo,
   onContattiExtra,
   onAggiungiContatto,
-  onAllegati,
   onNuovoDoc,
   onDocumenti,
   onPagamenti,
@@ -105,18 +103,13 @@ export default function ClientiScheda({
 
   return (
     <div className="clienti-section__scheda">
-      <div className="clienti-scheda__header">
-        {onCloseScheda ? (
-          <button type="button" className="clienti-scheda__close-mobile" onClick={onCloseScheda} title="Chiudi scheda">
-            ✕
-          </button>
-        ) : null}
-        <div className="clienti-field clienti-scheda__code">
-          <label className="clienti-field__label">Codice</label>
+      <div className="danea-scheda-header">
+        <div className="danea-scheda-header__field danea-scheda-header__field--cod">
+          <span className="danea-scheda-header__label">Codice</span>
           <input className="clienti-input" value={cliente.codice} readOnly />
         </div>
-        <div className="clienti-field" style={{ flex: 1 }}>
-          <label className="clienti-field__label">Cod. fiscale</label>
+        <div className="danea-scheda-header__field danea-scheda-header__field--cf">
+          <span className="danea-scheda-header__label">Cod. fiscale</span>
           <input
             className="clienti-input"
             value={cliente.codFiscale}
@@ -131,27 +124,29 @@ export default function ClientiScheda({
           <input type="checkbox" checked={cliente.isFornitore} onChange={e => onChange({ ...cliente, isFornitore: e.target.checked })} />
           Fornitore
         </label>
-        <div className="clienti-field" style={{ minWidth: 120 }}>
-          <label className="clienti-field__label">Part. Iva</label>
+        <div className="danea-scheda-header__field danea-scheda-header__field--piva">
+          <span className="danea-scheda-header__label">Part. Iva</span>
           <input
             className="clienti-input"
             value={cliente.partitaIva}
             onChange={e => onChange({ ...cliente, partitaIva: e.target.value })}
           />
         </div>
-        <button type="button" className="clienti-link" onClick={onProprietaComplete}>
-          Propr. compl.
-        </button>
-        {isDirty ? (
-          <>
-            <button type="button" className="clienti-scheda__save" onClick={onSave} disabled={saving}>
-              💾 Salva
-            </button>
-            <button type="button" className="clienti-scheda__save clienti-scheda__save--cancel" onClick={onAnnulla}>
-              ↩ Annulla
-            </button>
-          </>
-        ) : null}
+        <div className="danea-scheda-header__actions">
+          <button type="button" className="clienti-link" onClick={onProprietaComplete}>
+            Propr. compl.
+          </button>
+          {isDirty ? (
+            <>
+              <button type="button" className="clienti-scheda__save" onClick={onSave} disabled={saving}>
+                Salva
+              </button>
+              <button type="button" className="clienti-scheda__save clienti-scheda__save--cancel" onClick={onAnnulla}>
+                Annulla
+              </button>
+            </>
+          ) : null}
+        </div>
       </div>
 
       <div className="clienti-scheda__tabs" role="tablist">
@@ -174,7 +169,6 @@ export default function ClientiScheda({
             cliente={cliente}
             onChange={onChange}
             onRicercaNazionale={onRicercaNazionale}
-            onRicercaCap={onRicercaCap}
             onSedeLegale={onSedeLegale}
             onSediAmmin={onSediAmmin}
             onSediExtra={onSediExtra}
@@ -184,33 +178,35 @@ export default function ClientiScheda({
           />
         ) : null}
         {activeTab === 'rapporti' ? <TabRapportiCommerciali cliente={cliente} onChange={onChange} /> : null}
+        {activeTab === 'riparazioni' ? <TabRiparazioniCliente cliente={cliente} /> : null}
         {activeTab === 'varie' ? <TabVarie cliente={cliente} onChange={onChange} /> : null}
         {activeTab === 'anagrafica' ? (
-          <div className="clienti-field" style={{ marginTop: 8 }}>
-            <label className="clienti-field__label">Note</label>
-            <textarea
-              className="clienti-textarea"
-              rows={4}
-              value={cliente.note}
-              onChange={e => onChange({ ...cliente, note: e.target.value })}
-            />
+          <div className="danea-form__note">
+            <DaneaFormRow label="Note">
+              <textarea
+                className="clienti-textarea"
+                rows={4}
+                value={cliente.note}
+                onChange={e => onChange({ ...cliente, note: e.target.value })}
+              />
+            </DaneaFormRow>
           </div>
         ) : null}
       </div>
 
       <div className="clienti-scheda-footer">
-        <button type="button" className="clienti-scheda-footer__btn" onClick={onAllegati}>
-          📎 Allegati…
+        <button type="button" className="clienti-scheda-footer__btn" title="Allegati">
+          Allegati…
         </button>
         <NuovoDocDropdown onPick={onNuovoDoc} />
         <button type="button" className="clienti-scheda-footer__btn" onClick={onDocumenti}>
-          📋 Documenti
+          Documenti
         </button>
         <button type="button" className="clienti-scheda-footer__btn" onClick={onPagamenti} title="Pagamenti">
-          €
+          Pagamenti
         </button>
         <button type="button" className="clienti-scheda-footer__btn" onClick={onImpegni} title="Impegni">
-          📅
+          Impegni
         </button>
       </div>
     </div>

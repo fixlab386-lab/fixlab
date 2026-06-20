@@ -1,5 +1,5 @@
 import type { Category, Product } from '../types'
-import { collectDescendantIds } from '../gestionale/lib/categoryUtils'
+import { matchesProductCategoryTree } from '../gestionale/lib/categoryUtils'
 
 export type ProductSearchCriteria = {
   code: string
@@ -23,12 +23,6 @@ function productCategoryLabel(p: Product): string {
   return p.categoryName || p.subcategoryName || ''
 }
 
-function matchesCategoryTree(p: Product, categoryTreeId: string | null, categories: Category[]): boolean {
-  if (!categoryTreeId) return true
-  const ids = new Set(collectDescendantIds(categoryTreeId, categories))
-  return ids.has(p.categoryId) || (p.subcategoryId ? ids.has(p.subcategoryId) : false)
-}
-
 /** Filtra prodotti: ogni campo compilato deve essere contenuto (AND), come FIXLab. */
 export function filterProductsByCriteria(
   products: Product[],
@@ -40,9 +34,11 @@ export function filterProductsByCriteria(
 
   return products.filter(
     p =>
-      matchesCategoryTree(p, categoryTreeId, categories) &&
+      matchesProductCategoryTree(p, categoryTreeId, categories) &&
       matchesField(p.code, criteria.code) &&
       matchesField(p.name, criteria.description) &&
       matchesField(productCategoryLabel(p), criteria.category),
   )
 }
+
+export { matchesProductCategoryTree }

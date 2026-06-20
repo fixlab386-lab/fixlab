@@ -24,7 +24,7 @@ function commonChrome(): DriveStep[] {
       popover: {
         title: 'Menu laterale',
         description:
-          'Spostati tra Dashboard, Clienti, Fornitori, Magazzino, Riparazioni, Dispositivi, Documenti, Pagamenti, Movimenti magazzino, Cassa e Impostazioni. La voce evidenziata è la pagina attiva.',
+          'Spostati tra Dashboard, Clienti, Fornitori, Magazzino, Riparazioni, Documenti, Pagamenti, Movimenti magazzino, Cassa e Impostazioni. La voce evidenziata è la pagina attiva.',
         side: 'right',
         align: 'start',
       },

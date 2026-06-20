@@ -1,0 +1,159 @@
+/* Albero categorie — stile Danea / Windows ERP */
+.category-tree {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid #ccc;
+  background: #fff;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  font-size: 12px;
+}
+
+.category-tree__title {
+  padding: 4px 8px;
+  font-weight: 700;
+  font-size: 11px;
+  background: #e6e6e6;
+  border-bottom: 1px solid #ccc;
+  color: #000;
+}
+
+.category-tree__all {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 4px 8px;
+  border: none;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.category-tree__all:hover,
+.category-tree__all--active {
+  background: var(--win-focus-blue, #0078d7);
+  color: #fff;
+}
+
+.category-tree__all--active .category-tree__count {
+  color: #fff;
+  opacity: 0.85;
+}
+
+.category-tree__body {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  padding: 2px 0;
+}
+
+.category-tree__node {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px 2px 0;
+  cursor: pointer;
+  user-select: none;
+  min-height: 22px;
+}
+
+.category-tree__node:hover,
+.category-tree__node--active {
+  background: var(--win-focus-blue, #0078d7);
+  color: #fff;
+}
+
+.category-tree__node--active .category-tree__count,
+.category-tree__node:hover .category-tree__count {
+  color: #fff;
+  opacity: 0.85;
+}
+
+.category-tree__toggle {
+  width: 14px;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  font-size: 9px;
+  cursor: pointer;
+  padding: 0;
+  color: inherit;
+}
+
+.category-tree__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-tree__count {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: #666;
+  margin-left: auto;
+  padding-left: 6px;
+}
+
+.category-tree__empty {
+  padding: 8px;
+  color: #666;
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* Pannello filtri prodotti */
+.prodotti-filtri-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  border-bottom: 1px solid #ccc;
+}
+
+.prodotti-filtri-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  background: #f0f0f0;
+  border-bottom: 1px solid #ccc;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.prodotti-filtri-panel__tree {
+  flex: 1;
+  min-height: 120px;
+  max-height: 280px;
+  border: none;
+}
+
+.prodotti-filtri-panel__actions {
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  background: #f0f0f0;
+  border-top: 1px solid #ccc;
+}
+
+/* Selettore a cascata categorie (scheda prodotto) */
+.category-cascade {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.category-cascade__row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.category-cascade__row .prodotti-select {
+  flex: 1;
+}

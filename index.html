@@ -2,18 +2,88 @@
 <html lang="it" data-theme="light">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#0d0b21" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="description" content="FIXLab — gestionale per laboratori di riparazione: clienti, magazzino, riparazioni, cassa e documenti." />
     <title>FIXLab</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400..700;1,14..32,400..700&display=swap" rel="stylesheet" />
+    <script>
+      window.__fixlabRecoverFromStaleCache = function () {
+        var RECOVERY_KEY = 'fixlab-boot-recovery'
+        if (sessionStorage.getItem(RECOVERY_KEY) === '1') {
+          var root = document.getElementById('root')
+          if (root && !root.textContent) {
+            root.innerHTML =
+              '<div style="padding:2rem;font-family:Inter,system-ui,sans-serif;max-width:32rem;margin:4rem auto;text-align:center">' +
+              '<h1 style="font-size:1.25rem;margin-bottom:0.75rem">FIXLab non si è avviato</h1>' +
+              '<p style="color:#4b5563;margin-bottom:1rem">Cache del browser obsoleta dopo un aggiornamento. Premi Ctrl+F5 oppure il pulsante sotto.</p>' +
+              '<button type="button" id="fixlab-retry-boot" style="padding:0.5rem 1rem;border-radius:8px;border:1px solid #6366f1;background:#6366f1;color:#fff;cursor:pointer">Ricarica FIXLab</button>' +
+              '</div>'
+            var btn = document.getElementById('fixlab-retry-boot')
+            if (btn) {
+              btn.addEventListener('click', function () {
+                sessionStorage.removeItem(RECOVERY_KEY)
+                window.location.reload()
+              })
+            }
+          }
+          return false
+        }
+        sessionStorage.setItem(RECOVERY_KEY, '1')
+        var tasks = []
+        if ('serviceWorker' in navigator) {
+          tasks.push(
+            navigator.serviceWorker.getRegistrations().then(function (regs) {
+              return Promise.all(regs.map(function (r) { return r.unregister() }))
+            }),
+          )
+        }
+        if (window.caches) {
+          tasks.push(
+            caches.keys().then(function (keys) {
+              return Promise.all(keys.map(function (k) { return caches.delete(k) }))
+            }),
+          )
+        }
+        Promise.all(tasks).finally(function () {
+          window.location.reload()
+        })
+        return true
+      }
+      window.addEventListener('vite:preloadError', function (e) {
+        e.preventDefault()
+        window.__fixlabRecoverFromStaleCache()
+      })
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      (function () {
+        function attachBootRecovery() {
+          var script = document.querySelector('script[type="module"][src*="/assets/"], script[type="module"][src="/src/main.tsx"]')
+          if (!script) return
+          script.addEventListener('error', function () {
+            window.__fixlabRecoverFromStaleCache()
+          })
+        }
+        attachBootRecovery()
+        window.setTimeout(function () {
+          var root = document.getElementById('root')
+          if (root && !root.textContent) {
+            window.__fixlabRecoverFromStaleCache()
+          }
+        }, 12000)
+      })()
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

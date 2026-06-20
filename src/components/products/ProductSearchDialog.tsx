@@ -1,79 +1,40 @@
-import { memo, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Category, Product } from '../../types'
-import { getChildCategories, getRootCategories } from '../../gestionale/lib/categoryUtils'
+import CategoryTreeFilter from '../../gestionale/components/CategoryTreeFilter'
 import {
   EMPTY_PRODUCT_SEARCH_CRITERIA,
   filterProductsByCriteria,
   type ProductSearchCriteria,
 } from '../../lib/productSearch'
+import { searchProductsByCriteria } from '../../lib/firestorePagination'
+import { loadRecentProducts } from '../../lib/loadStudioCatalog'
 import { FormField } from '../ui'
 import '../../theme/gestionale-dialog.css'
 import '../../theme/product-search-dialog.css'
-
-const CategoryTreeNode = memo(function CategoryTreeNode({
-  category,
-  categories,
-  selectedId,
-  depth,
-  onSelect,
-}: {
-  category: Category
-  categories: Category[]
-  selectedId: string | null
-  depth: number
-  onSelect: (id: string) => void
-}) {
-  const children = getChildCategories(categories, category.id)
-  const hasChildren = children.length > 0
-  const isSelected = selectedId === category.id
-  const [expanded, setExpanded] = useState(depth < 1)
-
-  return (
-    <div>
-      <div
-        className={`product-search-dialog__tree-node${isSelected ? ' product-search-dialog__tree-node--active' : ''}`}
-        style={{ paddingLeft: `${6 + depth * 12}px` }}
-        onClick={() => onSelect(category.id)}
-      >
-        <button
-          type="button"
-          className="product-search-dialog__tree-toggle"
-          style={{ visibility: hasChildren ? 'visible' : 'hidden' }}
-          onClick={e => {
-            e.stopPropagation()
-            setExpanded(v => !v)
-          }}
-        >
-          {expanded ? '▼' : '▶'}
-        </button>
-        <span className="product-search-dialog__tree-name">{category.name}</span>
-      </div>
-      {expanded
-        ? children.map(child => (
-            <CategoryTreeNode
-              key={child.id}
-              category={child}
-              categories={categories}
-              selectedId={selectedId}
-              depth={depth + 1}
-              onSelect={onSelect}
-            />
-          ))
-        : null}
-    </div>
-  )
-})
+import '../../gestionale/theme/category-tree.css'
 
 type Props = {
-  products: Product[]
+  /** Se presente, ricerca bounded su Firestore. */
+  studioId?: string
+  /** Fallback legacy: filtro in memoria. */
+  products?: Product[]
   categories: Category[]
   initialCode?: string
   onSelect: (product: Product) => void
   onClose: () => void
 }
 
+function sortProducts(items: Product[]): Product[] {
+  return [...items].sort((a, b) => {
+    const codeCmp = (a.code || '').localeCompare(b.code || '', 'it', { numeric: true })
+    if (codeCmp !== 0) return codeCmp
+    return a.name.localeCompare(b.name, 'it', { sensitivity: 'base' })
+  })
+}
+
 export default function ProductSearchDialog({
-  products,
+  studioId,
+  products = [],
   categories,
   initialCode = '',
   onSelect,
@@ -85,30 +46,58 @@ export default function ProductSearchDialog({
   })
   const [categoryTreeId, setCategoryTreeId] = useState<string | null>(null)
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
-  const [searchTick, setSearchTick] = useState(0)
+  const [results, setResults] = useState<Product[]>([])
+  const [searching, setSearching] = useState(false)
+  const [searched, setSearched] = useState(false)
 
-  const results = useMemo(() => {
-    void searchTick
-    const filtered = filterProductsByCriteria(products, criteria, { categoryTreeId, categories })
-    return [...filtered].sort((a, b) => {
-      const codeCmp = (a.code || '').localeCompare(b.code || '', 'it', { numeric: true })
-      if (codeCmp !== 0) return codeCmp
-      return a.name.localeCompare(b.name, 'it', { sensitivity: 'base' })
+  const patchCriteria = (patch: Partial<ProductSearchCriteria>) => {
+    setCriteria(prev => ({ ...prev, ...patch }))
+  }
+
+  const runSearch = useCallback(async () => {
+    setSearching(true)
+    setSearched(true)
+    try {
+      if (studioId) {
+        const data = await searchProductsByCriteria(
+          studioId,
+          criteria,
+          { categoryTreeId, categories },
+          50,
+        )
+        setResults(sortProducts(data))
+      } else {
+        const filtered = filterProductsByCriteria(products, criteria, { categoryTreeId, categories })
+        setResults(sortProducts(filtered))
+      }
+    } finally {
+      setSearching(false)
+    }
+  }, [studioId, criteria, categoryTreeId, categories, products])
+
+  useEffect(() => {
+    if (!studioId) {
+      setResults(sortProducts(products).slice(0, 40))
+      return
+    }
+    let cancelled = false
+    void loadRecentProducts(studioId, 40).then(data => {
+      if (!cancelled) {
+        setResults(sortProducts(data))
+        setSearched(false)
+      }
     })
-  }, [products, criteria, categoryTreeId, categories, searchTick])
+    return () => {
+      cancelled = true
+    }
+  }, [studioId, products])
 
   const selectedProduct = useMemo(
     () => results.find(p => p.id === selectedProductId) ?? null,
     [results, selectedProductId],
   )
 
-  const roots = useMemo(() => getRootCategories(categories), [categories])
-
-  const patchCriteria = (patch: Partial<ProductSearchCriteria>) => {
-    setCriteria(prev => ({ ...prev, ...patch }))
-  }
-
-  const runSearch = () => setSearchTick(t => t + 1)
+  const treeProducts = useMemo(() => (products.length ? products : results), [products, results])
 
   const confirmSelection = (product: Product | null) => {
     if (product) onSelect(product)
@@ -138,7 +127,7 @@ export default function ProductSearchDialog({
                 className="gestionale-form-field__input"
                 value={criteria.code}
                 onChange={e => patchCriteria({ code: e.target.value })}
-                onKeyDown={e => e.key === 'Enter' && runSearch()}
+                onKeyDown={e => e.key === 'Enter' && void runSearch()}
                 autoFocus
               />
             </FormField>
@@ -148,7 +137,7 @@ export default function ProductSearchDialog({
                 className="gestionale-form-field__input"
                 value={criteria.description}
                 onChange={e => patchCriteria({ description: e.target.value })}
-                onKeyDown={e => e.key === 'Enter' && runSearch()}
+                onKeyDown={e => e.key === 'Enter' && void runSearch()}
               />
             </FormField>
             <FormField label="Categoria" htmlFor="product-search-category">
@@ -157,45 +146,38 @@ export default function ProductSearchDialog({
                 className="gestionale-form-field__input"
                 value={criteria.category}
                 onChange={e => patchCriteria({ category: e.target.value })}
-                onKeyDown={e => e.key === 'Enter' && runSearch()}
+                onKeyDown={e => e.key === 'Enter' && void runSearch()}
               />
             </FormField>
             <button
               type="button"
               className="gestionale-dialog-btn gestionale-dialog-btn--primary product-search-dialog__search-btn"
-              onClick={runSearch}
+              onClick={() => void runSearch()}
+              disabled={searching}
             >
-              Cerca
+              {searching ? '…' : 'Cerca'}
             </button>
           </div>
 
           <div className="product-search-dialog__main">
-            <div className="product-search-dialog__tree">
-              <p className="product-search-dialog__tree-title">Categoria</p>
-              <button
-                type="button"
-                className={`product-search-dialog__tree-all${categoryTreeId === null ? ' product-search-dialog__tree-all--active' : ''}`}
-                onClick={() => setCategoryTreeId(null)}
-              >
-                Tutte le categorie
-              </button>
-              {roots.map(cat => (
-                <CategoryTreeNode
-                  key={cat.id}
-                  category={cat}
-                  categories={categories}
-                  selectedId={categoryTreeId}
-                  depth={0}
-                  onSelect={setCategoryTreeId}
-                />
-              ))}
-            </div>
+            <CategoryTreeFilter
+              categories={categories}
+              products={treeProducts}
+              selectedId={categoryTreeId}
+              onSelect={setCategoryTreeId}
+              title="Categoria"
+              className="product-search-dialog__tree"
+            />
 
             <div className="product-search-dialog__results">
               <p className="product-search-dialog__hint">
                 Elenco voci che{' '}
                 <span className="product-search-dialog__hint-link">contengono</span> le parole immesse
-                {hasActiveCriteria ? ` — ${results.length} prodotto/i` : ` — ${results.length} prodotto/i totali`}
+                {searching
+                  ? ' — ricerca…'
+                  : hasActiveCriteria || searched
+                    ? ` — ${results.length} prodotto/i`
+                    : ` — ${results.length} recenti`}
               </p>
 
               <div className="product-search-dialog__table-wrap">
@@ -212,7 +194,7 @@ export default function ProductSearchDialog({
                     {results.length === 0 ? (
                       <tr>
                         <td colSpan={4} className="product-search-dialog__empty">
-                          (Non vi sono dati da visualizzare)
+                          {searching ? 'Ricerca in corso…' : '(Non vi sono dati da visualizzare)'}
                         </td>
                       </tr>
                     ) : (

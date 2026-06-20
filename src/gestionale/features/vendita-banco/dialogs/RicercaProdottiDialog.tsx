@@ -1,39 +1,88 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Category, Product } from '../../../../types'
+import CategoryTreeFilter from '../../../components/CategoryTreeFilter'
 import { productListGrossPrice, formatEuro } from '../utils'
-import { WinButton, WinInput, WinSelect } from '../WinControls'
+import { WinButton, WinInput } from '../WinControls'
+import { loadRecentProducts } from '../../../../lib/loadStudioCatalog'
+import { searchProducts } from '../../../../lib/firestorePagination'
+import { matchesProductCategoryTree } from '../../../lib/categoryUtils'
+import '../../../theme/category-tree.css'
 
 type Props = {
-  products: Product[]
+  studioId: string
+  /** Fallback legacy se studioId mancante. */
+  products?: Product[]
   categories: Category[]
   listino: string
   onSelect: (product: Product) => void
   onClose: () => void
 }
 
-export default function RicercaProdottiDialog({ products, categories, listino, onSelect, onClose }: Props) {
+export default function RicercaProdottiDialog({
+  studioId,
+  products = [],
+  categories,
+  listino,
+  onSelect,
+  onClose,
+}: Props) {
   const [codice, setCodice] = useState('')
   const [descrizione, setDescrizione] = useState('')
   const [categoriaId, setCategoriaId] = useState('')
-  const [searched, setSearched] = useState(true)
+  const [results, setResults] = useState<Product[]>([])
+  const [searched, setSearched] = useState(false)
+  const [searching, setSearching] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [scheda, setScheda] = useState<Product | null>(null)
 
-  const results = useMemo(() => {
-    if (!searched) return []
-    const c = codice.trim().toLowerCase()
-    const d = descrizione.trim().toLowerCase()
-    return products.filter(p => {
-      if (c && !(p.code || '').toLowerCase().includes(c)) return false
-      if (d && !(p.name || '').toLowerCase().includes(d)) return false
-      if (categoriaId && p.categoryId !== categoriaId) return false
-      return true
-    })
-  }, [products, codice, descrizione, categoriaId, searched])
-
   const selected = results.find(p => p.id === selectedId) || null
 
-  const runSearch = () => setSearched(true)
+  const runSearch = useCallback(async () => {
+    setSearching(true)
+    setSearched(true)
+    try {
+      const term = [codice, descrizione].map(s => s.trim()).filter(Boolean).join(' ')
+      let items: Product[]
+      if (studioId) {
+        items = await searchProducts(studioId, term, 60)
+      } else {
+        const c = codice.trim().toLowerCase()
+        const d = descrizione.trim().toLowerCase()
+        items = products.filter(p => {
+          if (c && !(p.code || '').toLowerCase().includes(c)) return false
+          if (d && !(p.name || '').toLowerCase().includes(d)) return false
+          return true
+        })
+      }
+      if (categoriaId) items = items.filter(p => matchesProductCategoryTree(p, categoriaId, categories))
+      setResults(items)
+    } finally {
+      setSearching(false)
+    }
+  }, [studioId, codice, descrizione, categoriaId, categories, products])
+
+  const categorySelectOptions = useMemo(
+    () =>
+      results.map(p => ({
+        categoryId: p.categoryId,
+        subcategoryId: p.subcategoryId,
+      })),
+    [results],
+  )
+
+  useEffect(() => {
+    if (!studioId) return
+    let cancelled = false
+    void loadRecentProducts(studioId, 40).then(data => {
+      if (!cancelled) {
+        setResults(data)
+        setSearched(false)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [studioId])
 
   const handleOk = () => {
     if (!selected) {
@@ -57,29 +106,28 @@ export default function RicercaProdottiDialog({ products, categories, listino, o
           <div className="vb-ricerca-filtri">
             <div className="vb-field">
               <label className="vb-field__label">Codice</label>
-              <WinInput value={codice} onChange={e => setCodice(e.target.value)} onKeyDown={e => e.key === 'Enter' && runSearch()} />
+              <WinInput value={codice} onChange={e => setCodice(e.target.value)} onKeyDown={e => e.key === 'Enter' && void runSearch()} />
             </div>
             <div className="vb-field">
               <label className="vb-field__label">Descrizione</label>
-              <WinInput value={descrizione} onChange={e => setDescrizione(e.target.value)} onKeyDown={e => e.key === 'Enter' && runSearch()} />
+              <WinInput value={descrizione} onChange={e => setDescrizione(e.target.value)} onKeyDown={e => e.key === 'Enter' && void runSearch()} />
             </div>
-            <div className="vb-field">
-              <label className="vb-field__label">Categoria</label>
-              <WinSelect value={categoriaId} onChange={e => setCategoriaId(e.target.value)}>
-                <option value="">(Tutte)</option>
-                {categories.map(cat => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </WinSelect>
-            </div>
-            <WinButton className="vb-ricerca-filtri__cerca" onClick={runSearch}>
-              🔍 Cerca
+            <WinButton className="vb-ricerca-filtri__cerca" onClick={() => void runSearch()} disabled={searching}>
+              {searching ? '…' : '🔍 Cerca'}
             </WinButton>
           </div>
 
-          <div className="vb-ricerca-grid-wrap">
+          <div className="vb-ricerca-main">
+            <CategoryTreeFilter
+              categories={categories}
+              products={categorySelectOptions}
+              selectedId={categoriaId || null}
+              onSelect={id => setCategoriaId(id ?? '')}
+              title="Categoria"
+              className="vb-ricerca-main__tree"
+            />
+
+            <div className="vb-ricerca-grid-wrap">
             <table className="vb-ricerca-grid">
               <thead>
                 <tr>
@@ -109,12 +157,17 @@ export default function RicercaProdottiDialog({ products, categories, listino, o
                 {!results.length ? (
                   <tr>
                     <td colSpan={4} className="vb-muted">
-                      {searched ? 'Nessun prodotto trovato.' : 'Premi Cerca per visualizzare il magazzino.'}
+                      {searching
+                        ? 'Ricerca in corso…'
+                        : searched
+                          ? 'Nessun prodotto trovato.'
+                          : 'Premi Cerca per visualizzare il magazzino.'}
                     </td>
                   </tr>
                 ) : null}
               </tbody>
             </table>
+          </div>
           </div>
 
           {scheda ? (

@@ -1,4 +1,4 @@
-import { httpsCallable } from 'firebase/functions'
+import { callCallableWithAuth } from './cloudFunctions'
 import { auth, functions } from '../firebase'
 
 type SyncStudioClaimsResponse = {
@@ -13,8 +13,11 @@ export async function syncStudioClaimsAndRefreshToken(): Promise<string[]> {
   const user = auth.currentUser
   if (!user) return []
 
-  const call = httpsCallable<void, SyncStudioClaimsResponse>(functions, 'syncStudioClaims')
-  const { data } = await call()
+  const data = await callCallableWithAuth<Record<string, never>, SyncStudioClaimsResponse>(
+    functions,
+    'syncStudioClaims',
+    {},
+  )
   await user.getIdToken(true)
   return data.studioIds ?? []
 }

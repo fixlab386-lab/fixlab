@@ -3,7 +3,6 @@
 export interface StudioFeatures {
   warehouse: boolean
   pos: boolean
-  devices: boolean
   whatsapp: boolean
   rtPrinter: boolean
 }
@@ -16,10 +15,51 @@ export type StudioRepairType =
   | 'multi'
   | 'altro'
 
+export interface Subscription {
+  plan: 'trial' | 'starter' | 'pro'
+  status: 'trial' | 'active' | 'expiring' | 'expired' | 'suspended'
+  startDate: string
+  expiryDate: string
+  trialEndsAt?: string
+  lastPaymentDate?: string
+  lastPaymentAmount?: number
+  paymentMethod?: 'bonifico' | 'paypal' | 'satispay' | 'altro'
+  paymentFrequency: 'monthly' | 'yearly'
+  monthlyPrice: number
+  yearlyPrice: number
+  notes?: string
+  autoRenew: boolean
+}
+
+export interface PaymentConfig {
+  iban: string
+  ibanHolder: string
+  bankName: string
+  paypalLink: string
+  satispayId: string
+  whatsappNumber: string
+  supportEmail: string
+  trialDays: number
+  monthlyPrice: number
+  yearlyPrice: number
+}
+
+export interface AdminNote {
+  id: string
+  studioId: string
+  studioName: string
+  message: string
+  type: 'bug' | 'support' | 'payment' | 'feature_request' | 'general'
+  status: 'open' | 'in_progress' | 'resolved'
+  createdAt: Date
+  resolvedAt?: Date
+}
+
 export interface Studio {
   id: string
   name: string
   email: string
+  ownerId?: string
   phone?: string
   cellPhone?: string
   address?: string
@@ -39,6 +79,21 @@ export interface Studio {
   onboardingCompleted?: boolean
   features?: StudioFeatures
   repairType?: StudioRepairType[]
+  subscription?: Subscription
+  /** Shortcut: abbonamento attivo (trial o pagato non scaduto). */
+  isActive?: boolean
+  lastLoginAt?: Date
+  aruba?: {
+    enabled?: boolean
+    environment?: 'demo' | 'production'
+    username?: string
+    hasPassword?: boolean
+    regimeFiscale?: string
+    lastTestOk?: boolean
+    lastTestMessage?: string
+    configuredAt?: unknown
+    lastTestAt?: unknown
+  }
   createdAt: Date
 }
 
@@ -71,6 +126,8 @@ export interface UserProfile {
   memberships?: UserStudioMembershipRef[]
   /** Preferenza studio attivo persistita su Firestore. */
   defaultStudioId?: string
+  /** true solo per nuove registrazioni email/password finché l'email non è verificata. */
+  emailVerificationPending?: boolean
 }
 
 // ==================== CATEGORIES ====================
@@ -80,8 +137,8 @@ export interface Category {
   studioId: string
   name: string
   emoji: string
-  parentId?: string        // for subcategories (null = root)
-  level: number            // 0 = root, 1 = sub, 2 = sub-sub
+  parentId?: string        // for nested subcategories (undefined = root)
+  level: number            // 0 = root, 1+ = nested depth
   path: string             // e.g. "Accessori » Appendiabiti » Ferro"
   order: number
   createdAt: Date
@@ -125,6 +182,8 @@ export interface Product {
   attachments?: string[]   // URLs Firebase Storage
   imageUrl?: string
   barcode?: string
+  /** Token per ricerca full-catalog via array-contains. */
+  searchTokens?: string[]
   createdAt: Date
   updatedAt?: Date
 }
@@ -200,6 +259,9 @@ export interface Repair {
   photos?: RepairPhoto[]
   checklistPre: ChecklistItem[]
   checklistPost: ChecklistItem[]
+  /** Ordine cliente collegato (note dispositivo / conferma ordine). */
+  linkedDocumentId?: string
+  linkedDocumentType?: DocumentType
   createdAt: Date
   updatedAt: Date
 }
@@ -265,6 +327,8 @@ export interface Client {
   extraData?: ClientExtraData
   totalSpent: number
   repairsCount: number
+  /** Token per ricerca full-catalog via array-contains. */
+  searchTokens?: string[]
   createdAt: Date
   updatedAt?: Date
 }
@@ -305,6 +369,8 @@ export interface Supplier {
   adminRef?: string
   extraData?: ClientExtraData
   notes?: string
+  /** Token per ricerca full-catalog via array-contains. */
+  searchTokens?: string[]
   createdAt: Date
   updatedAt?: Date
 }
@@ -318,10 +384,14 @@ export type DocumentType =
   | 'rapporto_intervento'  // Rapporto d'intervento
   | 'ddt'                  // Doc. di trasporto
   | 'vendita_banco'        // Vendita al banco
+  | 'fattura_proforma'     // Fattura pro-forma
+  | 'fattura_acconto'      // Fattura d'acconto
+  | 'fattura_accomp'       // Fattura accompagnatoria
   | 'fattura'              // Fattura
   | 'preventivo_fornitore' // Preventivo fornitore
   | 'ordine_fornitore'     // Ordine fornitore
   | 'arrivo_merce'         // Arrivo merce
+  | 'reg_fattura_fornitore' // Registrazione fattura fornitore
 
 export interface DocumentRow {
   id: string
@@ -332,7 +402,8 @@ export interface DocumentRow {
   quantity: number
   unitOfMeasure: string
   unitPrice: number
-  discount?: number        // percentuale sconto
+  discount?: number        // percentuale sconto (effettiva)
+  discountExpr?: string    // sconto digitato dall'utente (es. "2+1")
   vatRate: number           // aliquota IVA (22, 10, 4, 0)
   totalNet: number          // prezzo netto riga
   total: number             // totale con IVA
@@ -376,8 +447,14 @@ export interface DocRecord {
   deliveryCap?: string
   // Opzioni
   priceList?: 'privati' | 'aziende' | 'convenzionati' | 'vip'
+  pricesVatIncluded?: boolean  // true = griglia in prezzi ivati, false = netti
   agentName?: string
   internalNotes?: string
+  // Informazioni dispositivo (riquadro stampa ordine/conferma)
+  deviceImei?: string
+  deviceLockCode?: string
+  deviceAccount?: string
+  deviceNotes?: string
   validityDays?: number        // validità preventivo (gg)
   followUpDoc?: boolean        // seguirà documento di vendita
   // Stato e collegamenti
@@ -386,6 +463,26 @@ export interface DocRecord {
   stockCommitted?: boolean     // true se lo scarico magazzino è già stato eseguito
   linkedDocumentId?: string    // per generare fattura da preventivo ecc.
   linkedDocumentType?: DocumentType
+  /** Riparazione collegata (ordine cliente con note dispositivo). */
+  repairId?: string
+  /** Riferimento documento per FatturaPA (tab Proprietà fattura elettr. Danea) */
+  electronicInvoiceRef?: {
+    tipo?: '' | 'ordine_acquisto' | 'contratto' | 'convenzione' | 'ricezione' | 'fattura_collegata' | 'ddt'
+    numero?: string
+    data?: string
+    cig?: string
+    cup?: string
+    commessaConvenzione?: string
+  }
+  aruba?: {
+    status?: 'pending' | 'sent' | 'accepted' | 'rejected' | 'error'
+    environment?: 'demo' | 'production'
+    progressivoInvio?: string
+    uploadFileName?: string
+    sentAt?: unknown
+    sentBy?: string
+    errorMessage?: string
+  }
   // Allegati
   attachments?: string[]       // URLs Firebase Storage
   // Timestamps
@@ -405,14 +502,24 @@ export interface PaymentResource {
   initialBalance?: number
   isDefault?: boolean
   sortOrder?: number
+  homeBankingUrl?: string
+  notes?: string
   createdAt: Date
   updatedAt?: Date
+}
+
+export interface PaymentExpenseLine {
+  id: string
+  importoNetto: number
+  contoCodice: string
+  contoDescrizione: string
+  descrizione: string
 }
 
 export interface Payment {
   id: string
   studioId: string
-  date: string              // YYYY-MM-DD
+  date: string              // YYYY-MM-DD (data scadenza)
   resource: 'cassa_contanti' | 'banca' | 'pos' | 'altro'
   resourceId?: string       // riferimento a paymentResources
   resourceName?: string     // denormalizzato per lista/storico
@@ -433,6 +540,14 @@ export interface Payment {
   linkedDocumentType?: DocumentType
   linkedDocumentNumber?: string
   notes?: string
+  // Registrazione spese (Danea)
+  registrationDate?: string
+  protocolNumber?: number
+  paymentNumbering?: string
+  expenseDescription?: string
+  internalComment?: string
+  documentProtected?: boolean
+  expenseLines?: PaymentExpenseLine[]
   createdAt: Date
   updatedAt?: Date
 }
@@ -535,7 +650,11 @@ export interface Agent {
   name: string
   email?: string
   phone?: string
+  /** Percentuale unica (se non si usa la matrice per listino). */
   commissionPercent?: number
+  notes?: string
+  /** Matrice provvigioni: classe → listino → % (es. principale.privati = 12). */
+  commissionMatrix?: Record<string, Record<string, number>>
   isActive?: boolean
   createdAt: Date
   updatedAt?: Date

@@ -154,20 +154,73 @@ async function collectClientBundle(clientId: string, sourceStudioId: string): Pr
     throw new HttpsError('failed-precondition', 'Il cliente non appartiene all\'archivio di origine indicato.')
   }
 
-  const [repairsSnap, devicesSnap, documentsSnap, paymentsSnap, stockSnap] = await Promise.all([
-    db.collection('repairs').where('studioId', '==', sourceStudioId).get(),
-    db.collection('devices').where('studioId', '==', sourceStudioId).get(),
-    db.collection('documents').where('studioId', '==', sourceStudioId).get(),
-    db.collection('payments').where('studioId', '==', sourceStudioId).get(),
-    db.collection('stockMovements').where('studioId', '==', sourceStudioId).get(),
+  const [repairsSnap, devicesSnap, subjectDocsSnap, subjectPaymentsSnap, stockSnap] = await Promise.all([
+    db.collection('repairs').where('studioId', '==', sourceStudioId).where('clientId', '==', clientId).get(),
+    db.collection('devices').where('studioId', '==', sourceStudioId).where('clientId', '==', clientId).get(),
+    db
+      .collection('documents')
+      .where('studioId', '==', sourceStudioId)
+      .where('subjectId', '==', clientId)
+      .where('subjectType', '==', 'client')
+      .limit(500)
+      .get(),
+    db
+      .collection('payments')
+      .where('studioId', '==', sourceStudioId)
+      .where('subjectId', '==', clientId)
+      .where('subjectType', '==', 'client')
+      .limit(500)
+      .get(),
+    db
+      .collection('stockMovements')
+      .where('studioId', '==', sourceStudioId)
+      .where('subjectId', '==', clientId)
+      .where('subjectType', '==', 'client')
+      .limit(500)
+      .get(),
   ])
 
-  const repairs = repairsSnap.docs.filter(d => d.data().clientId === clientId)
-  const devices = devicesSnap.docs.filter(d => d.data().clientId === clientId)
-  const documents = collectClientDocuments(clientId, documentsSnap.docs)
-  const movedDocumentIds = new Set(documents.map(ref => ref.id))
-  const payments = collectClientPayments(clientId, movedDocumentIds, paymentsSnap.docs)
-  const stockMovementsStaying = stockSnap.docs.filter(d => isClientSubject(d.data(), clientId))
+  const repairs = repairsSnap.docs
+  const devices = devicesSnap.docs
+
+  const selectedDocIds = new Set<string>()
+  for (const snap of subjectDocsSnap.docs) {
+    selectedDocIds.add(snap.id)
+  }
+  let expanded = true
+  while (expanded) {
+    expanded = false
+    for (const id of [...selectedDocIds]) {
+      const snap = await db.collection('documents').doc(id).get()
+      const linked = snap.data()?.linkedDocumentId as string | undefined
+      if (linked && !selectedDocIds.has(linked)) {
+        selectedDocIds.add(linked)
+        expanded = true
+      }
+    }
+  }
+  const documents = Array.from(selectedDocIds).map(id => db.collection('documents').doc(id))
+  const movedDocumentIds = selectedDocIds
+
+  const paymentRefs = new Map<string, DocumentReference>()
+  for (const snap of subjectPaymentsSnap.docs) {
+    paymentRefs.set(snap.id, snap.ref)
+  }
+  const docIdList = Array.from(movedDocumentIds)
+  for (let i = 0; i < docIdList.length; i += 10) {
+    const chunk = docIdList.slice(i, i + 10)
+    if (chunk.length === 0) continue
+    const linkedPaySnap = await db
+      .collection('payments')
+      .where('studioId', '==', sourceStudioId)
+      .where('linkedDocumentId', 'in', chunk)
+      .get()
+    for (const snap of linkedPaySnap.docs) {
+      paymentRefs.set(snap.id, snap.ref)
+    }
+  }
+  const payments = Array.from(paymentRefs.values())
+  const stockMovementsStaying = stockSnap.docs.map(d => d.ref)
 
   let repairPhotoCount = 0
   const repairPhotoPaths: CollectedClientBundle['repairPhotoPaths'] = []
@@ -185,7 +238,7 @@ async function collectClientBundle(clientId: string, sourceStudioId: string): Pr
     devices: devices.map(d => d.ref),
     documents,
     payments,
-    stockMovementsStaying: stockMovementsStaying.map(d => d.ref),
+    stockMovementsStaying,
     repairPhotoCount,
     repairPhotoPaths,
   }

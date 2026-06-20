@@ -15,8 +15,17 @@ export {
   formatMovementDate,
   linkedDocumentLabel,
   sortMovementRows,
-  type MovementPeriodFilter,
+  movementTotals,
 } from './utils'
+export type {
+  MovementPeriod,
+  MovementPeriodPreset,
+  MovementPeriodFilter,
+  MovementStatusFilter,
+  OperazioneMagazzinoMode,
+} from './constants'
+export { DEFAULT_MOVEMENT_PERIOD, IT_MONTHS } from './constants'
+export { movementPeriodLabel, periodBounds, isPrimaryPeriodPreset } from './utils'
 export {
   buildStockSituationRows,
   exportStockSituationCsv,

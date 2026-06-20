@@ -1,6 +1,7 @@
-import type { DocumentRow } from '../../../types'
+import type { Client, DocumentRow } from '../../../types'
 import type { Product } from '../../../types'
-import type { DocumentoVenditaBanco, RigaDocumento, ScadenzaPagamento } from './types'
+import { clientToOrdineCliente } from '../ordine-cliente/utils'
+import type { DocumentoVenditaBanco, RigaDocumento, ScadenzaPagamento, VenditaBancoSeed } from './types'
 
 export function formatDataIt(isoDate: string): string {
   if (!isoDate) return ''
@@ -27,6 +28,23 @@ export function netFromGross(gross: number, vatRate: number): number {
 
 export function grossFromNet(net: number, vatRate: number): number {
   return Math.round(net * (1 + vatRate / 100) * 100) / 100
+}
+
+/**
+ * Converte un'espressione sconto Danea in percentuale effettiva.
+ * Supporta sconti singoli ("10", "10%") e a cascata ("2+1", "5+5+5").
+ * Esempio: "2+1" => (1-0,02)*(1-0,01) => 2,98%.
+ */
+export function parseScontoExpr(expr: string): number {
+  const cleaned = (expr || '').replace(/%/g, '').replace(/,/g, '.').trim()
+  if (!cleaned) return 0
+  const parts = cleaned.split('+').map(p => p.trim()).filter(Boolean)
+  let mult = 1
+  for (const p of parts) {
+    const n = parseFloat(p)
+    if (!Number.isNaN(n)) mult *= 1 - n / 100
+  }
+  return Math.round((1 - mult) * 10000) / 100
 }
 
 export function calcRigaImporto(riga: Pick<RigaDocumento, 'qta' | 'prezzoIvato' | 'sconto'>): number {
@@ -116,6 +134,19 @@ export function documentTotalsFromRighe(
     totIva: Math.round(vatSum * 100) / 100,
     totaleDocumento: Math.round((netSum + vatSum) * 100) / 100,
     vatByRate,
+  }
+}
+
+export function clientToVenditaBancoSeed(client: Client): VenditaBancoSeed {
+  const partial = clientToOrdineCliente(client)
+  return {
+    cliente: partial.cliente!,
+    listino: partial.listino ?? 'Privati',
+    intestatario: partial.intestatario!,
+    destinazione: partial.destinazione!,
+    tipoPagamento: partial.tipoPagamento ?? '',
+    commentoInterno: '',
+    righe: [emptyRiga()],
   }
 }
 
@@ -255,13 +286,14 @@ export function rigaToDocumentRow(r: RigaDocumento): DocumentRow {
   const qty = r.qta || 1
   return {
     id: r.id,
-    productId: r.productId || '',
+    productId: r.productId || undefined,
     productCode: r.cod,
     description: r.descrizione,
     quantity: r.qta,
     unitOfMeasure: r.um,
     unitPrice: Math.round((netUnit) * 100) / 100,
     discount: r.sconto,
+    ...(r.scontoExpr ? { discountExpr: r.scontoExpr } : {}),
     vatRate: r.iva,
     totalNet: Math.round((lineNet) * 100) / 100,
     total: r.importoIvato,
@@ -285,6 +317,7 @@ export function documentRowToRiga(row: DocumentRow): RigaDocumento {
     um: row.unitOfMeasure || 'pz',
     prezzoIvato: Math.round(prezzoIvato * 100) / 100,
     sconto: row.discount || 0,
+    scontoExpr: row.discountExpr,
     iva: row.vatRate,
     scaricaMagazzino: Boolean(row.productId),
     importoIvato: row.total,

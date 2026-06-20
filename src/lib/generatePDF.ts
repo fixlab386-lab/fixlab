@@ -5,9 +5,10 @@ import { getDocumentTypePrintOptions, printDocRecordWithTemplate, studioDataToCo
 const typeLabels: Record<string, string> = {
   preventivo: 'PREVENTIVO', conferma_ordine: "CONFERMA D'ORDINE", ordine_cliente: 'ORDINE CLIENTE',
   rapporto_intervento: "RAPPORTO D'INTERVENTO", ddt: 'DOCUMENTO DI TRASPORTO',
+  fattura_proforma: 'FATTURA PRO-FORMA', fattura_acconto: "FATTURA D'ACCONTO", fattura_accomp: 'FATTURA ACCOMP.',
   vendita_banco: 'RICEVUTA', fattura: 'FATTURA',
   preventivo_fornitore: 'PREVENTIVO FORNITORE', ordine_fornitore: 'ORDINE FORNITORE',
-  arrivo_merce: 'ARRIVO MERCE'
+  arrivo_merce: 'ARRIVO MERCE', reg_fattura_fornitore: 'REG. FATTURA FORNITORE'
 }
 
 interface StudioInfo extends Record<string, unknown> {

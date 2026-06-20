@@ -1,5 +1,12 @@
-import { useMemo, useState } from 'react'
-import { getCustomNoteDocumento, addCustomNotaDocumento } from '../../../../lib/userPrefs'
+import { useCallback, useMemo, useState } from 'react'
+import { getNoteElencoPresetLabels, getNoteElencoVoci } from '../../../../lib/userPrefs'
+import ElencoNoteDialog from '../dialogs/ElencoNoteDialog'
+import {
+  NOTE_CAMPO_LABELS,
+  NOTE_ELENCO_DEFAULTS,
+  noteCampoKeyFromIndex,
+  type NoteCampoKey,
+} from '../noteElenco'
 import WinDropdownMenu from '../WinDropdownMenu'
 import { WinField, WinInput, WinTextarea } from '../WinControls'
 import type { DocumentoVenditaBanco } from '../types'
@@ -10,13 +17,32 @@ type Props = {
   onChange: (patch: Partial<DocumentoVenditaBanco>) => void
 }
 
+function noteDropdownItems(
+  campoKey: NoteCampoKey,
+  onPick: (text: string) => void,
+  onPersonalizza: () => void,
+) {
+  const presets = getNoteElencoPresetLabels(campoKey, NOTE_ELENCO_DEFAULTS[campoKey])
+  return [
+    ...presets.map(text => ({
+      id: `${campoKey}-${text}`,
+      label: text,
+      onClick: () => onPick(text),
+    })),
+    ...(presets.length ? [{ id: `${campoKey}-sep`, separator: true as const }] : []),
+    {
+      id: `${campoKey}-personalizza`,
+      label: 'Personalizza…',
+      onClick: onPersonalizza,
+    },
+  ]
+}
+
 export default function TabNote({ doc, protetto, onChange }: Props) {
   const [prefsVersion, setPrefsVersion] = useState(0)
-  const notePresets = useMemo(
-    () => [...getCustomNoteDocumento(), 'Personalizza…'],
-    [prefsVersion],
-  )
-  void prefsVersion
+  const [elencoCampo, setElencoCampo] = useState<NoteCampoKey | null>(null)
+
+  const refreshPrefs = useCallback(() => setPrefsVersion(v => v + 1), [])
 
   const setLibero = (index: number, value: string) => {
     const campi = [...doc.campiLiberi] as DocumentoVenditaBanco['campiLiberi']
@@ -24,48 +50,43 @@ export default function TabNote({ doc, protetto, onChange }: Props) {
     onChange({ campiLiberi: campi })
   }
 
-  const pickPreset = (target: 'libero' | 'fine', index?: number) => (label: string) => {
-    if (label === 'Personalizza…') {
-      const text = window.prompt('Testo predefinito:')
-      if (!text?.trim()) return
-      addCustomNotaDocumento(text)
-      setPrefsVersion(v => v + 1)
-      if (target === 'fine') onChange({ noteFine: text.trim() })
-      else if (index !== undefined) setLibero(index, text.trim())
-      return
-    }
-    if (target === 'fine') onChange({ noteFine: label })
-    else if (index !== undefined) setLibero(index, label)
+  const elencoInitialVoci = useMemo(() => {
+    if (!elencoCampo) return []
+    return getNoteElencoVoci(elencoCampo, NOTE_ELENCO_DEFAULTS[elencoCampo])
+  }, [elencoCampo, prefsVersion])
+
+  const openPersonalizza = (campoKey: NoteCampoKey) => {
+    setElencoCampo(campoKey)
   }
 
   return (
-    <div className="vb-tab-panel vb-tab-stack">
+    <div className="vb-tab-panel vb-tab-stack vb-tab-note">
       <p className="vb-section-title">Campi aggiuntivi</p>
-      {([0, 1, 2, 3] as const).map(i => (
-        <WinField key={i} label={`Libero ${i + 1}`} htmlFor={`vb-libero-${i}`}>
-          <div className="vb-row">
-            <WinInput
-              id={`vb-libero-${i}`}
-              className="vb-input--flex"
-              value={doc.campiLiberi[i]}
-              disabled={protetto}
-              onChange={e => setLibero(i, e.target.value)}
-            />
-            <WinDropdownMenu
-              disabled={protetto}
-              label="▼"
-              items={notePresets.map(label => ({
-                id: `${i}-${label}`,
-                label,
-                onClick: () => pickPreset('libero', i)(label),
-              }))}
-            />
-          </div>
-        </WinField>
-      ))}
+      {([0, 1, 2, 3] as const).map(i => {
+        const campoKey = noteCampoKeyFromIndex(i)
+        const label = NOTE_CAMPO_LABELS[campoKey]
+        return (
+          <WinField key={campoKey} label={label} htmlFor={`vb-libero-${i}`}>
+            <div className="vb-row">
+              <WinInput
+                id={`vb-libero-${i}`}
+                className="vb-input--flex"
+                value={doc.campiLiberi[i]}
+                disabled={protetto}
+                onChange={e => setLibero(i, e.target.value)}
+              />
+              <WinDropdownMenu
+                disabled={protetto}
+                label="▼"
+                items={noteDropdownItems(campoKey, text => setLibero(i, text), () => openPersonalizza(campoKey))}
+              />
+            </div>
+          </WinField>
+        )
+      })}
 
-      <WinField label="Note a fine documento" htmlFor="vb-note-fine">
-        <div className="vb-row" style={{ alignItems: 'flex-start' }}>
+      <WinField label={NOTE_CAMPO_LABELS.noteFine} htmlFor="vb-note-fine">
+        <div className="vb-row vb-row--top">
           <WinTextarea
             id="vb-note-fine"
             className="vb-input--flex"
@@ -77,14 +98,19 @@ export default function TabNote({ doc, protetto, onChange }: Props) {
           <WinDropdownMenu
             disabled={protetto}
             label="▼"
-            items={notePresets.map(label => ({
-              id: `fine-${label}`,
-              label,
-              onClick: () => pickPreset('fine')(label),
-            }))}
+            items={noteDropdownItems('noteFine', text => onChange({ noteFine: text }), () => openPersonalizza('noteFine'))}
           />
         </div>
       </WinField>
+
+      {elencoCampo ? (
+        <ElencoNoteDialog
+          campoKey={elencoCampo}
+          initialVoci={elencoInitialVoci}
+          onClose={() => setElencoCampo(null)}
+          onSaved={refreshPrefs}
+        />
+      ) : null}
     </div>
   )
 }

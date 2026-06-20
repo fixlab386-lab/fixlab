@@ -2,7 +2,6 @@ import {
   collection,
   doc,
   getDoc,
-  getDocs,
   query,
   serverTimestamp,
   updateDoc,
@@ -12,6 +11,7 @@ import {
 import { db } from '../firebase'
 import { createStudioArchive, type StudioArchive } from './studioMemberships'
 import { hashArchivePassword } from './archivePassword'
+import { countStudioCollection, fetchStudioCollectionForExport } from './firestorePagination'
 import type { UserStudioMembershipRef } from '../types'
 
 const TENANT_COLLECTIONS = [
@@ -38,30 +38,23 @@ export type ArchiveStats = {
 }
 
 export async function fetchArchiveStats(studioId: string): Promise<ArchiveStats> {
-  let docCount = 0
-  let sizeKb = 0
-
   const studioSnap = await getDoc(doc(db, 'studios', studioId))
   const studioData = studioSnap.data()
   const lastAccessAt =
     studioData?.lastAccessAt?.toDate?.()?.toISOString?.() ??
     (typeof studioData?.lastAccessAt === 'string' ? studioData.lastAccessAt : null)
 
-  for (const name of TENANT_COLLECTIONS) {
-    try {
-      const snap = await getDocs(query(collection(db, name), where('studioId', '==', studioId)))
-      docCount += snap.size
-      for (const d of snap.docs) {
-        sizeKb += Math.ceil(JSON.stringify(d.data()).length / 1024)
-      }
-    } catch {
-      /* collection may be empty or unreadable */
-    }
-  }
+  const counts = await Promise.all(
+    TENANT_COLLECTIONS.map(name =>
+      countStudioCollection(name, studioId).catch(() => 0),
+    ),
+  )
+  const docCount = counts.reduce((a, b) => a + b, 0)
+  const sizeKb = Math.max(Math.ceil(docCount * 2), 1)
 
   return {
     docCount,
-    sizeKb: Math.max(sizeKb, 1),
+    sizeKb,
     lastAccessAt,
     hasPassword: Boolean(studioData?.archivePasswordHash),
   }
@@ -86,8 +79,9 @@ export async function duplicateStudioArchiveClient(params: {
   userEmail: string
   newName: string
   memberships: UserStudioMembershipRef[]
+  onProgress?: (msg: string) => void
 }): Promise<{ studioId: string; memberships: UserStudioMembershipRef[] }> {
-  const { sourceStudioId, userId, userEmail, newName, memberships } = params
+  const { sourceStudioId, userId, userEmail, newName, memberships, onProgress } = params
   const { studioId: newStudioId, memberships: nextMemberships } = await createStudioArchive({
     userId,
     userEmail,
@@ -96,16 +90,18 @@ export async function duplicateStudioArchiveClient(params: {
   })
 
   for (const collName of TENANT_COLLECTIONS) {
-    const snap = await getDocs(query(collection(db, collName), where('studioId', '==', sourceStudioId)))
-    if (snap.empty) continue
+    onProgress?.(`Copia ${collName}…`)
+    const rows = await fetchStudioCollectionForExport(collName, sourceStudioId)
+    if (rows.length === 0) continue
 
     let batch = writeBatch(db)
     let ops = 0
-    for (const d of snap.docs) {
-      const data = { ...d.data(), studioId: newStudioId }
-      delete (data as { id?: string }).id
+    for (const row of rows) {
+      const { id: _id, ...data } = row
+      const payload = { ...data, studioId: newStudioId }
+      delete (payload as { id?: string }).id
       const newRef = doc(collection(db, collName))
-      batch.set(newRef, data)
+      batch.set(newRef, payload)
       ops++
       if (ops >= 400) {
         await batch.commit()

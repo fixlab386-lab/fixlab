@@ -9,6 +9,8 @@ export interface RigaDocumento {
   um: string
   prezzoIvato: number
   sconto: number
+  /** Espressione sconto digitata (es. "2+1", "10%"). */
+  scontoExpr?: string
   iva: number
   scaricaMagazzino: boolean
   importoIvato: number
@@ -48,6 +50,7 @@ export interface DocumentoVenditaBanco {
   numerazione: string
   seguiraDocVendita: boolean
   righe: RigaDocumento[]
+  prezziIvati?: boolean
   tipoPagamento: string
   campiLiberi: [string, string, string, string]
   noteFine: string
@@ -73,7 +76,19 @@ export interface ScadenzaPagamento {
   descrizione: string
 }
 
-export type TabVenditaBancoId = 'righe' | 'pagamento' | 'note' | 'indirizzi' | 'opzioni'
+export type TabVenditaBancoId = 'righe' | 'pagamento' | 'trasporto' | 'note' | 'indirizzi' | 'opzioni'
+
+/** Dati precompilati quando si apre vendita al banco da ordine cliente. */
+export type VenditaBancoSeed = {
+  cliente: ClienteDocumento
+  listino: string
+  data?: string
+  intestatario: IndirizzoCompleto
+  destinazione: IndirizzoCompleto
+  tipoPagamento?: string
+  commentoInterno?: string
+  righe: RigaDocumento[]
+}
 
 export type ColonnaRigheId =
   | 'cod'
@@ -92,12 +107,39 @@ export const COLONNE_RIGHE_DEFAULT: Record<ColonnaRigheId, boolean> = {
   descrizione: true,
   tagliaColore: false,
   qta: true,
-  um: true,
+  um: false,
   prezzoIvato: true,
   sconto: true,
   iva: true,
   scaricaMag: true,
   importoIvato: true,
+}
+
+/** Ordine colonne griglia righe (allineato a TabRigheDocumento). */
+export const COLONNE_RIGHE_ORDER: ColonnaRigheId[] = [
+  'cod',
+  'descrizione',
+  'tagliaColore',
+  'qta',
+  'um',
+  'prezzoIvato',
+  'sconto',
+  'iva',
+  'scaricaMag',
+  'importoIvato',
+]
+
+export const COLONNE_RIGHE_WIDTH_DEFAULT: Record<ColonnaRigheId, number> = {
+  cod: 72,
+  descrizione: 220,
+  tagliaColore: 88,
+  qta: 52,
+  um: 44,
+  prezzoIvato: 92,
+  sconto: 56,
+  iva: 48,
+  scaricaMag: 80,
+  importoIvato: 100,
 }
 
 export type SortableColonnaRigheId = 'prezzoIvato' | 'sconto' | 'iva' | 'scaricaMag'

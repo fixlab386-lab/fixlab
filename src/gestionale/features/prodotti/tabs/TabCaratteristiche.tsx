@@ -1,31 +1,30 @@
 import { LISTINI_GLOBALI, LISTINI_PRINCIPALI, LISTINI_REGOLE_DEFAULT, TIPOLOGIE_PRODOTTO, TIPOLOGIA_LABELS, UNITA_MISURA } from '../constants'
 import type { Prodotto } from '../types'
 import { listinoLabel } from '../utils'
+import type { Category } from '../../../../types'
+import CategoryCascadePicker from '../../../components/CategoryCascadePicker'
+import type { CategorySelection } from '../../../lib/categoryUtils'
+import { DaneaFormGroupTitle, DaneaFormLinks, DaneaFormRow } from '../../../components/DaneaFormRow'
 
 type Props = {
   prodotto: Prodotto
-  categorie: string[]
-  sottocategorie: string[]
+  categories: Category[]
   prezziEspansi: boolean
   onChange: (p: Prodotto) => void
   onTogglePrezzi: () => void
   onPrezziMenu: (azione: string) => void
   onCategorie: () => void
-  onAllegati: () => void
   onImmagine: () => void
 }
 
 export default function TabCaratteristiche({
   prodotto,
-  categorie,
-  sottocategorie,
+  categories,
   prezziEspansi,
   onChange,
   onTogglePrezzi,
   onPrezziMenu,
   onCategorie,
-  onAllegati,
-  onImmagine,
 }: Props) {
   const patch = (patch: Partial<Prodotto>) => onChange({ ...prodotto, ...patch })
   const patchPrezzo = (listinoId: string, valore: number) => {
@@ -33,107 +32,61 @@ export default function TabCaratteristiche({
     onChange({ ...prodotto, prezzi })
   }
 
+  const applyCategory = (selection: CategorySelection) => {
+    onChange({
+      ...prodotto,
+      categoria: selection.categoria,
+      sottocategoria: selection.sottocategoria,
+      categoryPath: selection.categoryPath,
+      categoryId: selection.categoryId,
+      subcategoryId: selection.subcategoryId,
+    })
+  }
+
+  const leafId = prodotto.subcategoryId || prodotto.categoryId || ''
+
   return (
-    <div>
-      <div className="prodotti-field">
-        <label className="prodotti-field__label">Cod. prodotto</label>
-        <input
-          className="prodotti-input prodotti-input--short prodotti-input--readonly"
-          readOnly
-          value={prodotto.codProdotto}
-        />
-      </div>
+    <div className="danea-form">
+      <DaneaFormRow label="Cod. prodotto">
+        <input className="prodotti-input prodotti-input--short prodotti-input--readonly" readOnly value={prodotto.codProdotto} />
+      </DaneaFormRow>
 
-      <div className="prodotti-field">
-        <label className="prodotti-field__label">Descrizione</label>
-        <textarea
-          className="prodotti-textarea"
-          rows={3}
-          value={prodotto.descrizione}
-          onChange={e => patch({ descrizione: e.target.value })}
-        />
-      </div>
+      <DaneaFormRow label="Descrizione">
+        <textarea className="prodotti-textarea" rows={3} value={prodotto.descrizione} onChange={e => patch({ descrizione: e.target.value })} />
+      </DaneaFormRow>
 
-      <div className="prodotti-row">
-        <div className="prodotti-field" style={{ flex: 1 }}>
-          <label className="prodotti-field__label">Tipologia</label>
-          <select
-            className="prodotti-select prodotti-select--combo"
-            value={prodotto.tipologia}
-            onChange={e => patch({ tipologia: e.target.value as Prodotto['tipologia'] })}
-          >
-            {TIPOLOGIE_PRODOTTO.map(t => (
-              <option key={t} value={t}>
-                {TIPOLOGIA_LABELS[t]}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <DaneaFormRow label="Tipologia">
+        <select className="prodotti-select prodotti-select--combo" value={prodotto.tipologia} onChange={e => patch({ tipologia: e.target.value as Prodotto['tipologia'] })}>
+          {TIPOLOGIE_PRODOTTO.map(t => (
+            <option key={t} value={t}>
+              {TIPOLOGIA_LABELS[t]}
+            </option>
+          ))}
+        </select>
+      </DaneaFormRow>
 
-      <div className="prodotti-row">
-        <div className="prodotti-field" style={{ flex: 1 }}>
-          <label className="prodotti-field__label">Categoria</label>
-          <select
-            className="prodotti-select prodotti-select--combo"
-            value={prodotto.categoria}
-            onChange={e => patch({ categoria: e.target.value, sottocategoria: '' })}
-          >
-            <option value="" />
-            {categorie.map(c => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="prodotti-field" style={{ flex: 1 }}>
-          <label className="prodotti-field__label">Sottocategoria</label>
-          <div className="prodotti-row" style={{ gap: 2 }}>
-            <select
-              className="prodotti-select prodotti-select--combo"
-              style={{ flex: 1 }}
-              value={prodotto.sottocategoria}
-              onChange={e => patch({ sottocategoria: e.target.value })}
-            >
-              <option value="" />
-              {sottocategorie.map(s => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-            <button type="button" className="prodotti-btn-dots" title="Categorie prodotti" onClick={onCategorie}>
-              …
-            </button>
-          </div>
-        </div>
-        <div className="prodotti-field">
-          <label className="prodotti-field__label">U.m.</label>
-          <select
-            className="prodotti-select prodotti-select--combo prodotti-input--short"
-            value={prodotto.um}
-            onChange={e => patch({ um: e.target.value })}
-          >
-            {UNITA_MISURA.map(u => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <DaneaFormRow label="Categoria">
+        <CategoryCascadePicker categories={categories} leafId={leafId} onChange={applyCategory} onManage={onCategorie} />
+      </DaneaFormRow>
+
+      <DaneaFormRow label="U.m.">
+        <select className="prodotti-select prodotti-select--combo prodotti-input--short" value={prodotto.um} onChange={e => patch({ um: e.target.value })}>
+          {UNITA_MISURA.map(u => (
+            <option key={u} value={u}>
+              {u}
+            </option>
+          ))}
+        </select>
+      </DaneaFormRow>
+
+      <DaneaFormGroupTitle>Listini prezzo</DaneaFormGroupTitle>
 
       <div className="prodotti-listini-block">
         {LISTINI_PRINCIPALI.map(id => {
           const lbl = listinoLabel(id)
           const prezzo = prodotto.prezzi.find(p => p.listinoId === id)
           return (
-            <div key={id} className="prodotti-listini-row">
-              <span className="prodotti-field__label">{lbl}</span>
-              <select className="prodotti-select prodotti-select--combo" disabled value={id}>
-                <option>{lbl}</option>
-              </select>
+            <DaneaFormRow key={id} label={lbl} wideLabel>
               <input
                 className="prodotti-input"
                 type="number"
@@ -141,18 +94,18 @@ export default function TabCaratteristiche({
                 value={prezzo?.valore ?? 0}
                 onChange={e => patchPrezzo(id, parseFloat(e.target.value) || 0)}
               />
-            </div>
+            </DaneaFormRow>
           )
         })}
 
-        <div className="prodotti-row" style={{ alignItems: 'center', marginTop: 4 }}>
+        <DaneaFormLinks>
           <button type="button" className="prodotti-link" onClick={onTogglePrezzi}>
             Prezzi…
           </button>
           <button
             type="button"
-            className="prodotti-actionbar__btn"
-            style={{ padding: '2px 6px', fontSize: 10 }}
+            className="danea-form__edit-btn"
+            title="Menu prezzi"
             onClick={() => {
               const azione = prompt('Menu Prezzi: Impostazioni | Opzioni applicazione', 'Impostazioni')
               if (azione) onPrezziMenu(azione)
@@ -160,7 +113,7 @@ export default function TabCaratteristiche({
           >
             ▼
           </button>
-        </div>
+        </DaneaFormLinks>
 
         {prezziEspansi ? (
           <div className="prodotti-prezzi-panel">
@@ -173,20 +126,12 @@ export default function TabCaratteristiche({
         ) : null}
       </div>
 
-      <div className="prodotti-field">
-        <label className="prodotti-field__label">Note</label>
-        <textarea
-          className="prodotti-textarea"
-          rows={5}
-          style={{ minHeight: 80 }}
-          value={prodotto.note}
-          onChange={e => patch({ note: e.target.value })}
-        />
-      </div>
+      <DaneaFormRow label="Note">
+        <textarea className="prodotti-textarea" rows={4} value={prodotto.note} onChange={e => patch({ note: e.target.value })} />
+      </DaneaFormRow>
 
       {prodotto.tipologia === 'ArtTaglieColori' ? (
-        <div className="prodotti-field">
-          <label className="prodotti-field__label">Varianti taglia/colore</label>
+        <DaneaFormRow label="Taglie/colori">
           <textarea
             className="prodotti-textarea"
             rows={3}
@@ -194,19 +139,13 @@ export default function TabCaratteristiche({
             value={prodotto.variantiTagliaColore || ''}
             onChange={e => patch({ variantiTagliaColore: e.target.value })}
           />
-        </div>
+        </DaneaFormRow>
       ) : null}
 
       {prodotto.tipologia === 'ArtLottiSeriali' ? (
-        <div className="prodotti-field">
-          <label className="prodotti-field__label">Lotti / seriali</label>
-          <textarea
-            className="prodotti-textarea"
-            rows={3}
-            value={prodotto.lottiSeriali || ''}
-            onChange={e => patch({ lottiSeriali: e.target.value })}
-          />
-        </div>
+        <DaneaFormRow label="Lotti/seriali">
+          <textarea className="prodotti-textarea" rows={3} value={prodotto.lottiSeriali || ''} onChange={e => patch({ lottiSeriali: e.target.value })} />
+        </DaneaFormRow>
       ) : null}
     </div>
   )

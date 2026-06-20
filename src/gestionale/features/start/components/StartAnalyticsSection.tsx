@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
-import type { Product, Repair } from '../../../../types'
+import { useEffect, useMemo, useState } from 'react'
+import type { Repair } from '../../../../types'
+import type { DashboardAggregates } from '../../../../lib/dashboardAggregates'
+import { fetchRepairsForPeriod, type AnalyticsPeriod } from '../../../../lib/firestorePagination'
 import { coalesceDate } from '../dashboardMetrics'
-
-type AnalyticsPeriod = 'week' | 'month' | 'year'
 
 const PERIOD_LABEL: Record<AnalyticsPeriod, string> = {
   week: 'Settimana',
@@ -20,23 +20,45 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 type Props = {
-  repairs: Repair[]
-  products: Product[]
+  studioId: string
+  /** Fallback slice recente mentre carica il periodo. */
+  repairsFallback: Repair[]
+  aggregates: DashboardAggregates | null
 }
 
-export default function StartAnalyticsSection({ repairs, products }: Props) {
+export default function StartAnalyticsSection({ studioId, repairsFallback, aggregates }: Props) {
   const [period, setPeriod] = useState<AnalyticsPeriod>('month')
+  const [periodRepairs, setPeriodRepairs] = useState<Repair[]>([])
+  const [loadingPeriod, setLoadingPeriod] = useState(false)
 
-  const periodRepairs = useMemo(() => {
-    const now = new Date()
-    return repairs.filter(r => {
-      const date = coalesceDate(r.createdAt) ?? coalesceDate(r.updatedAt)
-      if (!date || Number.isNaN(date.getTime())) return false
-      if (period === 'week') return date.getTime() >= now.getTime() - 7 * 24 * 60 * 60 * 1000
-      if (period === 'month') return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()
-      return date.getFullYear() === now.getFullYear()
-    })
-  }, [repairs, period])
+  useEffect(() => {
+    let cancelled = false
+    setLoadingPeriod(true)
+    void fetchRepairsForPeriod(studioId, period)
+      .then(rows => {
+        if (!cancelled) setPeriodRepairs(rows)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          const now = new Date()
+          setPeriodRepairs(
+            repairsFallback.filter(r => {
+              const date = coalesceDate(r.createdAt) ?? coalesceDate(r.updatedAt)
+              if (!date || Number.isNaN(date.getTime())) return false
+              if (period === 'week') return date.getTime() >= now.getTime() - 7 * 24 * 60 * 60 * 1000
+              if (period === 'month') return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()
+              return date.getFullYear() === now.getFullYear()
+            }),
+          )
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPeriod(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [studioId, period, repairsFallback])
 
   const insights = useMemo(() => {
     const totalRevenue = periodRepairs.reduce((a, r) => a + (r.totalCost || 0), 0)
@@ -70,12 +92,14 @@ export default function StartAnalyticsSection({ repairs, products }: Props) {
     const topDevices = Object.entries(deviceCount).sort((a, b) => b[1] - a[1])
     const maxDev = topDevices[0]?.[1] || 1
 
-    const warehouse = {
-      total: products.length,
-      available: products.filter(p => p.stock > 3).length,
-      low: products.filter(p => p.stock > 0 && p.stock <= 3).length,
-      out: products.filter(p => p.stock === 0).length,
-    }
+    const warehouse = aggregates
+      ? {
+          total: aggregates.productCount,
+          available: Math.max(0, aggregates.productCount - aggregates.outOfStock - aggregates.lowStock),
+          low: aggregates.lowStock,
+          out: aggregates.outOfStock,
+        }
+      : null
 
     return {
       totalRevenue,
@@ -89,7 +113,7 @@ export default function StartAnalyticsSection({ repairs, products }: Props) {
       warehouse,
       count: periodRepairs.length,
     }
-  }, [periodRepairs, products])
+  }, [periodRepairs, aggregates])
 
   return (
     <section className="gestionale-start-panel gestionale-start-panel--wide">
@@ -108,6 +132,12 @@ export default function StartAnalyticsSection({ repairs, products }: Props) {
           ))}
         </div>
       </div>
+
+      {loadingPeriod ? (
+        <p className="gestionale-start-subpanel__empty" aria-live="polite">
+          Caricamento dati periodo…
+        </p>
+      ) : null}
 
       <div className="gestionale-start-kpi-grid gestionale-start-kpi-grid--4">
         {[
@@ -188,18 +218,22 @@ export default function StartAnalyticsSection({ repairs, products }: Props) {
         </div>
 
         <div className="gestionale-start-subpanel">
-          <h3 className="gestionale-start-subpanel__title">Magazzino (snapshot)</h3>
-          {[
-            { label: 'Prodotti totali', value: insights.warehouse.total },
-            { label: 'Disponibili', value: insights.warehouse.available },
-            { label: 'Scorte basse', value: insights.warehouse.low },
-            { label: 'Esauriti', value: insights.warehouse.out },
-          ].map(row => (
-            <div key={row.label} className="gestionale-start-snapshot-row">
-              <span>{row.label}</span>
-              <strong>{row.value}</strong>
-            </div>
-          ))}
+          <h3 className="gestionale-start-subpanel__title">Magazzino</h3>
+          {insights.warehouse ? (
+            [
+              { label: 'Prodotti totali', value: insights.warehouse.total },
+              { label: 'Disponibili', value: insights.warehouse.available },
+              { label: 'Scorte basse', value: insights.warehouse.low },
+              { label: 'Esauriti', value: insights.warehouse.out },
+            ].map(row => (
+              <div key={row.label} className="gestionale-start-snapshot-row">
+                <span>{row.label}</span>
+                <strong>{row.value}</strong>
+              </div>
+            ))
+          ) : (
+            <p className="gestionale-start-subpanel__empty">Caricamento magazzino…</p>
+          )}
         </div>
       </div>
     </section>

@@ -1,5 +1,7 @@
 /** Opzioni applicazione — persistite su studios.appOptions */
 
+import type { TemplateCanvasElement } from './templateCanvas'
+
 export type PrintLayoutId = 'layout_conferma_ordine' | 'standard_jsPDF' | 'vendita_banco_gestionale'
 
 export const DEFAULT_PRINT_LAYOUT: PrintLayoutId = 'layout_conferma_ordine'
@@ -11,6 +13,8 @@ export type DocumentTemplateFields = {
   showSecondBox: boolean
   signatureLabel: string
   totalLabel: string
+  /** Layout canvas WYSIWYG (posizione e stile elementi). */
+  canvasElements?: TemplateCanvasElement[]
 }
 
 export type DocumentoTipoOptions = {
@@ -98,6 +102,10 @@ export const DOCUMENT_TYPES_FOR_OPTIONS = [
   'ordine_cliente',
   'ddt',
   'rapporto_intervento',
+  'fattura',
+  'fattura_proforma',
+  'fattura_acconto',
+  'fattura_accomp',
   'vendita_banco',
   'preventivo_fornitore',
   'ordine_fornitore',
@@ -110,6 +118,10 @@ export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   ordine_cliente: 'Ordine cliente',
   ddt: 'Documento di trasporto',
   rapporto_intervento: "Rapporto d'intervento",
+  fattura: 'Fattura',
+  fattura_proforma: 'Fattura pro-forma',
+  fattura_acconto: "Fattura d'acconto",
+  fattura_accomp: 'Fattura accompagnatoria',
   vendita_banco: 'Vendita al banco',
   preventivo_fornitore: 'Preventivo fornitore',
   ordine_fornitore: 'Ordine fornitore',

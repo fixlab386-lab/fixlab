@@ -1,18 +1,20 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   addProduct,
   deleteProduct,
   getNextProductCode,
   updateProduct,
 } from '../../../../lib/firestore'
+import { searchProductsForSelection } from '../../../../lib/firestorePagination'
 import type { Category, Product } from '../../../../types'
 import {
-  categoryOptions,
   EMPTY_PRODUCT_FILTERS,
   filterProductsForSelection,
   formatCategoryPath,
   type ProductSelectionFilters,
 } from '../productSelectionFilter'
+import CategoryTreeFilter from '../../../components/CategoryTreeFilter'
+import '../../../theme/category-tree.css'
 import { calcRiga, emptyRiga, formatEuro, productListGrossPrice } from '../utils'
 import type { RigaDocumento } from '../types'
 import { WinButton, WinInput, WinSelect } from '../WinControls'
@@ -114,12 +116,46 @@ export default function SelezioneProdottiDialog({
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [modificaTarget, setModificaTarget] = useState<Product | null>(null)
   const [showHelp, setShowHelp] = useState(false)
+  const [displayProducts, setDisplayProducts] = useState<Product[]>(products)
+  const [searching, setSearching] = useState(false)
 
   const patchFilters = (patch: Partial<ProductSelectionFilters>) => setFilters(prev => ({ ...prev, ...patch }))
 
+  useEffect(() => {
+    setDisplayProducts(products)
+  }, [products])
+
+  useEffect(() => {
+    if (!studioId) return
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      setSearching(true)
+      void searchProductsForSelection(studioId, filters, filtraOpen, 80, categories)
+        .then(items => {
+          if (!cancelled) setDisplayProducts(items)
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false)
+        })
+    }, 280)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [studioId, filters, filtraOpen, categories])
+
   const filtered = useMemo(
-    () => filterProductsForSelection(products, filters, filtraOpen),
-    [products, filters, filtraOpen],
+    () => (studioId ? displayProducts : filterProductsForSelection(products, filters, filtraOpen, categories)),
+    [studioId, displayProducts, products, filters, filtraOpen, categories],
+  )
+
+  const cats = useMemo(
+    () =>
+      displayProducts.map(p => ({
+        categoryId: p.categoryId,
+        subcategoryId: p.subcategoryId,
+      })),
+    [displayProducts],
   )
 
   const rows = useMemo(() => {
@@ -280,8 +316,6 @@ export default function SelezioneProdottiDialog({
     [modificaTarget, onProductsChange],
   )
 
-  const cats = categoryOptions(categories)
-
   return (
     <div className="vb-dialog-overlay vb-sp-overlay" role="dialog" aria-modal="true">
       <div className="vb-dialog vb-dialog--selezione-prodotti">
@@ -342,53 +376,52 @@ export default function SelezioneProdottiDialog({
         </div>
 
         {filtraOpen ? (
-          <div className="vb-sp-filtri">
-            <label>
-              Codice / barcode
-              <WinInput value={filters.codice} onChange={e => patchFilters({ codice: e.target.value })} />
-            </label>
-            <label>
-              Descrizione
-              <WinInput value={filters.descrizione} onChange={e => patchFilters({ descrizione: e.target.value })} />
-            </label>
-            <label>
-              Categoria
-              <WinSelect value={filters.categoriaId} onChange={e => patchFilters({ categoriaId: e.target.value })}>
-                <option value="">(Tutte)</option>
-                {cats.map(cat => (
-                  <option key={cat.id} value={cat.id}>
-                    {formatCategoryPath(cat.name)}
-                  </option>
-                ))}
-              </WinSelect>
-            </label>
-            <label>
-              Produttore
-              <WinInput value={filters.produttore} onChange={e => patchFilters({ produttore: e.target.value })} />
-            </label>
-            <label className="vb-sp-filtri__check">
-              <input
-                type="checkbox"
-                checked={filters.soloConGiacenza}
-                onChange={e => patchFilters({ soloConGiacenza: e.target.checked })}
-              />
-              Solo con giacenza
-            </label>
-            <label className="vb-sp-filtri__check">
-              <input
-                type="checkbox"
-                checked={filters.soloServizi}
-                onChange={e => patchFilters({ soloServizi: e.target.checked })}
-              />
-              Solo servizi
-            </label>
-            <WinButton
-              onClick={() => {
-                setFilters({ ...EMPTY_PRODUCT_FILTERS })
-              }}
-            >
-              Azzera filtri
-            </WinButton>
+          <div className="vb-sp-filtri vb-sp-filtri--with-tree">
+            <div className="vb-sp-filtri__fields">
+              <label>
+                Codice / barcode
+                <WinInput value={filters.codice} onChange={e => patchFilters({ codice: e.target.value })} />
+              </label>
+              <label>
+                Descrizione
+                <WinInput value={filters.descrizione} onChange={e => patchFilters({ descrizione: e.target.value })} />
+              </label>
+              <label>
+                Produttore
+                <WinInput value={filters.produttore} onChange={e => patchFilters({ produttore: e.target.value })} />
+              </label>
+              <label className="vb-sp-filtri__check">
+                <input
+                  type="checkbox"
+                  checked={filters.soloConGiacenza}
+                  onChange={e => patchFilters({ soloConGiacenza: e.target.checked })}
+                />
+                Solo con giacenza
+              </label>
+              <label className="vb-sp-filtri__check">
+                <input
+                  type="checkbox"
+                  checked={filters.soloServizi}
+                  onChange={e => patchFilters({ soloServizi: e.target.checked })}
+                />
+                Solo servizi
+              </label>
+              <WinButton
+                onClick={() => {
+                  setFilters({ ...EMPTY_PRODUCT_FILTERS })
+                }}
+              >
+                Azzera filtri
+              </WinButton>
+            </div>
+            <CategoryTreeFilter
+              categories={categories}
+              products={cats}
+              selectedId={filters.categoriaId || null}
+              onSelect={id => patchFilters({ categoriaId: id ?? '' })}
+              title="Categoria"
+              className="vb-sp-filtri__tree"
+            />
           </div>
         ) : null}
 
@@ -481,7 +514,9 @@ export default function SelezioneProdottiDialog({
           </table>
         </div>
 
-        <div className="vb-sp-status">{filtered.length} voci</div>
+        <div className="vb-sp-status">
+          {searching ? 'Ricerca…' : `${filtered.length} voci`}
+        </div>
 
         <div className="vb-selezione-actionbar vb-sp-actionbar">
           <div className="vb-sp-actionbar__left">

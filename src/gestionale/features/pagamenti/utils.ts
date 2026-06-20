@@ -3,7 +3,7 @@ import type { Payment, PaymentResource } from '../../../types'
 import { resolvePaymentResourceName } from '../../lib/paymentResources'
 import { ALL_DOCUMENT_TYPE_LABELS } from '../documenti/constants'
 
-export type PaymentPeriodFilter = 'all' | 'current_month' | 'last_month' | 'current_year' | 'last_year'
+export type PaymentPeriodFilter = 'all' | 'next_month' | 'current_month' | 'last_month' | 'current_year' | 'last_year'
 export type PaymentFlowFilter = 'all' | 'in' | 'out'
 export type PaymentStatusFilter = 'all' | 'settled' | 'to_settle'
 
@@ -42,12 +42,26 @@ function inPeriod(dateStr: string, period: PaymentPeriodFilter): boolean {
   const now = new Date()
   if (period === 'current_month')
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+  if (period === 'next_month') {
+    const nm = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    return d.getMonth() === nm.getMonth() && d.getFullYear() === nm.getFullYear()
+  }
   if (period === 'last_month') {
     const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1)
     return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear()
   }
   if (period === 'current_year') return d.getFullYear() === now.getFullYear()
   if (period === 'last_year') return d.getFullYear() === now.getFullYear() - 1
+  return true
+}
+
+export type PaymentMethodFilter = 'all' | 'riba' | 'bonifico'
+
+function matchesMethod(paymentMethod: string | undefined, filter: PaymentMethodFilter): boolean {
+  if (filter === 'all') return true
+  const m = (paymentMethod || '').toLowerCase()
+  if (filter === 'riba') return m.includes('ri.ba') || m.includes('riba') || m.includes('ri ba')
+  if (filter === 'bonifico') return m.includes('bonifico')
   return true
 }
 
@@ -58,10 +72,19 @@ export function filterPayments(
   flowFilter: PaymentFlowFilter,
   statusFilter: PaymentStatusFilter,
   resourceFilter: string,
+  subjectFilter: string,
   resources: PaymentResource[],
+  methodFilter: PaymentMethodFilter = 'all',
+  settleByDate?: string,
 ): Payment[] {
   return payments.filter(p => {
     if (!inPeriod(p.date, period)) return false
+    if (subjectFilter !== 'all' && p.subjectId !== subjectFilter) return false
+    if (settleByDate) {
+      if (p.settled) return false
+      if (p.date > settleByDate) return false
+    }
+    if (!matchesMethod(p.paymentMethod, methodFilter)) return false
     if (flowFilter === 'in' && !(p.amountIn && p.amountIn > 0)) return false
     if (flowFilter === 'out' && !(p.amountOut && p.amountOut > 0)) return false
     if (statusFilter === 'settled' && !p.settled) return false

@@ -2,6 +2,8 @@ import { useMemo } from 'react'
 import { SCHEDA_TABS } from './constants'
 import type { Prodotto, SchedaTabId } from './types'
 import { tipologiaHaMagazzino } from './types'
+import type { Category } from '../../../types'
+import ProdottiFiltriPanel from './ProdottiFiltriPanel'
 import TabCaratteristiche from './tabs/TabCaratteristiche'
 import TabDimensioniPeso from './tabs/TabDimensioniPeso'
 import TabDettagli from './tabs/TabDettagli'
@@ -10,17 +12,19 @@ import TabMagazzino from './tabs/TabMagazzino'
 type Props = {
   prodotto: Prodotto | null
   activeTab: SchedaTabId
-  categorie: string[]
-  sottocategorieMap: Record<string, string[]>
+  categories: Category[]
   fornitori: string[]
   produttori: string[]
   prezziEspansi: boolean
+  filtraAttivo: boolean
+  prodotti: Prodotto[]
+  categoryFilterId: string | null
+  onCategoryFilter: (id: string | null) => void
   onTabChange: (tab: SchedaTabId) => void
   onChange: (p: Prodotto) => void
   onTogglePrezzi: () => void
   onPrezziMenu: (azione: string) => void
   onCategorie: () => void
-  onAllegati: () => void
   onImmagine: () => void
   onCodiciAggiuntivi: () => void
   onComponenti: () => void
@@ -32,17 +36,19 @@ type Props = {
 export default function ProdottiScheda({
   prodotto,
   activeTab,
-  categorie,
-  sottocategorieMap,
+  categories,
   fornitori,
   produttori,
   prezziEspansi,
+  filtraAttivo,
+  prodotti,
+  categoryFilterId,
+  onCategoryFilter,
   onTabChange,
   onChange,
   onTogglePrezzi,
   onPrezziMenu,
   onCategorie,
-  onAllegati,
   onImmagine,
   onCodiciAggiuntivi,
   onComponenti,
@@ -56,11 +62,18 @@ export default function ProdottiScheda({
     return SCHEDA_TABS.filter(t => !t.requiresMagazzino)
   }, [prodotto])
 
-  const sottocategorie = prodotto ? sottocategorieMap[prodotto.categoria] || [] : []
-
   if (!prodotto) {
     return (
       <div className="prodotti-section__scheda">
+        {filtraAttivo ? (
+          <ProdottiFiltriPanel
+            categories={categories}
+            prodotti={prodotti}
+            categoryFilterId={categoryFilterId}
+            onCategoryFilter={onCategoryFilter}
+            onAzzera={() => onCategoryFilter(null)}
+          />
+        ) : null}
         <div className="prodotti-empty-scheda">
           Seleziona un prodotto nell&apos;elenco oppure usa «Nuovo» per crearne uno.
         </div>
@@ -70,6 +83,15 @@ export default function ProdottiScheda({
 
   return (
     <div className="prodotti-section__scheda">
+      {filtraAttivo ? (
+        <ProdottiFiltriPanel
+          categories={categories}
+          prodotti={prodotti}
+          categoryFilterId={categoryFilterId}
+          onCategoryFilter={onCategoryFilter}
+          onAzzera={() => onCategoryFilter(null)}
+        />
+      ) : null}
       <div className="prodotti-scheda__tabs">
         {tabs.map(tab => (
           <button
@@ -87,14 +109,12 @@ export default function ProdottiScheda({
         {activeTab === 'caratteristiche' ? (
           <TabCaratteristiche
             prodotto={prodotto}
-            categorie={categorie}
-            sottocategorie={sottocategorie}
+            categories={categories}
             prezziEspansi={prezziEspansi}
             onChange={onChange}
             onTogglePrezzi={onTogglePrezzi}
             onPrezziMenu={onPrezziMenu}
             onCategorie={onCategorie}
-            onAllegati={onAllegati}
             onImmagine={onImmagine}
           />
         ) : null}
@@ -121,12 +141,9 @@ export default function ProdottiScheda({
       </div>
 
       {activeTab === 'caratteristiche' ? (
-        <div className="prodotti-scheda-footer">
-          <button type="button" className="prodotti-actionbar__btn" onClick={onAllegati}>
-            <span>📎</span> Allegati…
-          </button>
-          <button type="button" className="prodotti-actionbar__btn" onClick={onImmagine}>
-            <span>🖼</span> Immagine…
+        <div className="prodotti-scheda-footer clienti-scheda-footer">
+          <button type="button" className="clienti-scheda-footer__btn" onClick={onImmagine}>
+            Immagine…
           </button>
         </div>
       ) : null}

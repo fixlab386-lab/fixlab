@@ -1,0 +1,190 @@
+/**
+ * FIXLab gestionale — override estetica Danea Easyfatt Enterprise.
+ * Scope: .gestionale-theme (shell + sezioni anagrafica).
+ */
+
+.gestionale-theme {
+  /* Colori Windows / Danea (sostituiscono il viola FixLab nel gestionale) */
+  --gestionale-header-bg: #3a3a3a;
+  --gestionale-header-text: #ffffff;
+  --gestionale-row-selected: #0078d7;
+  --gestionale-row-selected-text: #ffffff;
+  --gestionale-row-hover: #e5f3ff;
+  --gestionale-row-alt: #f7f7f7;
+  --gestionale-border: #cccccc;
+  --gestionale-link: #0066cc;
+  --gestionale-text: #000000;
+  --gestionale-text-muted: #333333;
+  --gestionale-panel-bg: #ffffff;
+  --gestionale-action-bar-bg: #f0f0f0;
+  --gestionale-input-border: #888888;
+  --gestionale-toolbar-bg: linear-gradient(180deg, #fdfdfd 0%, #e4e8ec 100%);
+  --gestionale-toolbar-active-bg: #cce4f7;
+  --gestionale-toolbar-active-border: #7eb8e8;
+  --gestionale-detail-tab-active: #0078d7;
+  --gestionale-accent-green: #228b22;
+
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 12px;
+  color: #000000;
+}
+
+.gestionale-theme .clienti-section,
+.gestionale-theme.clienti-section {
+  --win-bg: #f0f0f0;
+  --win-panel-bg: #ffffff;
+  --win-focus-blue: #0078d7;
+  --win-col-header-bg: #e6e6e6;
+  --win-group-bg: #ededed;
+  --win-text-main: #000000;
+  --win-text-muted: #222222;
+  --win-border: #cccccc;
+  --win-cell-border: #e0e0e0;
+  --win-link: #0066cc;
+}
+
+/* Toolbar superiore — ribbon Danea */
+.gestionale-theme .gestionale-toolbar-strip {
+  background: linear-gradient(180deg, #fdfdfd 0%, #e4e8ec 100%);
+  border-bottom: 1px solid #b8b8b8;
+}
+
+.gestionale-theme .gestionale-toolbar__item--active {
+  background: #cce4f7;
+  border-color: #7eb8e8;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+.gestionale-theme .gestionale-toolbar__icon {
+  width: 36px;
+  height: 36px;
+}
+
+.gestionale-theme .gestionale-toolbar__icon img,
+.gestionale-theme .gestionale-toolbar__icon svg {
+  width: 32px;
+  height: 32px;
+  display: block;
+}
+
+/* Intestazione sezione scura */
+.gestionale-theme .gestionale-section-header,
+.gestionale-theme .clienti-section-header {
+  background: #3a3a3a;
+  color: #ffffff;
+  border-bottom: 1px solid #2a2a2a;
+  min-height: 32px;
+  padding: 4px 10px;
+}
+
+.gestionale-theme .gestionale-section-header__title,
+.gestionale-theme .clienti-section-header__title {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.gestionale-theme .gestionale-section-header__search,
+.gestionale-theme .clienti-section-header__search {
+  background: #ffffff;
+  border: 1px solid #888888;
+  max-width: 380px;
+  height: 22px;
+}
+
+.gestionale-theme .gestionale-section-header__search-input,
+.gestionale-theme .clienti-section-header__search-input {
+  color: #000000;
+  font-size: 12px;
+}
+
+.gestionale-theme .clienti-section-header__action-btn,
+.gestionale-theme .gestionale-section-header__action-btn {
+  height: 22px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+  background: #4a4a4a;
+  border: 1px solid #666666;
+  border-radius: 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.gestionale-theme .clienti-section-header__action-btn:hover:not(:disabled),
+.gestionale-theme .gestionale-section-header__action-btn:hover:not(:disabled) {
+  background: #555555;
+  border-color: #777777;
+  color: #ffffff;
+}
+
+.gestionale-theme .clienti-section-header__action-btn--active,
+.gestionale-theme .gestionale-section-header__action-btn--active {
+  background: #6a8aaa !important;
+  border-color: #8aaccc !important;
+  color: #ffffff !important;
+}
+
+/* Griglia elenco */
+.gestionale-theme .clienti-grid th {
+  background: #e6e6e6;
+  color: #000000;
+  border-color: #d0d0d0;
+  font-weight: 700;
+}
+
+.gestionale-theme .clienti-grid th.clienti-grid__th--sorted,
+.gestionale-theme .clienti-grid th.clienti-grid__th--filtered {
+  background: #d8e8f8;
+}
+
+.gestionale-theme .clienti-grid tr.clienti-grid__row--selected td {
+  background: #0078d7 !important;
+  color: #ffffff;
+}
+
+.gestionale-theme .clienti-grid tbody tr:nth-child(even):not(.clienti-grid__group):not(.clienti-grid__row--selected) td {
+  background: #f7f7f7;
+}
+
+/* Footer conteggio voci */
+.gestionale-theme .clienti-lista-footer {
+  background: #dce9f5;
+  color: #1a3a5c;
+  border-top: 1px solid #b8cfe0;
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+/* Action bar inferiore */
+.gestionale-theme .clienti-actionbar {
+  background: #f0f0f0;
+  border-top: 1px solid #cccccc;
+}
+
+/* Scheda dettaglio — tab Danea con bordo arancio */
+.gestionale-theme .clienti-scheda__tab--active {
+  border-top: 2px solid #d2691e;
+  color: #000000;
+  background: #ffffff;
+}
+
+.gestionale-theme .clienti-section-title {
+  color: #0066cc;
+  font-weight: 700;
+}
+
+.gestionale-theme .clienti-link {
+  color: #0066cc;
+}
+
+/* Split master-detail 75/25 */
+.gestionale-theme .fornitori-section .clienti-section__body,
+.gestionale-theme .clienti-section__body {
+  grid-template-columns: minmax(0, 75fr) minmax(280px, 25fr);
+}
+
+.gestionale-theme .clienti-section__scheda {
+  border-left: 1px solid #cccccc;
+}

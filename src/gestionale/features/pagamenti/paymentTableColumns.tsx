@@ -1,16 +1,17 @@
 import type { DataTableColumn } from '../../../components/ui'
 import type { Payment, PaymentResource } from '../../../types'
 import { resolvePaymentResourceName } from '../../lib/paymentResources'
-import { PAYMENT_FLOW_LABELS, PAYMENT_STATUS_LABELS } from './constants'
-import {
-  formatPaymentAmount,
-  formatPaymentDate,
-  linkedDocumentLabel,
-  paymentFlowType,
-} from './utils'
+import { formatPaymentDate } from './utils'
+
+function formatEuro(n: number): string {
+  return `€ ${n.toFixed(2).replace('.', ',')}`
+}
 
 export function createPaymentTableColumns(
   resources: PaymentResource[],
+  onToggleSettled: (p: Payment) => void,
+  onSubjectClick?: (p: Payment) => void,
+  onDescriptionClick?: (p: Payment) => void,
 ): DataTableColumn<Payment>[] {
   return [
     {
@@ -19,31 +20,9 @@ export function createPaymentTableColumns(
       width: 88,
       sortable: true,
       accessor: p => p.date,
-      render: p => formatPaymentDate(p.date),
-    },
-    {
-      id: 'flow',
-      header: 'Tipo',
-      width: 72,
-      sortable: true,
-      accessor: p => paymentFlowType(p),
-      render: p => PAYMENT_FLOW_LABELS[paymentFlowType(p)],
-    },
-    {
-      id: 'description',
-      header: 'Descrizione',
-      minWidth: 140,
-      sortable: true,
-      accessor: p => p.description,
-      render: p => p.description,
-    },
-    {
-      id: 'subject',
-      header: 'Cliente/Fornitore',
-      minWidth: 120,
-      sortable: true,
-      accessor: p => p.subjectName,
-      render: p => p.subjectName || '—',
+      render: p => (
+        <span className={!p.settled ? 'pagamenti-cell-date--due' : undefined}>{formatPaymentDate(p.date)}</span>
+      ),
     },
     {
       id: 'resource',
@@ -54,39 +33,79 @@ export function createPaymentTableColumns(
       render: p => resolvePaymentResourceName(p, resources),
     },
     {
-      id: 'amount',
-      header: 'Importo',
-      width: 96,
-      align: 'right',
+      id: 'subject',
+      header: 'Soggetto',
+      minWidth: 120,
       sortable: true,
-      accessor: p => (p.amountIn ?? -(p.amountOut ?? 0)),
-      render: p => (
-        <span style={{ color: paymentFlowType(p) === 'in' ? 'var(--gestionale-link)' : '#a22', fontWeight: 600 }}>
-          {formatPaymentAmount(p)}
-        </span>
-      ),
-    },
-    {
-      id: 'status',
-      header: 'Stato',
-      width: 88,
-      sortable: true,
-      accessor: p => (p.settled ? 'settled' : 'to_settle'),
-      render: p => (p.settled ? PAYMENT_STATUS_LABELS.settled : PAYMENT_STATUS_LABELS.to_settle),
-    },
-    {
-      id: 'document',
-      header: 'Documento',
-      width: 100,
-      sortable: false,
+      accessor: p => p.subjectName,
       render: p =>
-        p.linkedDocumentId || p.linkedDocumentNumber ? (
-          <span className="gestionale-datatable__link" title={p.linkedDocumentId}>
-            {linkedDocumentLabel(p)}
-          </span>
+        p.subjectName ? (
+          <button type="button" className="pagamenti-cell-link" onClick={e => { e.stopPropagation(); onSubjectClick?.(p) }}>
+            {p.subjectName}
+          </button>
         ) : (
           '—'
         ),
+    },
+    {
+      id: 'description',
+      header: 'Descrizione',
+      minWidth: 140,
+      sortable: true,
+      accessor: p => p.description,
+      render: p => (
+        <button type="button" className="pagamenti-cell-link" onClick={e => { e.stopPropagation(); onDescriptionClick?.(p) }}>
+          {p.description}
+        </button>
+      ),
+    },
+    {
+      id: 'paymentMethod',
+      header: 'Modalità pagamento',
+      width: 120,
+      sortable: true,
+      accessor: p => p.paymentMethod,
+      render: p => p.paymentMethod || '—',
+    },
+    {
+      id: 'amountIn',
+      header: 'Entrate',
+      width: 96,
+      align: 'right',
+      sortable: true,
+      accessor: p => p.amountIn ?? 0,
+      render: p => (p.amountIn && p.amountIn > 0 ? <span className="pagamenti-cell-in">{formatEuro(p.amountIn)}</span> : ''),
+    },
+    {
+      id: 'amountOut',
+      header: 'Uscite',
+      width: 96,
+      align: 'right',
+      sortable: true,
+      accessor: p => p.amountOut ?? 0,
+      render: p => (p.amountOut && p.amountOut > 0 ? <span className="pagamenti-cell-out">{formatEuro(p.amountOut)}</span> : ''),
+    },
+    {
+      id: 'settled',
+      header: 'Saldato',
+      width: 56,
+      align: 'center',
+      sortable: true,
+      accessor: p => (p.settled ? 1 : 0),
+      render: p => (
+        <span className="pagamenti-cell-settled">
+          <input
+            type="checkbox"
+            checked={p.settled}
+            onChange={e => {
+              e.stopPropagation()
+              onToggleSettled(p)
+            }}
+            onClick={e => e.stopPropagation()}
+            aria-label={p.settled ? 'Saldato' : 'Da saldare'}
+          />
+        </span>
+      ),
     },
   ]
 }

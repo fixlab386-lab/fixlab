@@ -1,39 +1,16 @@
-import { useCallback } from 'react'
-import type { Device, Repair } from '../../types'
-import { findDeviceByCode } from '../../lib/firestore'
+import type { Repair } from '../../types'
 import FormField from '../ui/FormField'
 import SensitiveField from './SensitiveField'
 
 interface Props {
   form: Partial<Repair>
-  studioId: string
   s: (field: string, val: unknown) => void
-  onDeviceLinked?: (device: Device | null) => void
 }
 
 const DEVICE_BRANDS = ['Apple', 'Samsung', 'Xiaomi', 'Huawei', 'OnePlus', 'Google', 'Sony', 'Nokia', 'Motorola', 'Oppo', 'Altro']
 const DEVICE_COLORS = ['Nero', 'Bianco', 'Grigio', 'Blu', 'Rosso', 'Verde', 'Viola', 'Giallo', 'Rosa', 'Oro', 'Argento', 'Altro']
 
-export default function TabDispositivo({ form, studioId, s, onDeviceLinked }: Props) {
-  const lookupDevice = useCallback(
-    async (code: string) => {
-      if (!studioId || !code.trim()) return
-      const device = await findDeviceByCode(studioId, code.trim())
-      if (!device) {
-        onDeviceLinked?.(null)
-        return
-      }
-      s('deviceId', device.id)
-      s('deviceType', device.type || form.deviceType)
-      s('deviceBrand', device.brand || form.deviceBrand)
-      s('deviceModel', device.model || form.deviceModel)
-      s('deviceColor', device.color || form.deviceColor)
-      s('imei', device.imei || device.serial || code.trim())
-      onDeviceLinked?.(device)
-    },
-    [studioId, s, onDeviceLinked, form.deviceType, form.deviceBrand, form.deviceModel, form.deviceColor],
-  )
-
+export default function TabDispositivo({ form, s }: Props) {
   return (
     <div className="gestionale-repair-form-grid">
       <FormField label="Tipo dispositivo" htmlFor="dev-type">
@@ -94,7 +71,6 @@ export default function TabDispositivo({ form, studioId, s, onDeviceLinked }: Pr
           className="gestionale-form-field__input"
           value={form.imei || ''}
           onChange={e => s('imei', e.target.value)}
-          onBlur={e => void lookupDevice(e.target.value)}
           placeholder="IMEI o numero seriale"
         />
       </FormField>

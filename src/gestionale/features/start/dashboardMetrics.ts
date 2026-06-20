@@ -55,6 +55,46 @@ export type DashboardKpis = {
   openOrders: number
 }
 
+export function computeDashboardKpisFromAggregates(aggregates: {
+  openRepairs: number
+  salesMonthTotal: number
+  unsettledPayments: number
+  outOfStock: number
+  clientCount: number
+  openOrders: number
+}): DashboardKpis {
+  return {
+    openRepairs: aggregates.openRepairs,
+    salesMonthTotal: aggregates.salesMonthTotal,
+    unsettledPayments: aggregates.unsettledPayments,
+    outOfStockCount: aggregates.outOfStock,
+    clientCount: aggregates.clientCount,
+    openOrders: aggregates.openOrders,
+  }
+}
+
+export function computeDashboardAlertsFromAggregates(aggregates: {
+  openRepairs: number
+  readyRepairs: number
+  staleRepairs: number
+  lowStock: number
+  outOfStock: number
+  unsettledPayments: number
+  openOrders: number
+  dueSoonPayments: number
+}): DashboardAlerts {
+  return {
+    openRepairs: aggregates.openRepairs,
+    readyRepairs: aggregates.readyRepairs,
+    staleRepairs: aggregates.staleRepairs,
+    lowStock: aggregates.lowStock,
+    outOfStock: aggregates.outOfStock,
+    unsettledPayments: aggregates.unsettledPayments,
+    openOrders: aggregates.openOrders,
+    dueSoonPayments: aggregates.dueSoonPayments,
+  }
+}
+
 export function computeDashboardKpis(
   repairs: Repair[],
   products: Product[],

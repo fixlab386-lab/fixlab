@@ -1,7 +1,6 @@
-import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
 import type { StockMovementType } from '../types'
-import { isCloudFunctionUnavailable } from './cloudFunctions'
+import { callCallableWithAuth, isCloudFunctionUnavailable } from './cloudFunctions'
 
 export type CommitStockMovementPayload = {
   movement: {
@@ -10,6 +9,8 @@ export type CommitStockMovementPayload = {
     productId: string
     productCode?: string
     productName?: string
+    subjectType?: 'client' | 'supplier'
+    subjectId?: string
     subjectName?: string
     type: StockMovementType
     quantity?: number
@@ -34,22 +35,20 @@ export const isStockFunctionUnavailable = isCloudFunctionUnavailable
 export async function callCommitStockMovement(
   payload: CommitStockMovementPayload,
 ): Promise<CommitStockMovementResult> {
-  const fn = httpsCallable<CommitStockMovementPayload, CommitStockMovementResult>(
+  return callCallableWithAuth<CommitStockMovementPayload, CommitStockMovementResult>(
     functions,
     'commitStockMovement',
+    payload,
   )
-  const res = await fn(payload)
-  return res.data
 }
 
 export async function callRevertStockMovement(
   movementId: string,
   studioId: string,
 ): Promise<{ ok: boolean }> {
-  const fn = httpsCallable<{ movementId: string; studioId: string }, { ok: boolean }>(
+  return callCallableWithAuth<{ movementId: string; studioId: string }, { ok: boolean }>(
     functions,
     'revertStockMovement',
+    { movementId, studioId },
   )
-  const res = await fn({ movementId, studioId })
-  return res.data
 }

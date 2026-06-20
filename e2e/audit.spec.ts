@@ -136,11 +136,42 @@ test.describe('FIXLab E2E Audit', () => {
     await expectSection(page)
   })
 
+  test('Logout e redirect login', async ({ page }) => {
+    await login(page)
+    await page.getByRole('button', { name: 'Esci' }).click()
+    await page.waitForURL(/\/login/, { timeout: 15000 })
+    await expect(page.locator('#login-email, input[type="email"]').first()).toBeVisible()
+  })
+
+  test('Accesso /magazzino senza login redirect', async ({ page }) => {
+    await prepareWebSession(page)
+    await page.goto(`${BASE}/magazzino`)
+    await page.waitForURL(/\/login/, { timeout: 15000 })
+  })
+
+  test('Navigazione toolbar principale', async ({ page }) => {
+    await login(page)
+    for (const label of ['Clienti', 'Fornitori', 'Prodotti', 'Riparazioni', 'Pagamenti', 'Magazzino']) {
+      await clickNav(page, label)
+      await expect(page.locator('.gestionale-page').first()).toBeVisible({ timeout: 12000 })
+    }
+  })
+
+  test('Dashboard Start visibile', async ({ page }) => {
+    await login(page)
+    await expect(page.locator('.gestionale-start-header')).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('.gestionale-start-panel--activity')).toBeVisible()
+    await expect(page.locator('[data-tutorial="start-sidebar"]')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Ordine cliente' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Vendita al banco' })).toBeVisible()
+    await expect(page.getByText('Dispositivi collegati').first()).toBeVisible()
+  })
+
   test('Nessun crash JS critico in console', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', err => errors.push(err.message))
     await login(page)
-    for (const label of ['Clienti', 'Prodotti', 'Riparazioni', 'Fornitori']) {
+    for (const label of ['Clienti', 'Prodotti', 'Riparazioni', 'Fornitori', 'Pagamenti']) {
       await clickNav(page, label)
       await page.waitForTimeout(1200)
     }

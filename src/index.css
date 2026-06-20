@@ -9,10 +9,10 @@
   --text-muted: #4B5563;
   --border-primary: #2A2F3D;
   --border-secondary: #363C4D;
-  --accent: #818CF8;
-  --accent-bg: rgba(129, 140, 248, 0.14);
-  --accent-border: rgba(129, 140, 248, 0.35);
-  --accent-border2: rgba(129, 140, 248, 0.5);
+  --accent: var(--brand-blue);
+  --accent-bg: rgba(99, 102, 241, 0.14);
+  --accent-border: rgba(99, 102, 241, 0.35);
+  --accent-border2: rgba(99, 102, 241, 0.5);
   --accent-text: #0B0C0F;
   --danger: #F87171;
   --danger-bg: rgba(248, 113, 113, 0.12);
@@ -37,11 +37,11 @@
   --radius-md: 12px;
   --radius-lg: 18px;
   --radius-xl: 22px;
-  --nav-bg: #0E1016;
+  --nav-bg: var(--brand-deep);
   --nav-text: #9CA3AF;
   --nav-text-active: #F9FAFB;
   --nav-item-hover: rgba(255, 255, 255, 0.06);
-  --nav-item-active-bg: rgba(129, 140, 248, 0.18);
+  --nav-item-active-bg: rgba(99, 102, 241, 0.18);
   --nav-border: rgba(255, 255, 255, 0.06);
 }
 
@@ -56,10 +56,10 @@
   --text-muted: #9CA3AF;
   --border-primary: #E5E7EB;
   --border-secondary: #D1D5DB;
-  --accent: #4F46E5;
-  --accent-bg: rgba(79, 70, 229, 0.1);
-  --accent-border: rgba(79, 70, 229, 0.28);
-  --accent-border2: rgba(79, 70, 229, 0.42);
+  --accent: var(--brand-blue);
+  --accent-bg: var(--brand-accent-bg);
+  --accent-border: var(--brand-accent-border);
+  --accent-border2: var(--brand-accent-border2);
   --accent-text: #FFFFFF;
   --danger: #DC2626;
   --danger-bg: rgba(220, 38, 38, 0.08);
@@ -70,25 +70,25 @@
   --info: #2563EB;
   --info-bg: rgba(37, 99, 235, 0.08);
   --info-border: rgba(37, 99, 235, 0.25);
-  --purple: #6366F1;
-  --purple-bg: rgba(99, 102, 241, 0.1);
+  --purple: var(--brand-purple);
+  --purple-bg: rgba(147, 51, 234, 0.1);
   --whatsapp: #128C3E;
   --whatsapp-bg: #128C3E10;
   --whatsapp-border: #128C3E20;
   --shadow: rgba(15, 23, 42, 0.08);
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
   --shadow-md: 0 8px 30px rgba(15, 23, 42, 0.08);
-  --shadow-accent: 0 10px 36px rgba(79, 70, 229, 0.2);
+  --shadow-accent: var(--brand-shadow-accent);
   --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 20px rgba(15, 23, 42, 0.06);
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
-  --nav-bg: #12141A;
+  --nav-bg: var(--brand-deep);
   --nav-text: #9CA3AF;
   --nav-text-active: #FFFFFF;
   --nav-item-hover: rgba(255, 255, 255, 0.06);
-  --nav-item-active-bg: rgba(79, 70, 229, 0.22);
+  --nav-item-active-bg: rgba(99, 102, 241, 0.24);
   --nav-border: rgba(255, 255, 255, 0.07);
 }
 
@@ -193,9 +193,10 @@ input, select, textarea, button { font-family: inherit; }
   cursor: not-allowed;
 }
 .fixlab-btn--primary {
-  background: var(--accent);
-  color: var(--accent-text);
+  background: var(--brand-gradient);
+  color: #ffffff;
   font-weight: 700;
+  box-shadow: var(--brand-shadow-accent);
 }
 .fixlab-btn--primary:hover:not(:disabled) {
   filter: brightness(1.05);
@@ -265,8 +266,8 @@ input, select, textarea, button { font-family: inherit; }
   font-family: inherit !important;
 }
 .driver-popover-next-btn {
-  background: var(--accent) !important;
-  color: var(--accent-text) !important;
+  background: var(--brand-gradient) !important;
+  color: #fff !important;
   border: none !important;
 }
 .driver-popover-prev-btn {
@@ -722,4 +723,53 @@ input, select, textarea, button { font-family: inherit; }
   .fixlab-movimenti-page .fixlab-movimenti-sidebar {
     width: 100% !important;
   }
+}
+
+.gestionale-load-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border-primary, #e5e7eb);
+  background: var(--bg-secondary, #f9fafb);
+}
+
+.gestionale-load-more__hint {
+  font-size: 12px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.gestionale-load-more__btn {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border-secondary, #d1d5db);
+  background: var(--bg-primary, #fff);
+  cursor: pointer;
+}
+
+.gestionale-load-more__btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.gestionale-sync-badge {
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  z-index: 900;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--info-bg, rgba(96, 165, 250, 0.15));
+  color: var(--info, #2563eb);
+  border: 1px solid var(--info-border, rgba(96, 165, 250, 0.35));
+  pointer-events: none;
+}
+
+.gestionale-page-skeleton {
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--text-secondary, #6b7280);
 }

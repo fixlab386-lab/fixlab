@@ -1,28 +1,29 @@
-import { useEffect } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { useAppWindows } from '../contexts/AppWindowsContext'
+import { Navigate, useParams, useSearchParams } from 'react-router-dom'
+import DocumentiHub from '../gestionale/features/documenti/DocumentiHub'
+import DocumentiSection from '../gestionale/features/documenti/DocumentiSection'
 import { isActiveDocumentType } from '../gestionale/features/documenti'
+import type { ActiveDocumentType } from '../gestionale/features/documenti/constants'
 
-/** Link diretto /documenti/tipo/:type → apre finestra elenco e torna allo Start. */
+/** Hub e elenco documenti a pagina intera (stile Danea Easyfatt). */
 export default function Documenti() {
   const { type } = useParams()
   const [searchParams] = useSearchParams()
-  const navigate = useNavigate()
-  const { openDocumentiType } = useAppWindows()
+  const typeParam = searchParams.get('type')
 
-  useEffect(() => {
-    const typeParam = searchParams.get('type')
-    const resolvedType =
-      type && isActiveDocumentType(type)
-        ? type
-        : typeParam && isActiveDocumentType(typeParam)
-          ? typeParam
-          : null
-    if (resolvedType) {
-      openDocumentiType(resolvedType)
-    }
-    navigate('/', { replace: true })
-  }, [type, searchParams, openDocumentiType, navigate])
+  const resolvedType: ActiveDocumentType | null =
+    type && isActiveDocumentType(type)
+      ? type
+      : typeParam && isActiveDocumentType(typeParam)
+        ? typeParam
+        : null
 
-  return null
+  if (resolvedType) {
+    return <DocumentiSection lockedType={resolvedType} />
+  }
+
+  if (type || typeParam) {
+    return <Navigate to="/documenti" replace />
+  }
+
+  return <DocumentiHub />
 }

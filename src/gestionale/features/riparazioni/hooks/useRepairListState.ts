@@ -14,6 +14,7 @@ export function useRepairListState(repairs: Repair[], staleDays: number | null) 
   const [showFilterMenu, setShowFilterMenu] = useState(true)
   const [sortColumnId, setSortColumnId] = useState<string | null>('date')
   const [sortDirection, setSortDirection] = useState<DataTableSortDirection>('desc')
+  const [detailTab, setDetailTab] = useState<'riepilogo' | 'cliente' | 'dispositivo' | 'lavorazione' | 'documenti'>('riepilogo')
 
   const searchLower = useMemo(() => search.trim().toLowerCase(), [search])
 
@@ -36,6 +37,7 @@ export function useRepairListState(repairs: Repair[], staleDays: number | null) 
   const selectItem = useCallback((item: Repair) => {
     setSelected(item)
     setSelectedKeys([item.id])
+    setDetailTab('riepilogo')
   }, [])
 
   const clearSelection = useCallback(() => {
@@ -68,6 +70,8 @@ export function useRepairListState(repairs: Repair[], staleDays: number | null) 
     showFilterMenu,
     sortColumnId,
     sortDirection,
+    detailTab,
+    setDetailTab,
     filtered,
     handleSort,
     selectItem,

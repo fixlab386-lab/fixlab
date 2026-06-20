@@ -50,7 +50,7 @@
   padding: 6px 8px;
   font-size: 10px;
   font-weight: 700;
-  color: #1a5fb4;
+  color: var(--brand-link);
   border-bottom: 1px solid #dce4ec;
   background: #eef4fa;
 }
@@ -118,7 +118,7 @@
 }
 
 .product-search-dialog__hint-link {
-  color: #1a5fb4;
+  color: var(--brand-link);
   text-decoration: underline;
   cursor: default;
 }
@@ -142,7 +142,7 @@
   top: 0;
   z-index: 1;
   background: #eef4fa;
-  color: #1a5fb4;
+  color: var(--brand-link);
   font-weight: 700;
   text-align: left;
   padding: 6px 8px;

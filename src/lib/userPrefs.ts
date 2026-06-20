@@ -74,6 +74,50 @@ export function addCustomNotaDocumento(label: string): string[] {
   return next
 }
 
+export type NoteElencoVoce = {
+  id: string
+  text: string
+  predefinita: boolean
+}
+
+function readNoteElencoStore(): Partial<Record<string, NoteElencoVoce[]>> {
+  return readJson<Partial<Record<string, NoteElencoVoce[]>>>('note_elenco', {})
+}
+
+function writeNoteElencoStore(store: Partial<Record<string, NoteElencoVoce[]>>): void {
+  writeJson('note_elenco', store)
+}
+
+export function getNoteElencoVoci(campoKey: string, defaults: string[] = []): NoteElencoVoce[] {
+  const stored = readNoteElencoStore()[campoKey]
+  if (stored?.length) return stored.map(v => ({ ...v }))
+
+  const legacy = campoKey === 'libero1' ? getCustomNoteDocumento() : []
+  const seed = legacy.length ? legacy : defaults
+  return seed.map((text, i) => ({
+    id: `seed-${campoKey}-${i}`,
+    text,
+    predefinita: i === 0 && seed.length > 0,
+  }))
+}
+
+export function saveNoteElencoVoci(campoKey: string, voci: NoteElencoVoce[]): void {
+  const store = readNoteElencoStore()
+  store[campoKey] = voci.map(v => ({ ...v, text: v.text.trim() })).filter(v => v.text)
+  writeNoteElencoStore(store)
+}
+
+export function getNoteElencoPresetLabels(campoKey: string, defaults: string[] = []): string[] {
+  return getNoteElencoVoci(campoKey, defaults)
+    .map(v => v.text.trim())
+    .filter(Boolean)
+}
+
+export function getNoteElencoPredefinita(campoKey: string, defaults: string[] = []): string {
+  const voci = getNoteElencoVoci(campoKey, defaults)
+  return voci.find(v => v.predefinita)?.text ?? voci[0]?.text ?? ''
+}
+
 export function getCustomCampiFE(): string[] {
   return readJson<string[]>('campi_fe', [])
 }

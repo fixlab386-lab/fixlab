@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useVirtualWindow } from '../../../hooks/useVirtualWindow'
 import { COLONNE_DEF } from './constants'
 import type { Cliente, ColonnaId, ColumnFilter } from './types'
 import {
@@ -190,13 +191,17 @@ export default function ClientiLista({
     onOpenFilter(col)
   }
 
+  const colSpan = visibleCols.length + 1
+  const { scrollRef, start, end, enabled, topPad, bottomPad } = useVirtualWindow(rows.length, 28)
+  const visibleRows = enabled ? rows.slice(start, end) : rows
+
   return (
     <div className="clienti-section__lista">
-      <div className="clienti-grid-wrap">
+      <div className="clienti-grid-wrap" ref={scrollRef}>
         <table className="clienti-grid">
           <thead>
             <tr>
-              {selectionMode ? <th style={{ width: 28 }} /> : null}
+              <th style={{ width: 28 }} aria-label="Selezione" />
               {visibleCols.map(col => {
                 const hasFilter = Boolean(filtriColonna[col.id])
                 const isSorted = sortColumn === col.id
@@ -238,7 +243,7 @@ export default function ClientiLista({
             </tr>
             {filtraAttivo ? (
               <tr className="clienti-grid__filter-row">
-                <td colSpan={visibleCols.length + (selectionMode ? 1 : 0)}>
+                <td colSpan={visibleCols.length + 1}>
                   <button
                     type="button"
                     className="clienti-grid__filter-hint"
@@ -253,19 +258,24 @@ export default function ClientiLista({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={visibleCols.length + (selectionMode ? 1 : 0)} className="clienti-empty">
+                <td colSpan={visibleCols.length + 1} className="clienti-empty">
                   Nessun cliente. Usa «Nuovo» per aggiungerne uno.
                 </td>
               </tr>
             ) : null}
-            {rows.map(row => {
+            {enabled && topPad > 0 ? (
+              <tr aria-hidden="true">
+                <td colSpan={colSpan} style={{ height: topPad, padding: 0, border: 'none' }} />
+              </tr>
+            ) : null}
+            {visibleRows.map(row => {
               if (row.kind === 'group') {
                 const expanded = !collapsedGroups.has(row.key)
                 return (
                   <tr key={`g-${row.key}`} className="clienti-grid__group" onClick={() => onToggleGroup(row.key)}>
-                    <td colSpan={visibleCols.length + (selectionMode ? 1 : 0)}>
+                    <td colSpan={visibleCols.length + 1}>
                       <span className="clienti-grid__group-toggle">{expanded ? '▼' : '▶'}</span>
-                      {row.label} ({row.count})
+                      {row.label}
                     </td>
                   </tr>
                 )
@@ -280,17 +290,20 @@ export default function ClientiLista({
                     .join(' ')}
                   onClick={() => onSelect(c)}
                 >
-                  {selectionMode ? (
-                    <td onClick={e => e.stopPropagation()}>
-                      <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => onToggleSelect(c.id)} />
-                    </td>
-                  ) : null}
+                  <td onClick={e => e.stopPropagation()}>
+                    <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => onToggleSelect(c.id)} />
+                  </td>
                   {visibleCols.map(col => (
                     <td key={col.id}>{getColumnValue(c, col.id) || '—'}</td>
                   ))}
                 </tr>
               )
             })}
+            {enabled && bottomPad > 0 ? (
+              <tr aria-hidden="true">
+                <td colSpan={colSpan} style={{ height: bottomPad, padding: 0, border: 'none' }} />
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </div>

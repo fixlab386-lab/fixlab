@@ -1,4 +1,4 @@
-import { COMUNICAZIONI_ITEMS, STAMPA_ITEMS, UTILITA_ITEMS } from './constants'
+import { STAMPA_ITEMS, UTILITA_ITEMS } from './constants'
 import ActionBarDropdown from '../../components/ActionBarDropdown'
 
 type Props = {
@@ -7,9 +7,7 @@ type Props = {
   onNuovo: () => void
   onDuplica: () => void
   onElimina: () => void
-  onComunicazione: (tipo: string) => void
   onStampa: (tipo: string) => void
-  onEtichette: () => void
   onExcel: () => void
   onModificaSelez: () => void
   onUtilita: (tipo: string) => void
@@ -21,9 +19,7 @@ export default function ClientiActionBar({
   onNuovo,
   onDuplica,
   onElimina,
-  onComunicazione,
   onStampa,
-  onEtichette,
   onExcel,
   onModificaSelez,
   onUtilita,
@@ -43,18 +39,12 @@ export default function ClientiActionBar({
       </div>
       <div className="clienti-actionbar__group">
         <ActionBarDropdown label="🖨 Stampa" items={STAMPA_ITEMS} onPick={onStampa} />
-        <button type="button" className="clienti-actionbar__btn" disabled={!hasSelection} onClick={onEtichette}>
-          🏷 Etichette
-        </button>
         <button type="button" className="clienti-actionbar__btn" onClick={onExcel}>
           📊 Excel
         </button>
-        <ActionBarDropdown
-          label="💬 Comunicaz."
-          items={COMUNICAZIONI_ITEMS}
-          onPick={onComunicazione}
-          disabled={!hasSelection}
-        />
+        <button type="button" className="clienti-actionbar__btn" disabled={!hasSelection}>
+          ✉ Comunicaz.
+        </button>
         <button type="button" className="clienti-actionbar__btn" disabled={!hasMultiSelection} onClick={onModificaSelez}>
           ✏ Modifica selez.
         </button>

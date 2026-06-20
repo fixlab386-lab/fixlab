@@ -58,7 +58,7 @@ export default function DetailPanel({
   const activeTab = tabs.find(t => t.id === activeTabId) ?? tabs[0]
 
   return (
-    <div className={`gestionale-detail-panel${className ? ` ${className}` : ''}`}>
+    <div className={`gestionale-detail-panel gestionale-detail-panel--danea${className ? ` ${className}` : ''}`}>
       {title ? <div className="gestionale-detail-panel__title">{title}</div> : null}
 
       <div className="gestionale-detail-panel__tabs" role="tablist">
@@ -78,7 +78,11 @@ export default function DetailPanel({
       </div>
 
       <div className="gestionale-detail-panel__body" role="tabpanel">
-        {fields ? <DetailPanelFields fields={fields} /> : activeTab?.content}
+        {activeTab?.content != null
+          ? activeTab.content
+          : fields?.length
+            ? <DetailPanelFields fields={fields} />
+            : null}
       </div>
 
       {footer ? <div className="gestionale-detail-panel__footer">{footer}</div> : null}

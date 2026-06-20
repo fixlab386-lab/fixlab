@@ -1,37 +1,83 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { Client } from '../../types'
 import {
   EMPTY_CLIENT_SEARCH_CRITERIA,
   filterClientsByCriteria,
   type ClientSearchCriteria,
 } from '../../lib/clientSearch'
+import { searchClientsByCriteria } from '../../lib/firestorePagination'
+import { loadRecentClients } from '../../lib/loadStudioCatalog'
 import { FormField } from '../ui'
 import '../../theme/gestionale-dialog.css'
 import '../../theme/client-search-dialog.css'
 
 type Props = {
-  clients: Client[]
+  /** Se presente, la ricerca avviene su Firestore (bounded) invece che in memoria. */
+  studioId?: string
+  /** Fallback legacy: elenco in memoria (solo archivi piccoli). */
+  clients?: Client[]
   onSelect: (client: Client) => void
   onNoClient: () => void
   onNewClient: () => void
   onClose: () => void
+  /** Nasconde «Nessun cliente» (es. ordine cliente). */
+  requireClient?: boolean
+  title?: string
 }
 
-export default function ClientSearchDialog({ clients, onSelect, onNoClient, onNewClient, onClose }: Props) {
+export default function ClientSearchDialog({
+  studioId,
+  clients = [],
+  onSelect,
+  onNoClient,
+  onNewClient,
+  onClose,
+  requireClient = false,
+  title = 'Cerca cliente',
+}: Props) {
   const [criteria, setCriteria] = useState<ClientSearchCriteria>(EMPTY_CLIENT_SEARCH_CRITERIA)
-
-  const results = useMemo(() => {
-    const filtered = filterClientsByCriteria(clients, criteria)
-    return [...filtered].sort((a, b) => a.name.localeCompare(b.name, 'it', { sensitivity: 'base' }))
-  }, [clients, criteria])
+  const [results, setResults] = useState<Client[]>([])
+  const [searching, setSearching] = useState(false)
+  const [searched, setSearched] = useState(false)
 
   const patchCriteria = (patch: Partial<ClientSearchCriteria>) => {
     setCriteria(prev => ({ ...prev, ...patch }))
   }
 
-  const runSearch = () => {
-    setCriteria(prev => ({ ...prev }))
-  }
+  const runSearch = useCallback(async () => {
+    setSearching(true)
+    setSearched(true)
+    try {
+      if (studioId) {
+        const data = await searchClientsByCriteria(studioId, criteria, 40)
+        setResults([...data].sort((a, b) => a.name.localeCompare(b.name, 'it', { sensitivity: 'base' })))
+      } else {
+        const filtered = filterClientsByCriteria(clients, criteria)
+        setResults([...filtered].sort((a, b) => a.name.localeCompare(b.name, 'it', { sensitivity: 'base' })))
+      }
+    } finally {
+      setSearching(false)
+    }
+  }, [studioId, criteria, clients])
+
+  useEffect(() => {
+    if (!studioId) {
+      setResults(
+        [...clients].sort((a, b) => a.name.localeCompare(b.name, 'it', { sensitivity: 'base' })).slice(0, 40),
+      )
+      return
+    }
+    let cancelled = false
+    void loadRecentClients(studioId, 40).then(data => {
+      if (!cancelled) {
+        setResults([...data].sort((a, b) => a.name.localeCompare(b.name, 'it', { sensitivity: 'base' })))
+        setSearched(false)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [studioId, clients])
 
   const hasActiveCriteria = Object.values(criteria).some(v => v.trim())
 
@@ -40,7 +86,7 @@ export default function ClientSearchDialog({ clients, onSelect, onNoClient, onNe
       <div className="gestionale-dialog-card gestionale-dialog-card--wide client-search-dialog">
         <div className="gestionale-dialog-card__header">
           <h2 id="client-search-title" className="gestionale-dialog-card__title">
-            Cerca cliente
+            {title}
           </h2>
         </div>
 
@@ -52,7 +98,7 @@ export default function ClientSearchDialog({ clients, onSelect, onNoClient, onNe
                 className="gestionale-form-field__input"
                 value={criteria.code}
                 onChange={e => patchCriteria({ code: e.target.value })}
-                onKeyDown={e => e.key === 'Enter' && runSearch()}
+                onKeyDown={e => e.key === 'Enter' && void runSearch()}
               />
             </FormField>
             <FormField label="Denominazione" htmlFor="client-search-name">
@@ -61,7 +107,7 @@ export default function ClientSearchDialog({ clients, onSelect, onNoClient, onNe
                 className="gestionale-form-field__input"
                 value={criteria.name}
                 onChange={e => patchCriteria({ name: e.target.value })}
-                onKeyDown={e => e.key === 'Enter' && runSearch()}
+                onKeyDown={e => e.key === 'Enter' && void runSearch()}
               />
             </FormField>
             <FormField label="Codice fiscale" htmlFor="client-search-cf">
@@ -70,7 +116,7 @@ export default function ClientSearchDialog({ clients, onSelect, onNoClient, onNe
                 className="gestionale-form-field__input"
                 value={criteria.fiscalCode}
                 onChange={e => patchCriteria({ fiscalCode: e.target.value })}
-                onKeyDown={e => e.key === 'Enter' && runSearch()}
+                onKeyDown={e => e.key === 'Enter' && void runSearch()}
               />
             </FormField>
             <FormField label="P.IVA" htmlFor="client-search-vat">
@@ -79,18 +125,25 @@ export default function ClientSearchDialog({ clients, onSelect, onNoClient, onNe
                 className="gestionale-form-field__input"
                 value={criteria.vatNumber}
                 onChange={e => patchCriteria({ vatNumber: e.target.value })}
-                onKeyDown={e => e.key === 'Enter' && runSearch()}
+                onKeyDown={e => e.key === 'Enter' && void runSearch()}
               />
             </FormField>
-            <button type="button" className="gestionale-dialog-btn gestionale-dialog-btn--primary client-search-dialog__search-btn" onClick={runSearch}>
-              Cerca
+            <button
+              type="button"
+              className="gestionale-dialog-btn gestionale-dialog-btn--primary client-search-dialog__search-btn"
+              onClick={() => void runSearch()}
+              disabled={searching}
+            >
+              {searching ? 'Ricerca…' : 'Cerca'}
             </button>
           </div>
 
           <p className="client-search-dialog__hint">
-            {hasActiveCriteria
-              ? `${results.length} cliente/i trovati (voci che contengono i testi immessi).`
-              : `${results.length} cliente/i — compila i filtri e clicca Cerca, oppure seleziona una riga.`}
+            {searching
+              ? 'Ricerca in corso…'
+              : hasActiveCriteria && searched
+                ? `${results.length} cliente/i trovati.`
+                : `${results.length} cliente/i recenti — compila i filtri e clicca Cerca.`}
           </p>
 
           <div className="client-search-dialog__table-wrap">
@@ -134,9 +187,11 @@ export default function ClientSearchDialog({ clients, onSelect, onNoClient, onNe
         </div>
 
         <div className="gestionale-dialog-card__footer client-search-dialog__footer">
-          <button type="button" className="gestionale-dialog-btn" onClick={onNoClient}>
-            Nessun cliente
-          </button>
+          {!requireClient ? (
+            <button type="button" className="gestionale-dialog-btn" onClick={onNoClient}>
+              Nessun cliente
+            </button>
+          ) : null}
           <button type="button" className="gestionale-dialog-btn" onClick={onNewClient}>
             + Nuovo cliente
           </button>

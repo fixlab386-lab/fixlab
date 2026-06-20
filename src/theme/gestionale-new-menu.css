@@ -118,7 +118,7 @@
 
 .gestionale-toolbar-new__item:hover {
   background: #eef4fa;
-  color: #1a5fb4;
+  color: var(--brand-link);
 }
 
 .gestionale-toolbar-new__item-icon {

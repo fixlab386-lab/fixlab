@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
-import { useAppWindows } from '../../contexts/AppWindowsContext'
+import { useOpenDocumentFlow } from '../../gestionale/lib/openDocumentFlow'
 import { DOCUMENT_MENU_SECTIONS } from './documentMenuConfig'
-import type { ActiveDocumentType } from '../../gestionale/features/documenti/constants'
+import type { DocumentMenuActionId } from './documentMenuConfig'
+import ToolbarIcon from './ToolbarIcons'
 import '../../theme/gestionale-new-menu.css'
 
 const MENU_MIN_WIDTH = 260
@@ -12,7 +13,7 @@ type Props = {
 }
 
 export default function ToolbarDocumentiMenu({ active = false }: Props) {
-  const { openDocumentiType } = useAppWindows()
+  const { openFromMenu } = useOpenDocumentFlow()
   const [open, setOpen] = useState(false)
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({})
   const rootRef = useRef<HTMLDivElement>(null)
@@ -65,9 +66,9 @@ export default function ToolbarDocumentiMenu({ active = false }: Props) {
     }
   }, [open, close])
 
-  const handlePick = (type: ActiveDocumentType) => {
+  const handlePick = (actionId: DocumentMenuActionId) => {
     close()
-    openDocumentiType(type)
+    openFromMenu(actionId)
   }
 
   const menu =
@@ -117,7 +118,7 @@ export default function ToolbarDocumentiMenu({ active = false }: Props) {
         title="Documenti"
       >
         <span className="gestionale-toolbar__icon" aria-hidden="true">
-          📄
+          <ToolbarIcon id="documenti" />
         </span>
         <span className="gestionale-toolbar__label">Documenti</span>
       </button>

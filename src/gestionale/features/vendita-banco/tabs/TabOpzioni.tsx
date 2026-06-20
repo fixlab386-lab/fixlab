@@ -5,10 +5,22 @@ import type { DocumentoVenditaBanco } from '../types'
 type Props = {
   doc: DocumentoVenditaBanco
   protetto?: boolean
+  /** Mostra solo "Data e ora di stampa" (layout Ordine cliente Danea). */
+  soloStampa?: boolean
   onChange: (patch: Partial<DocumentoVenditaBanco>) => void
 }
 
-export default function TabOpzioni({ doc, protetto, onChange }: Props) {
+export default function TabOpzioni({ doc, protetto, soloStampa, onChange }: Props) {
+  if (soloStampa) {
+    return (
+      <div className="vb-tab-panel vb-tab-stack" style={{ maxWidth: 480 }}>
+        <WinField label="Data e ora di stampa" htmlFor="vb-data-stampa">
+          <WinInput id="vb-data-stampa" value={doc.dataOraStampa} readOnly placeholder="Valorizzato al momento della stampa" />
+        </WinField>
+      </div>
+    )
+  }
+
   return (
     <div className="vb-tab-panel vb-tab-stack" style={{ maxWidth: 480 }}>
       <WinField label="Data e ora di stampa" htmlFor="vb-data-stampa">

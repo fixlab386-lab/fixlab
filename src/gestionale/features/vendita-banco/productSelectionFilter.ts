@@ -1,4 +1,5 @@
 import type { Category, Product } from '../../../types'
+import { flattenCategoriesForSelect, matchesProductCategoryTree } from '../../lib/categoryUtils'
 
 export type ProductSelectionFilters = {
   quickSearch: string
@@ -29,6 +30,7 @@ export function filterProductsForSelection(
   products: Product[],
   filters: ProductSelectionFilters,
   filtraPanelOpen: boolean,
+  categories: Category[] = [],
 ): Product[] {
   const q = filters.quickSearch.trim().toLowerCase()
 
@@ -61,7 +63,7 @@ export function filterProductsForSelection(
       return false
     }
 
-    if (filters.categoriaId && p.categoryId !== filters.categoriaId) return false
+    if (filters.categoriaId && !matchesProductCategoryTree(p, filters.categoriaId, categories)) return false
 
     const brand = filters.produttore.trim().toLowerCase()
     if (brand && !(p.brand || '').toLowerCase().includes(brand)) return false
@@ -73,6 +75,6 @@ export function filterProductsForSelection(
   })
 }
 
-export function categoryOptions(categories: Category[]): Category[] {
-  return [...categories].sort((a, b) => a.name.localeCompare(b.name, 'it'))
+export function categoryOptions(categories: Category[]): { id: string; label: string }[] {
+  return flattenCategoriesForSelect(categories)
 }

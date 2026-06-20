@@ -6,7 +6,7 @@ export default function AppUpdateBanner() {
 
   if (!banner.visible) return null
 
-  const canDismiss = banner.canApply || banner.kind === 'web'
+  const canDismiss = banner.kind === 'web' || (banner.kind === 'desktop' && banner.canApply)
 
   return (
     <div className="app-update-banner" role="status" aria-live="polite">

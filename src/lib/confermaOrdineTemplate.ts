@@ -27,6 +27,18 @@ export interface ConfermaOrdineLineRow {
   sconto: number
   importo: number
   iva: number
+  /** Unità di misura (es. "pz"). Mostrata accanto alla quantità se presente. */
+  um?: string
+}
+
+export interface ConfermaOrdineTransport {
+  causale?: string
+  aspetto?: string
+  colli?: string
+  peso?: string
+  porto?: string
+  dataInizio?: string
+  incaricato?: string
 }
 
 export interface ConfermaOrdineViewModel {
@@ -46,6 +58,16 @@ export interface ConfermaOrdineViewModel {
   showRightBox?: boolean
   signatureLabel?: string
   totalLabel?: string
+  /** Colonna Codice in tabella (default true). */
+  showCodeColumn?: boolean
+  /** Colonne Prezzo ivato / Sconto / Importo (default true). Falso per DDT. */
+  showPriceColumns?: boolean
+  /** Colonna Iva (default true). Falso per vendita al banco / DDT. */
+  showIvaColumn?: boolean
+  /** Piede documento: conferma (firma+acconto+totale), total (solo totale), ddt (campi trasporto). */
+  footerMode?: 'conferma' | 'total' | 'ddt'
+  /** Dati trasporto per footerMode === 'ddt'. */
+  transport?: ConfermaOrdineTransport
 }
 
 export type ConfermaOrdinePrintOptions = {
@@ -62,6 +84,8 @@ export type ConfermaOrdinePrintOptions = {
 
 export const DEFAULT_CONFERMA_ORDINE_DISCLAIMER = `Ai sensi del D.Lgs. 196/2003 Vi informiamo che i Vs. dati saranno utilizzati esclusivamente per i fini connessi ai rapporti commerciali tra di noi in essere. Contributo CONAI assolto ove dovuto - Vi preghiamo di controllare i Vs. dati anagrafici, la P. IVA e il Cod. Fiscale. Non ci riteniamo responsabili di eventuali errori. Nell'eventualità in cui l'apparato, riparato o no, non sia ritirato entro 3 mesi, si autorizza il laboratorio alla demolizione o vendita del suddetto per il recupero delle spese gestionali.`
 
+export const DEFAULT_VENDITA_BANCO_DISCLAIMER = `Contributo CONAI assolto ove dovuto - Vi preghiamo di controllare i Vs. dati anagrafici, la P. IVA e il Cod. Fiscale. Non ci riteniamo responsabili di eventuali errori. Nel rispetto della normativa vigente, ivi incluso DL 196/03 e reg. UE 2016/679, informiamo che i Vs. dati saranno utilizzati ai soli fini connessi ai rapporti commerciali tra di noi in essere.`
+
 export const CONFERMA_ORDINE_PRINT_CSS = `
 .co-print {
   font-family: Arial, Helvetica, "Segoe UI", sans-serif;
@@ -71,15 +95,15 @@ export const CONFERMA_ORDINE_PRINT_CSS = `
   background: #fff;
   max-width: 794px;
   margin: 0 auto;
-  padding: 10mm 11mm 14mm;
+  padding: 10mm 11mm 10mm;
   box-sizing: border-box;
 }
 .co-print__header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 6px;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 4px;
 }
 .co-print__brand {
   display: flex;
@@ -89,8 +113,8 @@ export const CONFERMA_ORDINE_PRINT_CSS = `
   flex: 1;
 }
 .co-print__logo {
-  width: 64px;
-  height: 64px;
+  width: 50px;
+  height: 50px;
   object-fit: contain;
   flex-shrink: 0;
 }
@@ -109,22 +133,17 @@ export const CONFERMA_ORDINE_PRINT_CSS = `
 }
 .co-print__doc-meta {
   flex-shrink: 0;
-  text-align: right;
-  font-size: 8pt;
-  line-height: 1.6;
-  padding-top: 2px;
-}
-.co-print__doc-row {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-  flex-wrap: wrap;
+  gap: 5px;
+  font-size: 8.5pt;
+  white-space: nowrap;
+  padding-bottom: 2px;
 }
 .co-print__doc-box {
   display: inline-block;
   border: 1px solid #000;
-  padding: 1px 6px;
+  padding: 1px 8px;
   font-weight: 700;
   font-size: 9pt;
   min-width: 24px;
@@ -133,16 +152,16 @@ export const CONFERMA_ORDINE_PRINT_CSS = `
 .co-print__boxes {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  border: 1px solid #000;
-  margin: 8px 0 6px;
+  border-top: 1px solid #000;
+  border-bottom: 1px solid #000;
 }
 .co-print__boxes--single {
   grid-template-columns: 1fr;
 }
 .co-print__box {
-  padding: 5px 6px 8px;
-  background: #f0f0f0;
-  min-height: 72px;
+  padding: 4px 6px 8px;
+  background: #fff;
+  min-height: 74px;
 }
 .co-print__box + .co-print__box {
   border-left: 1px solid #000;
@@ -161,13 +180,13 @@ export const CONFERMA_ORDINE_PRINT_CSS = `
   width: 100%;
   border-collapse: collapse;
   font-size: 8pt;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 .co-print__table thead tr {
   border-bottom: 1px solid #000;
 }
 .co-print__table th {
-  font-weight: 400;
+  font-weight: 700;
   text-align: left;
   padding: 2px 3px 3px;
   vertical-align: bottom;
@@ -184,61 +203,134 @@ export const CONFERMA_ORDINE_PRINT_CSS = `
 .co-print__table tbody tr {
   border-bottom: 1px solid #e0e0e0;
 }
-.co-print__footer {
-  margin-top: 36px;
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 12px 20px;
-  align-items: end;
-}
-.co-print__sig-block {
-  max-width: 210px;
-}
-.co-print__sig-line {
-  border-top: 1px solid #000;
-  padding-top: 3px;
-  font-weight: 700;
-  font-size: 8pt;
-}
-.co-print__sig-date {
-  margin-top: 10px;
-  font-size: 8pt;
-  text-align: left;
+.co-print__spacer {
+  min-height: 32px;
 }
 .co-print__acconto {
   font-size: 8pt;
   font-weight: 700;
-  padding-bottom: 2px;
+  text-align: center;
+  margin-bottom: 2px;
 }
-.co-print__total-wrap {
-  text-align: right;
+.co-print__footer {
+  border-top: 1px solid #000;
+  padding-top: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+.co-print__sig {
+  font-weight: 700;
+  font-size: 8pt;
 }
 .co-print__total-box {
   border: 1px solid #000;
-  padding: 4px 8px 5px;
-  min-width: 130px;
-  display: inline-block;
+  padding: 3px 8px 4px;
+  min-width: 150px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
 }
 .co-print__total-label {
   font-weight: 700;
   font-size: 8pt;
-  margin-right: 8px;
 }
 .co-print__total-value {
   font-weight: 700;
   font-size: 11pt;
 }
 .co-print__legal {
-  margin-top: 14px;
-  font-size: 5.5pt;
+  margin-top: 10px;
+  display: flex;
+  gap: 12px;
   line-height: 1.25;
   color: #333;
+}
+.co-print__legal-date {
+  flex-shrink: 0;
+  font-size: 7pt;
+  color: #000;
+}
+.co-print__legal-text {
+  flex: 1;
+  font-size: 5.5pt;
   text-align: justify;
+}
+.co-print__totals-only {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+.co-print__totals-only-box {
+  min-width: 200px;
+}
+.co-print__totals-only-head {
+  border: 1px solid #000;
+  background: #f0f0f0;
+  font-weight: 700;
+  font-size: 8pt;
+  padding: 2px 6px;
+  text-align: center;
+}
+.co-print__totals-only-row {
+  border: 1px solid #000;
+  border-top: none;
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 8px 5px;
+}
+.co-print__totals-only-label {
+  font-weight: 700;
+  font-size: 8pt;
+}
+.co-print__totals-only-value {
+  font-weight: 700;
+  font-size: 11pt;
+}
+.co-print__ddt {
+  margin-top: 28px;
+  border: 1px solid #000;
+}
+.co-print__ddt-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+.co-print__ddt-row + .co-print__ddt-row {
+  border-top: 1px solid #000;
+}
+.co-print__ddt-cell {
+  padding: 3px 5px 12px;
+  min-height: 34px;
+}
+.co-print__ddt-cell + .co-print__ddt-cell {
+  border-left: 1px solid #000;
+}
+.co-print__ddt-lbl {
+  display: block;
+  font-size: 7pt;
+  color: #333;
+  margin-bottom: 2px;
+}
+.co-print__ddt-val {
+  font-size: 8pt;
+  white-space: pre-line;
+}
+.co-print__ddt-row--sign .co-print__ddt-cell {
+  grid-column: span 2;
+  min-height: 40px;
 }
 @media print {
   .co-print {
     padding: 0;
     max-width: none;
+    display: flex;
+    flex-direction: column;
+    min-height: 96vh;
+  }
+  .co-print__spacer {
+    flex: 1 1 auto;
   }
 }
 `
@@ -338,6 +430,7 @@ export function buildClientBody(repair: Repair): string {
     .filter(Boolean)
     .join(' ')
   if (capCity) lines.push(capCity)
+  lines.push('')
   lines.push(`Cell: ${repair.clientPhone?.trim() || ''}`)
   lines.push(`E-mail: ${repair.clientEmail?.trim() || ''}`)
   return lines.join('\n')
@@ -352,6 +445,7 @@ export function buildDeviceBody(repair: Repair): string {
     `IMEI e S/N: ${imei}`,
     `Codice Blocco: ${lockCode}`,
     `Account e Password: ${account}`,
+    '',
     `Note: ${notes}`,
   ].join('\n')
 }
@@ -430,17 +524,37 @@ export function buildConfermaOrdineHtml(model: ConfermaOrdineViewModel): string 
     ? `<img class="co-print__logo" src="${escapeHtml(studio.logoUrl)}" alt="" />`
     : ''
 
+  const showCode = model.showCodeColumn !== false
+  const showPrices = model.showPriceColumns !== false
+  const showIva = showPrices && model.showIvaColumn !== false
+  const footerMode = model.footerMode ?? 'conferma'
+
+  const qtyText = (row: ConfermaOrdineLineRow): string =>
+    row.um ? `${row.qty} ${row.um}` : String(row.qty)
+
+  const headHtml = [
+    showCode ? '<th>Codice</th>' : '',
+    '<th>Descrizione</th>',
+    '<th class="num">Quantità</th>',
+    showPrices ? '<th class="num">Prezzo ivato</th><th class="num">Sconto</th><th class="num">Importo</th>' : '',
+    showIva ? '<th class="num">Iva</th>' : '',
+  ].join('')
+
   const rowsHtml = model.lines
-    .map(
-      row => `<tr>
-        <td>${escapeHtml(row.code)}</td>
-        <td>${escapeHtml(row.description)}</td>
-        <td class="num">${escapeHtml(String(row.qty))}</td>
-        <td class="num">${escapeHtml(formatEuroIt(row.priceIvato))}</td>
-        <td class="num">${row.sconto ? escapeHtml(formatEuroIt(row.sconto)) : ''}</td>
-        <td class="num">${escapeHtml(formatEuroIt(row.importo))}</td>
-        <td class="num">${escapeHtml(String(row.iva))}</td>
-      </tr>`,
+    .map(row =>
+      [
+        '<tr>',
+        showCode ? `<td>${escapeHtml(row.code)}</td>` : '',
+        `<td>${escapeHtml(row.description)}</td>`,
+        `<td class="num">${escapeHtml(qtyText(row))}</td>`,
+        showPrices
+          ? `<td class="num">${escapeHtml(formatEuroIt(row.priceIvato))}</td><td class="num">${
+              row.sconto ? escapeHtml(formatEuroIt(row.sconto)) : ''
+            }</td><td class="num">${escapeHtml(formatEuroIt(row.importo))}</td>`
+          : '',
+        showIva ? `<td class="num">${escapeHtml(String(row.iva))}</td>` : '',
+        '</tr>',
+      ].join(''),
     )
     .join('')
 
@@ -460,6 +574,60 @@ export function buildConfermaOrdineHtml(model: ConfermaOrdineViewModel): string 
         </div>`
     : ''
 
+  const t = model.transport ?? {}
+  const ddtCell = (label: string, value?: string): string =>
+    `<div class="co-print__ddt-cell"><span class="co-print__ddt-lbl">${escapeHtml(label)}</span><span class="co-print__ddt-val">${escapeHtml(value ?? '')}</span></div>`
+
+  let footerHtml = ''
+  if (footerMode === 'ddt') {
+    footerHtml = `
+      <div class="co-print__ddt">
+        <div class="co-print__ddt-row">
+          ${ddtCell('Causale del trasporto', t.causale)}
+          ${ddtCell('Aspetto esteriore dei beni', t.aspetto)}
+          ${ddtCell('Nr. colli', t.colli)}
+          ${ddtCell('Peso', t.peso)}
+        </div>
+        <div class="co-print__ddt-row">
+          ${ddtCell('Porto', t.porto)}
+          ${ddtCell('Data e ora inizio trasporto', t.dataInizio)}
+          ${ddtCell('Incaricato del trasporto', t.incaricato)}
+          ${ddtCell('', '')}
+        </div>
+        <div class="co-print__ddt-row co-print__ddt-row--sign">
+          ${ddtCell('Firma incaricato del trasporto', '')}
+          ${ddtCell('Firma destinatario', '')}
+        </div>
+      </div>`
+  } else if (footerMode === 'total') {
+    footerHtml = `
+      <div class="co-print__totals-only">
+        <div class="co-print__totals-only-box">
+          <div class="co-print__totals-only-head">Totali</div>
+          <div class="co-print__totals-only-row">
+            <span class="co-print__totals-only-label">${escapeHtml(totalLabel)}</span>
+            <span class="co-print__totals-only-value">${escapeHtml(formatEuroIt(model.total))}</span>
+          </div>
+        </div>
+      </div>`
+  } else {
+    footerHtml = `
+      <div class="co-print__acconto">Acconto: ${escapeHtml(depositText)}</div>
+      <footer class="co-print__footer">
+        <div class="co-print__sig">${escapeHtml(signatureLabel)}</div>
+        <div class="co-print__total-box">
+          <span class="co-print__total-label">${escapeHtml(totalLabel)}</span>
+          <span class="co-print__total-value">${escapeHtml(formatEuroIt(model.total))}</span>
+        </div>
+      </footer>`
+  }
+
+  const legalHtml = model.disclaimer
+    ? footerMode === 'conferma'
+      ? `<div class="co-print__legal"><span class="co-print__legal-date">${escapeHtml(model.orderDate)}</span><span class="co-print__legal-text">${escapeHtml(model.disclaimer)}</span></div>`
+      : `<div class="co-print__legal"><span class="co-print__legal-text">${escapeHtml(model.disclaimer)}</span></div>`
+    : ''
+
   return `
     <div class="co-print">
       <header class="co-print__header">
@@ -471,14 +639,10 @@ export function buildConfermaOrdineHtml(model: ConfermaOrdineViewModel): string 
           </div>
         </div>
         <div class="co-print__doc-meta">
-          <div class="co-print__doc-row">
-            <span>${escapeHtml(docTitle)}</span>
-            <span class="co-print__doc-box">${escapeHtml(model.orderNumber)}</span>
-          </div>
-          <div class="co-print__doc-row">
-            <span>del</span>
-            <span class="co-print__doc-box">${escapeHtml(model.orderDate)}</span>
-          </div>
+          <span>${escapeHtml(docTitle)}</span>
+          <span class="co-print__doc-box">${escapeHtml(model.orderNumber)}</span>
+          <span>del</span>
+          <span class="co-print__doc-box">${escapeHtml(model.orderDate)}</span>
         </div>
       </header>
 
@@ -492,41 +656,23 @@ export function buildConfermaOrdineHtml(model: ConfermaOrdineViewModel): string 
 
       <table class="co-print__table">
         <thead>
-          <tr>
-            <th>Codice</th>
-            <th>Descrizione</th>
-            <th class="num">Quantità</th>
-            <th class="num">Prezzo ivato</th>
-            <th class="num">Sconto</th>
-            <th class="num">Importo</th>
-            <th class="num">Iva</th>
-          </tr>
+          <tr>${headHtml}</tr>
         </thead>
         <tbody>${rowsHtml}</tbody>
       </table>
 
-      <footer class="co-print__footer">
-        <div class="co-print__sig-block">
-          <div class="co-print__sig-line">${escapeHtml(signatureLabel)}</div>
-          <div class="co-print__sig-date">${escapeHtml(model.orderDate)}</div>
-        </div>
-        <div class="co-print__acconto">Acconto: ${escapeHtml(depositText)}</div>
-        <div class="co-print__total-wrap">
-          <div class="co-print__total-box">
-            <span class="co-print__total-label">${escapeHtml(totalLabel)}</span>
-            <span class="co-print__total-value">${escapeHtml(formatEuroIt(model.total))}</span>
-          </div>
-        </div>
-      </footer>
+      <div class="co-print__spacer"></div>
 
-      <div class="co-print__legal">${escapeHtml(model.disclaimer)}</div>
+      ${footerHtml}
+
+      ${legalHtml}
     </div>
   `
 }
 
 export function confermaOrdineFilename(repair: Repair): string {
   const num = resolveOrderNumber(repair).replace(/\//g, '-')
-  const client = (repair.clientName || 'cliente').replace(/\s+/g, '_').replace(/[^\w\-]/g, '')
+  const client = (repair.clientName || 'cliente').replace(/\s+/g, '_').replace(/[^\w-]/g, '')
   return `Conferma_ordine_${num}_${client}.pdf`
 }
 

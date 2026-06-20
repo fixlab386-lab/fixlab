@@ -1,5 +1,5 @@
-import { HttpsError, onCall } from 'firebase-functions/v2/https'
-import { FieldValue, getFirestore } from 'firebase-admin/firestore'
+import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/https'
+import { FieldValue, getFirestore, type DocumentReference } from 'firebase-admin/firestore'
 import { assertStudioAccess } from './auth'
 import { applyStockDelta, buildMovementFields } from './stock'
 
@@ -85,6 +85,17 @@ function stripUndefined<T>(value: T): T {
 }
 
 export const commitDocument = onCall({ region: 'europe-west1' }, async request => {
+  try {
+    return await commitDocumentHandler(request)
+  } catch (err) {
+    if (err instanceof HttpsError) throw err
+    console.error('commitDocument unexpected error', err)
+    const detail = err instanceof Error ? err.message : String(err)
+    throw new HttpsError('internal', detail || 'Errore commit documento.')
+  }
+})
+
+async function commitDocumentHandler(request: CallableRequest<CommitRequest>) {
   if (!request.auth?.uid) {
     throw new HttpsError('unauthenticated', 'Autenticazione richiesta.')
   }
@@ -109,9 +120,10 @@ export const commitDocument = onCall({ region: 'europe-west1' }, async request =
   const stockWarning: string | undefined = undefined
 
   await db.runTransaction(async tx => {
-    let existingStockCommitted = false
     const docRef = documentId ? db.collection('documents').doc(documentId) : db.collection('documents').doc()
 
+    // --- Fase letture (Firestore: tutte le read prima delle write) ---
+    let existingStockCommitted = false
     if (documentId) {
       const existingSnap = await tx.get(docRef)
       if (!existingSnap.exists) {
@@ -123,23 +135,40 @@ export const commitDocument = onCall({ region: 'europe-west1' }, async request =
       resultDocId = docRef.id
     }
 
+    let counterLast = 0
     if (assignNumber) {
       const counterSnap = await tx.get(counterRef)
-      const last = counterSnap.exists ? Number(counterSnap.data()?.lastNumber || 0) : 0
-      assignedNumber = last + 1
-      assignedFullNumber = buildFullNumber(assignedNumber, year, document.numbering)
-      tx.set(
-        counterRef,
-        { lastNumber: assignedNumber, studioId: document.studioId, type: document.type, year, updatedAt: FieldValue.serverTimestamp() },
-        { merge: true },
-      )
-    } else {
-      assignedNumber = document.number || assignedNumber
-      assignedFullNumber = document.fullNumber || buildFullNumber(assignedNumber, year, document.numbering)
+      counterLast = counterSnap.exists ? Number(counterSnap.data()?.lastNumber || 0) : 0
     }
 
     const nextStockCommitted = existingStockCommitted || stockCommitted
     const deduct = shouldDeductStock(document.type, document.status, nextStockCommitted)
+    const stockRows = deduct ? (document.rows || []).filter(r => r.productId && r.quantity > 0) : []
+
+    type ProductRead = {
+      row: DocumentRow
+      productRef: DocumentReference
+      product: { studioId?: string; typology?: string; stock?: number; code?: string; name?: string }
+    }
+    const productReads: ProductRead[] = []
+
+    for (const row of stockRows) {
+      const productRef = db.collection('products').doc(row.productId!)
+      const productSnap = await tx.get(productRef)
+      if (!productSnap.exists) continue
+      const product = productSnap.data() as ProductRead['product']
+      if (product.studioId !== document.studioId) continue
+      productReads.push({ row, productRef, product })
+    }
+
+    // --- Calcolo numerazione e payload ---
+    if (assignNumber) {
+      assignedNumber = counterLast + 1
+      assignedFullNumber = buildFullNumber(assignedNumber, year, document.numbering)
+    } else {
+      assignedNumber = document.number || assignedNumber
+      assignedFullNumber = document.fullNumber || buildFullNumber(assignedNumber, year, document.numbering)
+    }
 
     const savePayload: Record<string, unknown> = {
       ...stripUndefined(document),
@@ -154,15 +183,17 @@ export const commitDocument = onCall({ region: 'europe-west1' }, async request =
       savePayload.createdAt = FieldValue.serverTimestamp()
     }
 
-    if (deduct) {
-      const rows = (document.rows || []).filter(r => r.productId && r.quantity > 0)
-      for (const row of rows) {
-        const productRef = db.collection('products').doc(row.productId!)
-        const productSnap = await tx.get(productRef)
-        if (!productSnap.exists) continue
-        const product = productSnap.data() as { studioId?: string; typology?: string; stock?: number; code?: string; name?: string }
-        if (product.studioId !== document.studioId) continue
+    // --- Fase scritture ---
+    if (assignNumber) {
+      tx.set(
+        counterRef,
+        { lastNumber: assignedNumber, studioId: document.studioId, type: document.type, year, updatedAt: FieldValue.serverTimestamp() },
+        { merge: true },
+      )
+    }
 
+    if (deduct) {
+      for (const { row, productRef, product } of productReads) {
         applyStockDelta(
           tx,
           productRef,
@@ -173,7 +204,7 @@ export const commitDocument = onCall({ region: 'europe-west1' }, async request =
 
         const movementRef = db.collection('stockMovements').doc()
         const cause = `${typeLabel(document.type)} ${assignedFullNumber} del ${document.date}`
-        tx.set(movementRef, {
+        tx.set(movementRef, stripUndefined({
           studioId: document.studioId,
           date: document.date,
           productId: row.productId,
@@ -189,7 +220,7 @@ export const commitDocument = onCall({ region: 'europe-west1' }, async request =
           linkedDocumentType: document.type,
           operatorId: request.auth!.uid,
           createdAt: FieldValue.serverTimestamp(),
-        })
+        }))
       }
       savePayload.stockCommitted = true
       stockCommitted = true
@@ -210,4 +241,4 @@ export const commitDocument = onCall({ region: 'europe-west1' }, async request =
     stockCommitted,
     stockWarning,
   }
-})
+}

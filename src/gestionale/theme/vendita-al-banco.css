@@ -1,8 +1,8 @@
 /* Vendita al banco — finestra MDI centrata (non fullscreen) */
 .vb-backdrop {
-  --win-bg: #F0F0F0;
-  --win-panel-bg: #FFFFFF;
-  --win-focus-blue: #0078D7;
+  --win-bg: #ece9d8;
+  --win-panel-bg: #ffffff;
+  --win-focus-blue: var(--brand-blue);
   --win-text-main: #000000;
   --win-text-muted: #333333;
   --win-border: #CCCCCC;
@@ -25,7 +25,7 @@
 }
 
 .gestionale-mdi-window--vendita-banco {
-  background: var(--win-bg);
+  background: #ece9d8;
 }
 
 .gestionale-mdi-window--minimized {
@@ -67,16 +67,39 @@
   min-height: 0;
 }
 
-/* Testata Danea: Cliente → Listino → Agente → Data → Numero → Numeraz. → checkbox */
+/* Testata Danea: Cliente (sx) → Data → Numero → Numeraz. (dx) */
 .vb-header-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: flex-end;
-  gap: 8px 10px;
-  padding: 6px 10px;
-  background: var(--win-bg);
-  border-bottom: 1px solid var(--win-border);
+  gap: 8px;
+  padding: 4px 8px;
+  background: #ece9d8;
+  border-bottom: 1px solid #808080;
   flex-shrink: 0;
+}
+
+.vb-header-row--danea {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) 130px 64px 72px;
+  align-items: end;
+  gap: 8px 10px;
+}
+
+.vb-header-row--danea .vb-header-field--cliente {
+  grid-column: 1;
+}
+
+.vb-header-row--danea .vb-header-field--data {
+  grid-column: 2;
+}
+
+.vb-header-row--danea .vb-header-field--numero {
+  grid-column: 3;
+}
+
+.vb-header-row--danea .vb-header-field--numeraz {
+  grid-column: 4;
 }
 
 .vb-header-field--cliente { flex: 1 1 200px; min-width: 180px; }
@@ -167,22 +190,34 @@
 }
 
 .vb-righe__nav {
+  display: none;
+}
+
+.vb-righe__toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
-  padding: 2px 6px;
-  background: var(--win-bg);
-  border-top: 1px solid var(--win-border);
+  gap: 2px 4px;
+  padding: 3px 6px;
+  border-top: 1px solid #808080;
+  background: #ece9d8;
+  flex-shrink: 0;
 }
 
-.vb-righe__voci {
+.vb-righe__toolbar .vb-icon-btn {
+  width: 22px;
+  height: 20px;
+  min-width: 22px;
+  padding: 0;
+  font-size: 10px;
+}
+
+.vb-righe__toolbar-label {
   font-size: 11px;
-  color: var(--win-text-muted);
-  margin-left: 4px;
-}
-
-.vb-righe__colonne-link {
-  margin-left: auto;
+  font-weight: 400;
+  color: #000;
+  margin-right: 2px;
+  margin-left: 2px;
 }
 
 .vb-righe__toolbar-spacer {
@@ -275,7 +310,7 @@
 .vb-input:focus,
 .vb-select:focus,
 .vb-textarea:focus {
-  border-color: #316ac5;
+  border-color: var(--brand-blue);
 }
 
 .vb-input--flat {
@@ -314,8 +349,8 @@
 
 .vb-btn:hover:not(:disabled) {
   background: linear-gradient(180deg, #fff 0%, #f0f0f0 100%);
-  border-color: #316ac5;
-  color: #316ac5;
+  border-color: var(--brand-blue);
+  color: var(--brand-blue);
 }
 
 .vb-btn:disabled {
@@ -334,12 +369,25 @@
   border-radius: 0;
   background: linear-gradient(180deg, #fefefe 0%, #e8e8e8 100%);
   font-size: 11px;
+  font-weight: 700;
+  color: #333;
   cursor: pointer;
   padding: 0;
 }
 
 .vb-icon-btn:hover {
-  border-color: #316ac5;
+  border-color: var(--brand-blue);
+  color: #111;
+}
+
+.vb-dialog__titlebar-close {
+  color: #9b1c1c;
+}
+
+.vb-dialog__titlebar-close:hover {
+  background: #e81123;
+  border-color: #a00;
+  color: #fff;
 }
 
 .vb-row {
@@ -363,7 +411,7 @@
 
 .vb-link {
   font-size: 11px;
-  color: #316ac5;
+  color: var(--brand-blue);
   text-decoration: underline;
   background: none;
   border: none;
@@ -375,7 +423,7 @@
   margin: 0 0 4px;
   font-size: 11px;
   font-weight: 700;
-  color: #316ac5;
+  color: var(--brand-blue);
 }
 
 /* Tab Righe documento */
@@ -394,9 +442,10 @@
 
 .vb-righe__grid-wrap {
   flex: 1;
-  min-height: 0;
+  min-height: 140px;
   overflow: auto;
-  border: 1px solid #c0c0c0;
+  border: 1px solid #808080;
+  border-top: none;
   background: #fff;
 }
 
@@ -406,6 +455,57 @@
   border-collapse: collapse;
   font-size: 12px;
   background: var(--win-panel-bg);
+}
+
+.vb-righe__table--resizable {
+  table-layout: fixed;
+}
+
+.vb-righe__th {
+  position: relative;
+  overflow: hidden;
+}
+
+.vb-righe__th-label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 6px;
+}
+
+.vb-righe__col-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+  touch-action: none;
+}
+
+.vb-righe__col-resizer:hover,
+.vb-righe__col-resizer:active {
+  background: rgba(99, 102, 241, 0.35);
+}
+
+body.vb-col-resize-active {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+body.vb-col-resize-active * {
+  cursor: col-resize !important;
+}
+
+.vb-righe__table--resizable td {
+  overflow: hidden;
+}
+
+.vb-righe__table--resizable .vb-input--flat,
+.vb-righe__table--resizable .vb-row {
+  max-width: 100%;
 }
 
 .vb-righe__table th {
@@ -457,38 +557,32 @@
 }
 
 .vb-righe__foot td {
-  background: #eef2f6;
-  border-top: 2px solid #b0b0b0;
+  padding: 2px 6px;
+  background: #ece9d8;
+  border-top: 1px solid #808080;
   font-size: 11px;
   font-weight: 600;
-  padding: 4px 6px;
+}
+
+.vb-righe__foot-inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .vb-righe__foot-total {
-  font-size: 12px;
-  color: #1a5a9e;
-  font-weight: 700;
-}
-
-.vb-righe__toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 0;
-  border-top: 1px solid #d0d0d0;
-  background: #f5f5f5;
-}
-
-.vb-righe__toolbar-label {
   font-size: 11px;
-  font-weight: 600;
-  color: #4a5c6e;
-  margin-right: 4px;
+  color: #000;
+  font-weight: 700;
+  text-align: right;
 }
 
-.vb-righe__toolbar-spacer {
-  flex: 1;
+.vb-righe__colonne-link {
+  margin-left: auto;
+}
+
+.vb-righe__voci {
+  display: none;
 }
 
 .vb-righe__totals-wrap {
@@ -510,7 +604,7 @@
   gap: 4px;
   padding: 2px 8px;
   background: #eef4fa;
-  color: #316ac5;
+  color: var(--brand-blue);
   font-weight: 600;
   border-bottom: 1px solid #c0c0c0;
 }
@@ -589,7 +683,7 @@
 
 .vb-scadenzario th {
   background: #eef4fa;
-  color: #316ac5;
+  color: var(--brand-blue);
 }
 
 /* Dialog interni vb */
@@ -841,22 +935,28 @@
 
 /* Override tab FIXLab dentro vendita al banco */
 .vb-backdrop .gestionale-mdi-window__tab {
-  background: var(--tab-inactive-bg);
-  color: #555;
+  background: #d4d0c8;
+  color: #000;
   border-radius: 0;
-  font-size: 12px;
-  height: 24px;
+  font-size: 11px;
+  height: 22px;
+  padding: 2px 10px;
+  border: 1px solid #808080;
+  border-bottom: none;
+  margin-right: -1px;
 }
 
 .vb-backdrop .gestionale-mdi-window__tab--active {
-  background: var(--win-panel-bg);
-  color: var(--win-text-main);
-  border-top: 2px solid var(--tab-active-accent);
+  background: #fff;
+  color: #000;
+  border-top: 2px solid #d2691e;
   font-weight: 600;
+  margin-bottom: -1px;
+  z-index: 1;
 }
 
 .vb-backdrop .gestionale-mdi-window__panel {
-  background: var(--win-panel-bg);
+  background: #fff;
   border-radius: 0;
 }
 
@@ -902,46 +1002,47 @@
   grid-template-columns: 1fr auto;
   gap: 12px;
   align-items: end;
-  padding: 6px 10px;
-  background: var(--win-bg);
-  border-top: 1px solid var(--win-border);
+  padding: 6px 8px;
+  background: #ece9d8;
+  border-top: 1px solid #808080;
+  flex-shrink: 0;
 }
 
 .vb-footer-totals {
-  min-width: 220px;
+  min-width: 200px;
 }
 
 .vb-footer-totals__voci {
-  font-size: 11px;
-  color: var(--win-text-muted);
-  margin-bottom: 4px;
-  text-align: right;
+  display: none;
 }
 
 .vb-footer-totals__panel {
-  border: 1px solid var(--win-border);
-  background: var(--win-panel-bg);
-  padding: 6px 10px;
+  border: 1px solid #808080;
+  background: #fff;
+  padding: 4px 8px 6px;
+  min-width: 200px;
 }
 
 .vb-footer-totals__row {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
-  padding: 2px 0;
-  font-size: 12px;
+  gap: 20px;
+  padding: 1px 0;
+  font-size: 11px;
 }
 
 .vb-footer-totals__row strong {
   font-weight: 700;
+  text-align: right;
+  min-width: 72px;
 }
 
 .vb-footer-totals__row--total {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
-  margin-top: 4px;
-  padding-top: 4px;
-  border-top: 1px solid var(--win-border);
+  margin-top: 2px;
+  padding-top: 3px;
+  border-top: 1px solid #808080;
 }
 
 .vb-dropdown {
@@ -959,16 +1060,129 @@
   font-size: 9px;
 }
 
-.vb-dropdown__menu {
-  position: absolute;
-  left: 0;
-  bottom: 100%;
-  z-index: 50;
+.vb-dropdown__menu,
+.vb-dropdown__menu--fixed {
   min-width: 220px;
-  background: var(--win-panel-bg);
-  border: 1px solid var(--win-border);
+  background: var(--win-panel-bg, #ffffff);
+  border: 1px solid var(--win-border, #cccccc);
   box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.15);
+  color: var(--win-text-main, #000000);
 }
+
+.vb-dropdown__menu--fixed {
+  overflow-y: auto;
+  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
+  background: #ffffff;
+  border: 1px solid #cccccc;
+}
+
+.vb-dropdown__menu--fixed .vb-dropdown__item {
+  background: #ffffff;
+  color: #000000;
+}
+
+.vb-dropdown__menu--fixed .vb-dropdown__item:hover:not(:disabled) {
+  background: var(--win-focus-blue, var(--brand-blue, #316ac5));
+  color: #ffffff;
+}
+
+.vb-row--top {
+  align-items: flex-start;
+}
+
+.vb-tab-note .vb-dropdown {
+  flex-shrink: 0;
+}
+
+.vb-dialog--elenco-note {
+  width: min(520px, 96vw);
+}
+
+.vb-elenco-note-overlay {
+  z-index: 32000;
+}
+
+.vb-elenco-note__titlebar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.vb-elenco-note__title {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.vb-elenco-note__subtitle {
+  font-size: 11px;
+  color: #555;
+  margin-top: 2px;
+}
+
+.vb-elenco-note__icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.vb-elenco-note__body {
+  padding: 8px 10px;
+  background: #f5f5f5;
+}
+
+.vb-elenco-note__grid {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid #c0c0c0;
+  font-size: 12px;
+}
+
+.vb-elenco-note__grid th,
+.vb-elenco-note__grid td {
+  border: 1px solid #e0e0e0;
+  padding: 2px 6px;
+}
+
+.vb-elenco-note__grid th {
+  background: #ececec;
+  text-align: left;
+}
+
+.vb-elenco-note__col-predef {
+  width: 56px;
+  text-align: center;
+}
+
+.vb-elenco-note__row--selected td {
+  background: #316ac5;
+  color: #fff;
+}
+
+.vb-elenco-note__row--selected .vb-input--flat {
+  color: #111;
+  background: #fff;
+}
+
+.vb-elenco-note__empty {
+  padding: 16px 8px;
+  color: #666;
+  font-style: italic;
+}
+
+.vb-elenco-note__footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid #c0c0c0;
+  background: #ececec;
+}
+
+.vb-elenco-note__footer-spacer {
+  flex: 1;
+}
+
 
 .vb-dropdown__item {
   display: flex;
@@ -1104,6 +1318,121 @@
 .vb-dialog--fullscreen .vb-selezione-grid-wrap {
   flex: 1;
   overflow: auto;
+}
+
+/* Stampa: footer con e-mail / WhatsApp (stile Danea) */
+.vb-dialog__footer--stampa .vb-stampa-wa {
+  color: #25d366;
+  font-weight: 700;
+}
+
+/* Carica modello (stile Danea Easyfatt) */
+.vb-dialog--carica-modello {
+  width: min(620px, 96vw);
+  background: #f5f5f5;
+}
+
+.vb-dialog__body--carica-modello {
+  padding: 10px 16px 12px;
+  background: #fff;
+  border: 1px solid #c0c0c0;
+  margin: 0 12px;
+}
+
+.carica-modello__filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.carica-modello__list-label {
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.carica-modello__list {
+  border: 1px solid #828790;
+  background: #fff;
+  min-height: 220px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.carica-modello__category {
+  padding: 5px 8px 3px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #1a5fb4;
+  background: #eef4fa;
+  border-top: 1px solid #d5dde6;
+  border-bottom: 1px solid #d5dde6;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.carica-modello__category:first-child {
+  border-top: none;
+}
+
+.carica-modello__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  font-size: 12px;
+  cursor: default;
+  user-select: none;
+}
+
+.carica-modello__row:hover {
+  background: #eef4fb;
+}
+
+.carica-modello__row--active {
+  background: #316ac5;
+  color: #fff;
+}
+
+.carica-modello__row-icon {
+  font-size: 12px;
+}
+
+.carica-modello__row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.carica-modello__row-name {
+  line-height: 1.25;
+}
+
+.carica-modello__row-scope {
+  font-size: 10px;
+  opacity: 0.75;
+}
+
+.carica-modello__row--active .carica-modello__row-scope {
+  opacity: 0.9;
+}
+
+.carica-modello__empty {
+  padding: 12px;
+  font-size: 11px;
+  color: #777;
+  text-align: center;
+}
+
+.carica-modello__footer .vb-btn:nth-last-child(2) {
+  margin-left: 0;
 }
 
 .vb-anomalie {
@@ -1423,6 +1752,36 @@
   padding-bottom: 4px;
 }
 
+.vb-sp-filtri--with-tree {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.vb-sp-filtri__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  flex: 1;
+}
+
+.vb-sp-filtri__tree {
+  width: 220px;
+  flex-shrink: 0;
+  max-height: 200px;
+}
+
+.vb-ricerca-main {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 10px;
+  min-height: 240px;
+}
+
+.vb-ricerca-main__tree {
+  max-height: min(50vh, 360px);
+}
+
 .vb-dialog--selezione-prodotti .vb-selezione-grid-wrap {
   flex: 1;
   overflow: auto;
@@ -1646,7 +2005,7 @@
   top: 0;
   z-index: 1;
   background: #eef4fa;
-  color: #316ac5;
+  color: var(--brand-blue);
   text-align: left;
   padding: 4px 6px;
   border-bottom: 1px solid #b0b0b0;
@@ -1667,7 +2026,7 @@
 }
 
 .vb-gruppi-grid__row--selected td {
-  background: #316ac5;
+  background: var(--brand-blue);
   color: #fff;
 }
 
@@ -1709,7 +2068,7 @@
 .vb-gruppi-colonne__link {
   border: none;
   background: none;
-  color: #316ac5;
+  color: var(--brand-blue);
   font-size: 11px;
   cursor: pointer;
   text-decoration: underline;

@@ -59,17 +59,25 @@
 .gestionale-mdi-window__title-btn {
   width: 22px;
   height: 20px;
-  border: 1px solid #a0a0a0;
+  border: 1px solid #7a7a7a;
   border-radius: 2px;
-  background: linear-gradient(180deg, #fff 0%, #e8e8e8 100%);
-  font-size: 11px;
+  background: linear-gradient(180deg, #fff 0%, #e0e0e0 100%);
+  font-size: 12px;
+  font-weight: 700;
   line-height: 1;
+  color: #333;
   cursor: pointer;
   padding: 0;
 }
 
 .gestionale-mdi-window__title-btn:hover {
   background: #fff;
+  border-color: #4a4a4a;
+  color: #111;
+}
+
+.gestionale-mdi-window__title-btn--close {
+  color: #9b1c1c;
 }
 
 .gestionale-mdi-window__title-btn--close:hover {
@@ -102,6 +110,49 @@
   padding: 6px 10px;
   display: flex;
   flex-direction: column;
+}
+
+/* Shell documento Danea: header + tab + pannello (no scroll globale) */
+.gestionale-mdi-window__doc-shell {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #ece9d8;
+}
+
+.gestionale-mdi-window__doc-shell .gestionale-mdi-window__tabs {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0 4px;
+  background: #ece9d8;
+  border-bottom: none;
+}
+
+.gestionale-mdi-window__panel--doc {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #808080;
+  border-top: none;
+  margin: 0 4px 4px;
+}
+
+.gestionale-mdi-window__panel--doc > .vb-tab-panel:not(.vb-righe) {
+  flex: 1;
+  overflow: auto;
+  padding: 8px;
+  background: #ece9d8;
+}
+
+.gestionale-mdi-window__panel--doc > .vb-righe {
+  flex: 1;
+  min-height: 0;
 }
 
 .gestionale-mdi-window__header {
@@ -139,22 +190,28 @@
   border-bottom: 1px solid #a8a8a8;
   background: #e8e8e8;
   flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
 
 .gestionale-mdi-window__tab {
   padding: 5px 12px;
   font-size: 11px;
   font-weight: 600;
-  color: #333;
+  color: #222;
   background: #d4d0c8;
-  border: 1px solid #a8a8a8;
+  border: 1px solid #8a8a8a;
   border-bottom: none;
   margin-right: -1px;
   cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .gestionale-mdi-window__tab:hover {
   background: #e8e4dc;
+  color: #111;
 }
 
 .gestionale-mdi-window__tab--active {
@@ -162,7 +219,8 @@
   border-bottom: 1px solid #f5f5f5;
   margin-bottom: -1px;
   z-index: 1;
-  color: #1a5fb4;
+  color: var(--brand-link, #0056b3);
+  font-weight: 700;
 }
 
 .gestionale-mdi-window__panel {
@@ -253,12 +311,15 @@
 
 .gestionale-mdi-window__action-btn:hover:not(:disabled) {
   background: linear-gradient(180deg, #fff 0%, #f0f0f0 100%);
-  border-color: #1a5fb4;
-  color: #1a5fb4;
+  border-color: var(--brand-link);
+  color: var(--brand-link);
 }
 
 .gestionale-mdi-window__action-btn:disabled {
-  opacity: 0.5;
+  opacity: 1;
+  color: #757575;
+  background: #e4e4e4;
+  border-color: #bdbdbd;
   cursor: not-allowed;
 }
 

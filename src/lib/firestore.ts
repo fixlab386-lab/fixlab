@@ -4,8 +4,14 @@
  * aggiungi anche un blocco `match /nomeCollezione/{id}` in `firestore.rules` con le stesse condizioni tenant
  * (vedi commento in cima a quel file).
  */
-import type { Product, Repair, Client, Category, Supplier, DocRecord, Payment, PaymentResource, StockMovement, Device, DeviceRepairEntry, Agent, Warehouse, PriceListConfig } from '../types'
+import type { Product, Repair, Client, Category, Supplier, DocRecord, Payment, PaymentResource, StockMovement, Agent, Warehouse, PriceListConfig } from '../types'
 import { omitUndefined } from './firestoreSanitize'
+import {
+  buildClientSearchTokens,
+  buildProductSearchTokens,
+  buildSupplierSearchTokens,
+} from './searchTokens'
+import { FIRESTORE_LIVE_WINDOW } from './firestoreScale'
 import { db } from '../firebase'
 import {
   collection, doc, addDoc, updateDoc, deleteDoc, getDoc,
@@ -14,18 +20,42 @@ import {
 
 // ==================== CATEGORIES ====================
 
-export const getCategories = async (studioId: string): Promise<Category[]> => {
-  const q = query(collection(db, 'categories'), where('studioId', '==', studioId), orderBy('order', 'asc'))
+export const getCategories = async (studioId: string, maxItems = 500): Promise<Category[]> => {
+  const q = query(
+    collection(db, 'categories'),
+    where('studioId', '==', studioId),
+    orderBy('order', 'asc'),
+    limit(maxItems),
+  )
   const snap = await getDocs(q)
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Category))
 }
 
+export function listenCategories(
+  studioId: string,
+  callback: (categories: Category[]) => void,
+  onError?: (error: Error) => void,
+  maxItems = 500,
+) {
+  const q = query(
+    collection(db, 'categories'),
+    where('studioId', '==', studioId),
+    orderBy('order', 'asc'),
+    limit(maxItems),
+  )
+  return onSnapshot(
+    q,
+    snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category))),
+    err => onError?.(err),
+  )
+}
+
 export const addCategory = async (data: Omit<Category, 'id' | 'createdAt'>) => {
-  return addDoc(collection(db, 'categories'), { ...data, createdAt: serverTimestamp() })
+  return addDoc(collection(db, 'categories'), { ...omitUndefined(data), createdAt: serverTimestamp() })
 }
 
 export const updateCategory = async (id: string, data: Partial<Category>) => {
-  return updateDoc(doc(db, 'categories', id), data)
+  return updateDoc(doc(db, 'categories', id), omitUndefined(data))
 }
 
 export const deleteCategory = async (id: string) => {
@@ -34,29 +64,58 @@ export const deleteCategory = async (id: string) => {
 
 // ==================== PRODUCTS ====================
 
-export const getProducts = async (studioId: string): Promise<Product[]> => {
-  const q = query(collection(db, 'products'), where('studioId', '==', studioId), orderBy('createdAt', 'desc'))
+export const getProducts = async (studioId: string, maxItems = FIRESTORE_LIVE_WINDOW): Promise<Product[]> => {
+  const q = query(
+    collection(db, 'products'),
+    where('studioId', '==', studioId),
+    orderBy('createdAt', 'desc'),
+    limit(maxItems),
+  )
   const snap = await getDocs(q)
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Product))
 }
 
 export const addProduct = async (data: Omit<Product, 'id' | 'createdAt'>) => {
-  return addDoc(collection(db, 'products'), { ...data, createdAt: serverTimestamp() })
+  return addDoc(collection(db, 'products'), {
+    ...omitUndefined(data),
+    searchTokens: buildProductSearchTokens(data),
+    createdAt: serverTimestamp(),
+  })
 }
 
 export const updateProduct = async (id: string, data: Partial<Product>) => {
-  return updateDoc(doc(db, 'products', id), { ...data, updatedAt: serverTimestamp() })
+  const patch: Record<string, unknown> = { ...omitUndefined(data), updatedAt: serverTimestamp() }
+  const tokenFields = ['code', 'name', 'brand', 'model', 'barcode', 'categoryName', 'subcategoryName', 'description']
+  if (Object.keys(data).some(k => tokenFields.includes(k))) {
+    const snap = await getDoc(doc(db, 'products', id))
+    if (snap.exists()) {
+      patch.searchTokens = buildProductSearchTokens({ ...snap.data(), ...data } as Product)
+    }
+  }
+  return updateDoc(doc(db, 'products', id), patch)
 }
 
 export const deleteProduct = async (id: string) => {
   return deleteDoc(doc(db, 'products', id))
 }
 
-export function listenProducts(studioId: string, callback: (products: Product[]) => void) {
-  const q = query(collection(db, 'products'), where('studioId', '==', studioId), orderBy('createdAt', 'desc'))
-  return onSnapshot(q, snap => {
-    callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)))
-  })
+export function listenProducts(
+  studioId: string,
+  callback: (products: Product[]) => void,
+  onError?: (error: Error) => void,
+  maxItems = FIRESTORE_LIVE_WINDOW,
+) {
+  const q = query(
+    collection(db, 'products'),
+    where('studioId', '==', studioId),
+    orderBy('createdAt', 'desc'),
+    limit(maxItems),
+  )
+  return onSnapshot(
+    q,
+    snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product))),
+    err => onError?.(err),
+  )
 }
 
 export const getNextProductCode = async (studioId: string): Promise<string> => {
@@ -69,45 +128,122 @@ export const getNextProductCode = async (studioId: string): Promise<string> => {
 
 // ==================== REPAIRS ====================
 
-export const getRepairs = async (studioId: string): Promise<Repair[]> => {
-  const q = query(collection(db, 'repairs'), where('studioId', '==', studioId), orderBy('createdAt', 'desc'))
+export const getRepairs = async (studioId: string, maxItems = FIRESTORE_LIVE_WINDOW): Promise<Repair[]> => {
+  const q = query(
+    collection(db, 'repairs'),
+    where('studioId', '==', studioId),
+    orderBy('createdAt', 'desc'),
+    limit(maxItems),
+  )
   const snap = await getDocs(q)
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Repair))
 }
 
 export const addRepair = async (data: Omit<Repair, 'id' | 'createdAt' | 'updatedAt'>) => {
-  return addDoc(collection(db, 'repairs'), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
+  return addDoc(collection(db, 'repairs'), {
+    ...omitUndefined(data),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
 }
 
 export const updateRepair = async (id: string, data: Partial<Repair>) => {
-  return updateDoc(doc(db, 'repairs', id), { ...data, updatedAt: serverTimestamp() })
+  return updateDoc(doc(db, 'repairs', id), { ...omitUndefined(data), updatedAt: serverTimestamp() })
 }
 
-export function listenRepairs(studioId: string, callback: (repairs: Repair[]) => void) {
-  const q = query(collection(db, 'repairs'), where('studioId', '==', studioId), orderBy('createdAt', 'desc'))
-  return onSnapshot(q, snap => {
-    callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as Repair)))
-  })
+export function listenRepairs(
+  studioId: string,
+  callback: (repairs: Repair[]) => void,
+  onError?: (error: Error) => void,
+  maxItems = FIRESTORE_LIVE_WINDOW,
+) {
+  const q = query(
+    collection(db, 'repairs'),
+    where('studioId', '==', studioId),
+    orderBy('createdAt', 'desc'),
+    limit(maxItems),
+  )
+  return onSnapshot(
+    q,
+    snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as Repair))),
+    err => onError?.(err),
+  )
+}
+
+export function listenReadyRepairs(
+  studioId: string,
+  callback: (repairs: Repair[]) => void,
+  onError?: (error: Error) => void,
+  maxItems = 25,
+) {
+  const q = query(
+    collection(db, 'repairs'),
+    where('studioId', '==', studioId),
+    where('status', '==', 'ready'),
+    orderBy('createdAt', 'desc'),
+    limit(maxItems),
+  )
+  return onSnapshot(
+    q,
+    snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as Repair))),
+    err => onError?.(err),
+  )
 }
 
 // ==================== CLIENTS ====================
 
-export const getClients = async (studioId: string): Promise<Client[]> => {
-  const q = query(collection(db, 'clients'), where('studioId', '==', studioId), orderBy('createdAt', 'desc'))
+export const getClients = async (studioId: string, maxItems = FIRESTORE_LIVE_WINDOW): Promise<Client[]> => {
+  const q = query(
+    collection(db, 'clients'),
+    where('studioId', '==', studioId),
+    orderBy('createdAt', 'desc'),
+    limit(maxItems),
+  )
   const snap = await getDocs(q)
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Client))
 }
 
 export const addClient = async (data: Omit<Client, 'id' | 'createdAt'>) => {
-  return addDoc(collection(db, 'clients'), { ...data, createdAt: serverTimestamp() })
+  return addDoc(collection(db, 'clients'), {
+    ...omitUndefined(data),
+    searchTokens: buildClientSearchTokens(data),
+    createdAt: serverTimestamp(),
+  })
 }
 
 export const updateClient = async (id: string, data: Partial<Client>) => {
-  return updateDoc(doc(db, 'clients', id), { ...data, updatedAt: serverTimestamp() })
+  const patch: Record<string, unknown> = { ...omitUndefined(data), updatedAt: serverTimestamp() }
+  const tokenFields = ['code', 'name', 'phone', 'cellPhone', 'email', 'vatNumber', 'fiscalCode', 'city', 'address', 'contactPerson']
+  if (Object.keys(data).some(k => tokenFields.includes(k))) {
+    const snap = await getDoc(doc(db, 'clients', id))
+    if (snap.exists()) {
+      patch.searchTokens = buildClientSearchTokens({ ...snap.data(), ...data } as Client)
+    }
+  }
+  return updateDoc(doc(db, 'clients', id), patch)
 }
 
 export const deleteClient = async (id: string) => {
   return deleteDoc(doc(db, 'clients', id))
+}
+
+export function listenClients(
+  studioId: string,
+  callback: (clients: Client[]) => void,
+  onError?: (error: Error) => void,
+  maxItems = FIRESTORE_LIVE_WINDOW,
+) {
+  const q = query(
+    collection(db, 'clients'),
+    where('studioId', '==', studioId),
+    orderBy('createdAt', 'desc'),
+    limit(maxItems),
+  )
+  return onSnapshot(
+    q,
+    snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as Client))),
+    err => onError?.(err),
+  )
 }
 
 export const getNextClientCode = async (studioId: string): Promise<string> => {
@@ -116,18 +252,35 @@ export const getNextClientCode = async (studioId: string): Promise<string> => {
 
 // ==================== SUPPLIERS ====================
 
-export const getSuppliers = async (studioId: string): Promise<Supplier[]> => {
-  const q = query(collection(db, 'suppliers'), where('studioId', '==', studioId), orderBy('createdAt', 'desc'))
+export const getSuppliers = async (studioId: string, maxItems = FIRESTORE_LIVE_WINDOW): Promise<Supplier[]> => {
+  const q = query(
+    collection(db, 'suppliers'),
+    where('studioId', '==', studioId),
+    orderBy('createdAt', 'desc'),
+    limit(maxItems),
+  )
   const snap = await getDocs(q)
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Supplier))
 }
 
 export const addSupplier = async (data: Omit<Supplier, 'id' | 'createdAt'>) => {
-  return addDoc(collection(db, 'suppliers'), { ...data, createdAt: serverTimestamp() })
+  return addDoc(collection(db, 'suppliers'), {
+    ...omitUndefined(data),
+    searchTokens: buildSupplierSearchTokens(data),
+    createdAt: serverTimestamp(),
+  })
 }
 
 export const updateSupplier = async (id: string, data: Partial<Supplier>) => {
-  return updateDoc(doc(db, 'suppliers', id), { ...data, updatedAt: serverTimestamp() })
+  const patch: Record<string, unknown> = { ...omitUndefined(data), updatedAt: serverTimestamp() }
+  const tokenFields = ['code', 'name', 'phone', 'cellPhone', 'email', 'vatNumber', 'fiscalCode', 'city', 'address', 'contactPerson']
+  if (Object.keys(data).some(k => tokenFields.includes(k))) {
+    const snap = await getDoc(doc(db, 'suppliers', id))
+    if (snap.exists()) {
+      patch.searchTokens = buildSupplierSearchTokens({ ...snap.data(), ...data } as Supplier)
+    }
+  }
+  return updateDoc(doc(db, 'suppliers', id), patch)
 }
 
 export const deleteSupplier = async (id: string) => {
@@ -156,21 +309,48 @@ export const getNextAnagraficaCode = async (studioId: string): Promise<string> =
   return String(max + 1).padStart(4, '0')
 }
 
-export function listenSuppliers(studioId: string, callback: (suppliers: Supplier[]) => void) {
-  const q = query(collection(db, 'suppliers'), where('studioId', '==', studioId), orderBy('createdAt', 'desc'))
-  return onSnapshot(q, snap => {
-    callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as Supplier)))
-  })
+export function listenSuppliers(
+  studioId: string,
+  callback: (suppliers: Supplier[]) => void,
+  onError?: (error: Error) => void,
+  maxItems = FIRESTORE_LIVE_WINDOW,
+) {
+  const q = query(
+    collection(db, 'suppliers'),
+    where('studioId', '==', studioId),
+    orderBy('createdAt', 'desc'),
+    limit(maxItems),
+  )
+  return onSnapshot(
+    q,
+    snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as Supplier))),
+    err => onError?.(err),
+  )
 }
 
 // ==================== DOCUMENTS ====================
 
-export const getDocuments = async (studioId: string, type?: string): Promise<DocRecord[]> => {
+export const getDocuments = async (
+  studioId: string,
+  type?: string,
+  maxItems = FIRESTORE_LIVE_WINDOW,
+): Promise<DocRecord[]> => {
   let q
   if (type) {
-    q = query(collection(db, 'documents'), where('studioId', '==', studioId), where('type', '==', type), orderBy('createdAt', 'desc'))
+    q = query(
+      collection(db, 'documents'),
+      where('studioId', '==', studioId),
+      where('type', '==', type),
+      orderBy('createdAt', 'desc'),
+      limit(maxItems),
+    )
   } else {
-    q = query(collection(db, 'documents'), where('studioId', '==', studioId), orderBy('createdAt', 'desc'))
+    q = query(
+      collection(db, 'documents'),
+      where('studioId', '==', studioId),
+      orderBy('createdAt', 'desc'),
+      limit(maxItems),
+    )
   }
   const snap = await getDocs(q)
   return snap.docs.map(d => ({ id: d.id, ...(d.data() as Record<string, unknown>) } as DocRecord))
@@ -230,32 +410,56 @@ export const getNextDocumentNumber = async (
   return sameYearMax + 1
 }
 
-export function listenDocuments(studioId: string, callback: (docs: DocRecord[]) => void, type?: string) {
+export function listenDocuments(
+  studioId: string,
+  callback: (docs: DocRecord[]) => void,
+  onError?: (error: Error) => void,
+  maxItems = FIRESTORE_LIVE_WINDOW,
+  type?: string,
+) {
   let q
   if (type) {
-    q = query(collection(db, 'documents'), where('studioId', '==', studioId), where('type', '==', type), orderBy('createdAt', 'desc'))
+    q = query(
+      collection(db, 'documents'),
+      where('studioId', '==', studioId),
+      where('type', '==', type),
+      orderBy('createdAt', 'desc'),
+      limit(maxItems),
+    )
   } else {
-    q = query(collection(db, 'documents'), where('studioId', '==', studioId), orderBy('createdAt', 'desc'))
+    q = query(
+      collection(db, 'documents'),
+      where('studioId', '==', studioId),
+      orderBy('createdAt', 'desc'),
+      limit(maxItems),
+    )
   }
-  return onSnapshot(q, snap => {
-    callback(snap.docs.map(d => ({ id: d.id, ...(d.data() as Record<string, unknown>) } as DocRecord)))
-  })
+  return onSnapshot(
+    q,
+    snap => callback(snap.docs.map(d => ({ id: d.id, ...(d.data() as Record<string, unknown>) } as DocRecord))),
+    err => onError?.(err),
+  )
 }
 
 // ==================== PAYMENT RESOURCES ====================
 
-export const getPaymentResources = async (studioId: string): Promise<PaymentResource[]> => {
-  const q = query(collection(db, 'paymentResources'), where('studioId', '==', studioId), orderBy('sortOrder', 'asc'))
+export const getPaymentResources = async (studioId: string, maxItems = 50): Promise<PaymentResource[]> => {
+  const q = query(
+    collection(db, 'paymentResources'),
+    where('studioId', '==', studioId),
+    orderBy('sortOrder', 'asc'),
+    limit(maxItems),
+  )
   const snap = await getDocs(q)
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as PaymentResource))
 }
 
 export const addPaymentResource = async (data: Omit<PaymentResource, 'id' | 'createdAt'>) => {
-  return addDoc(collection(db, 'paymentResources'), { ...data, createdAt: serverTimestamp() })
+  return addDoc(collection(db, 'paymentResources'), { ...omitUndefined(data), createdAt: serverTimestamp() })
 }
 
 export const updatePaymentResource = async (id: string, data: Partial<PaymentResource>) => {
-  return updateDoc(doc(db, 'paymentResources', id), { ...data, updatedAt: serverTimestamp() })
+  return updateDoc(doc(db, 'paymentResources', id), { ...omitUndefined(data), updatedAt: serverTimestamp() })
 }
 
 export const deletePaymentResource = async (id: string) => {
@@ -263,13 +467,32 @@ export const deletePaymentResource = async (id: string) => {
 }
 
 /** Precarica Contanti, POS/Carta, Bonifico se lo studio non ne ha ancora. */
+export function listenPaymentResources(
+  studioId: string,
+  callback: (resources: PaymentResource[]) => void,
+  onError?: (error: Error) => void,
+  maxItems = 50,
+) {
+  const q = query(
+    collection(db, 'paymentResources'),
+    where('studioId', '==', studioId),
+    orderBy('sortOrder', 'asc'),
+    limit(maxItems),
+  )
+  return onSnapshot(
+    q,
+    snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as PaymentResource))),
+    err => onError?.(err),
+  )
+}
+
 export const ensureDefaultPaymentResources = async (studioId: string): Promise<PaymentResource[]> => {
   const existing = await getPaymentResources(studioId)
   if (existing.length > 0) return existing
 
   const defaults: Omit<PaymentResource, 'id' | 'createdAt'>[] = [
     { studioId, name: 'Contanti', type: 'cash', isDefault: true, sortOrder: 0, initialBalance: 0 },
-    { studioId, name: 'POS / Carta', type: 'card', sortOrder: 1 },
+    { studioId, name: 'Bancomat', type: 'card', sortOrder: 1 },
     { studioId, name: 'Bonifico bancario', type: 'bank', sortOrder: 2 },
   ]
 
@@ -279,144 +502,111 @@ export const ensureDefaultPaymentResources = async (studioId: string): Promise<P
 
 // ==================== PAYMENTS ====================
 
-export const getPayments = async (studioId: string): Promise<Payment[]> => {
-  const q = query(collection(db, 'payments'), where('studioId', '==', studioId), orderBy('date', 'desc'))
+export const getPayments = async (studioId: string, maxItems = FIRESTORE_LIVE_WINDOW): Promise<Payment[]> => {
+  const q = query(
+    collection(db, 'payments'),
+    where('studioId', '==', studioId),
+    orderBy('date', 'desc'),
+    limit(maxItems),
+  )
   const snap = await getDocs(q)
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Payment))
 }
 
 export const addPayment = async (data: Omit<Payment, 'id' | 'createdAt'>) => {
-  return addDoc(collection(db, 'payments'), { ...data, createdAt: serverTimestamp() })
+  return addDoc(collection(db, 'payments'), { ...omitUndefined(data), createdAt: serverTimestamp() })
 }
 
 export const updatePayment = async (id: string, data: Partial<Payment>) => {
-  return updateDoc(doc(db, 'payments', id), { ...data, updatedAt: serverTimestamp() })
+  return updateDoc(doc(db, 'payments', id), { ...omitUndefined(data), updatedAt: serverTimestamp() })
 }
 
 export const deletePayment = async (id: string) => {
   return deleteDoc(doc(db, 'payments', id))
 }
 
-export function listenPayments(studioId: string, callback: (payments: Payment[]) => void) {
-  const q = query(collection(db, 'payments'), where('studioId', '==', studioId), orderBy('date', 'desc'))
-  return onSnapshot(q, snap => {
-    callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as Payment)))
-  })
+export function listenPayments(
+  studioId: string,
+  callback: (payments: Payment[]) => void,
+  onError?: (error: Error) => void,
+  maxItems = FIRESTORE_LIVE_WINDOW,
+) {
+  const q = query(
+    collection(db, 'payments'),
+    where('studioId', '==', studioId),
+    orderBy('date', 'desc'),
+    limit(maxItems),
+  )
+  return onSnapshot(
+    q,
+    snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as Payment))),
+    err => onError?.(err),
+  )
 }
 
 // ==================== STOCK MOVEMENTS ====================
 
-export const getStockMovements = async (studioId: string): Promise<StockMovement[]> => {
-  const q = query(collection(db, 'stockMovements'), where('studioId', '==', studioId), orderBy('date', 'desc'))
+export const getStockMovements = async (studioId: string, maxItems = FIRESTORE_LIVE_WINDOW): Promise<StockMovement[]> => {
+  const q = query(
+    collection(db, 'stockMovements'),
+    where('studioId', '==', studioId),
+    orderBy('date', 'desc'),
+    limit(maxItems),
+  )
   const snap = await getDocs(q)
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as StockMovement))
 }
 
 export const addStockMovement = async (data: Omit<StockMovement, 'id' | 'createdAt'>) => {
-  return addDoc(collection(db, 'stockMovements'), { ...data, createdAt: serverTimestamp() })
+  return addDoc(collection(db, 'stockMovements'), { ...omitUndefined(data), createdAt: serverTimestamp() })
 }
 
 export const updateStockMovement = async (id: string, data: Partial<StockMovement>) => {
-  return updateDoc(doc(db, 'stockMovements', id), data)
+  return updateDoc(doc(db, 'stockMovements', id), omitUndefined(data))
 }
 
 export const deleteStockMovement = async (id: string) => {
   return deleteDoc(doc(db, 'stockMovements', id))
 }
 
-export function listenStockMovements(studioId: string, callback: (movements: StockMovement[]) => void) {
-  const q = query(collection(db, 'stockMovements'), where('studioId', '==', studioId), orderBy('date', 'desc'))
-  return onSnapshot(q, snap => {
-    callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as StockMovement)))
-  })
-}
-
-// ==================== DEVICES (IMEI / SERIAL TRACKING) ====================
-
-export const getDevices = async (studioId: string): Promise<Device[]> => {
-  const q = query(collection(db, 'devices'), where('studioId', '==', studioId), orderBy('createdAt', 'desc'))
-  const snap = await getDocs(q)
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Device))
-}
-
-export const addDevice = async (data: Omit<Device, 'id' | 'createdAt'>) => {
-  return addDoc(collection(db, 'devices'), { ...data, createdAt: serverTimestamp() })
-}
-
-export const updateDevice = async (id: string, data: Partial<Device>) => {
-  return updateDoc(doc(db, 'devices', id), { ...data, updatedAt: serverTimestamp() })
-}
-
-export const deleteDevice = async (id: string) => {
-  return deleteDoc(doc(db, 'devices', id))
-}
-
-export function listenDevices(studioId: string, callback: (devices: Device[]) => void) {
-  const q = query(collection(db, 'devices'), where('studioId', '==', studioId), orderBy('createdAt', 'desc'))
-  return onSnapshot(q, snap => {
-    callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as Device)))
-  })
-}
-
-/**
- * Cerca un dispositivo per IMEI, seriale, o barcode.
- * Restituisce il primo match trovato, o null.
- */
-export const findDeviceByCode = async (studioId: string, code: string): Promise<Device | null> => {
-  const trimmed = code.trim()
-  if (!trimmed) return null
-
-  // Cerca per IMEI
-  const qImei = query(collection(db, 'devices'), where('studioId', '==', studioId), where('imei', '==', trimmed), limit(1))
-  const snapImei = await getDocs(qImei)
-  if (!snapImei.empty) return { id: snapImei.docs[0].id, ...snapImei.docs[0].data() } as Device
-
-  // Cerca per seriale
-  const qSerial = query(collection(db, 'devices'), where('studioId', '==', studioId), where('serial', '==', trimmed), limit(1))
-  const snapSerial = await getDocs(qSerial)
-  if (!snapSerial.empty) return { id: snapSerial.docs[0].id, ...snapSerial.docs[0].data() } as Device
-
-  // Cerca per barcode
-  const qBarcode = query(collection(db, 'devices'), where('studioId', '==', studioId), where('barcode', '==', trimmed), limit(1))
-  const snapBarcode = await getDocs(qBarcode)
-  if (!snapBarcode.empty) return { id: snapBarcode.docs[0].id, ...snapBarcode.docs[0].data() } as Device
-
-  return null
-}
-
-/**
- * Aggiunge una riparazione allo storico del dispositivo (denormalizzato).
- * Aggiorna anche il contatore e il totale speso.
- */
-export const addRepairToDevice = async (deviceId: string, entry: DeviceRepairEntry) => {
-  const deviceRef = doc(db, 'devices', deviceId)
-  const snap = await getDoc(deviceRef)
-  if (!snap.exists()) return
-  const device = snap.data() as Device
-  const history = [...(device.repairsHistory || []), entry]
-  await updateDoc(deviceRef, {
-    repairsHistory: history,
-    totalRepairs: history.length,
-    totalSpentOnRepairs: history.reduce((sum, e) => sum + (e.totalCost || 0), 0),
-    status: 'in_repair',
-    updatedAt: serverTimestamp()
-  })
+export function listenStockMovements(
+  studioId: string,
+  callback: (movements: StockMovement[]) => void,
+  onError?: (error: Error) => void,
+  maxItems = FIRESTORE_LIVE_WINDOW,
+) {
+  const q = query(
+    collection(db, 'stockMovements'),
+    where('studioId', '==', studioId),
+    orderBy('date', 'desc'),
+    limit(maxItems),
+  )
+  return onSnapshot(
+    q,
+    snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as StockMovement))),
+    err => onError?.(err),
+  )
 }
 
 // ==================== AGENTS / WAREHOUSES / PRICE LISTS ====================
 
-export const getAgents = async (studioId: string): Promise<Agent[]> => {
-  const q = query(collection(db, 'agents'), where('studioId', '==', studioId), orderBy('name', 'asc'))
+export const getAgents = async (studioId: string, maxItems = 200): Promise<Agent[]> => {
+  const q = query(
+    collection(db, 'agents'),
+    where('studioId', '==', studioId),
+    orderBy('name', 'asc'),
+    limit(maxItems),
+  )
   const snap = await getDocs(q)
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Agent))
 }
 
 export const addAgent = async (data: Omit<Agent, 'id' | 'createdAt'>) => {
-  return addDoc(collection(db, 'agents'), { ...data, createdAt: serverTimestamp() })
+  return addDoc(collection(db, 'agents'), { ...omitUndefined(data), createdAt: serverTimestamp() })
 }
 
 export const updateAgent = async (id: string, data: Partial<Agent>) => {
-  return updateDoc(doc(db, 'agents', id), { ...data, updatedAt: serverTimestamp() })
+  return updateDoc(doc(db, 'agents', id), { ...omitUndefined(data), updatedAt: serverTimestamp() })
 }
 
 export const deleteAgent = async (id: string) => deleteDoc(doc(db, 'agents', id))
@@ -429,18 +619,23 @@ export const ensureDefaultAgents = async (studioId: string): Promise<Agent[]> =>
   return getAgents(studioId)
 }
 
-export const getWarehouses = async (studioId: string): Promise<Warehouse[]> => {
-  const q = query(collection(db, 'warehouses'), where('studioId', '==', studioId), orderBy('name', 'asc'))
+export const getWarehouses = async (studioId: string, maxItems = 100): Promise<Warehouse[]> => {
+  const q = query(
+    collection(db, 'warehouses'),
+    where('studioId', '==', studioId),
+    orderBy('name', 'asc'),
+    limit(maxItems),
+  )
   const snap = await getDocs(q)
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Warehouse))
 }
 
 export const addWarehouse = async (data: Omit<Warehouse, 'id' | 'createdAt'>) => {
-  return addDoc(collection(db, 'warehouses'), { ...data, createdAt: serverTimestamp() })
+  return addDoc(collection(db, 'warehouses'), { ...omitUndefined(data), createdAt: serverTimestamp() })
 }
 
 export const updateWarehouse = async (id: string, data: Partial<Warehouse>) => {
-  return updateDoc(doc(db, 'warehouses', id), { ...data, updatedAt: serverTimestamp() })
+  return updateDoc(doc(db, 'warehouses', id), { ...omitUndefined(data), updatedAt: serverTimestamp() })
 }
 
 export const deleteWarehouse = async (id: string) => deleteDoc(doc(db, 'warehouses', id))
@@ -452,18 +647,23 @@ export const ensureDefaultWarehouses = async (studioId: string): Promise<Warehou
   return getWarehouses(studioId)
 }
 
-export const getPriceListConfigs = async (studioId: string): Promise<PriceListConfig[]> => {
-  const q = query(collection(db, 'priceLists'), where('studioId', '==', studioId), orderBy('sortOrder', 'asc'))
+export const getPriceListConfigs = async (studioId: string, maxItems = 20): Promise<PriceListConfig[]> => {
+  const q = query(
+    collection(db, 'priceLists'),
+    where('studioId', '==', studioId),
+    orderBy('sortOrder', 'asc'),
+    limit(maxItems),
+  )
   const snap = await getDocs(q)
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as PriceListConfig))
 }
 
 export const addPriceListConfig = async (data: Omit<PriceListConfig, 'id' | 'createdAt'>) => {
-  return addDoc(collection(db, 'priceLists'), { ...data, createdAt: serverTimestamp() })
+  return addDoc(collection(db, 'priceLists'), { ...omitUndefined(data), createdAt: serverTimestamp() })
 }
 
 export const updatePriceListConfig = async (id: string, data: Partial<PriceListConfig>) => {
-  return updateDoc(doc(db, 'priceLists', id), { ...data, updatedAt: serverTimestamp() })
+  return updateDoc(doc(db, 'priceLists', id), { ...omitUndefined(data), updatedAt: serverTimestamp() })
 }
 
 export const deletePriceListConfig = async (id: string) => deleteDoc(doc(db, 'priceLists', id))

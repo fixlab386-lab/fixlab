@@ -18,10 +18,14 @@ export const ALL_DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   rapporto_intervento: "Rapporto d'intervento",
   ddt: 'DDT',
   vendita_banco: 'Ricevuta',
+  fattura_proforma: 'Fattura pro-forma',
+  fattura_acconto: "Fattura d'acconto",
+  fattura_accomp: 'Fattura accomp.',
   fattura: 'Fattura',
   preventivo_fornitore: 'Preventivo fornitore',
   ordine_fornitore: 'Ordine fornitore',
   arrivo_merce: 'Arrivo merce',
+  reg_fattura_fornitore: 'Reg. fattura fornitore',
 }
 
 export const DOCUMENT_STATUS_LABELS: Record<string, string> = {

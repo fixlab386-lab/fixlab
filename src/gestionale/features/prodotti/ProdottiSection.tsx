@@ -12,32 +12,36 @@ import {
   listenProducts,
   listenStockMovements,
   updateProduct,
-  addStockMovement,
 } from '../../../lib/firestore'
 import { fetchProductsPage, fetchStockMovementsPage } from '../../../lib/firestorePagination'
 import { loadRecentSuppliers } from '../../../lib/loadStudioCatalog'
 import LoadMoreBar from '../../../components/ui/LoadMoreBar'
 import PaginatedFilterHint from '../../../components/ui/PaginatedFilterHint'
-import { db } from '../../../firebase'
 import type { Product } from '../../../types'
-import { callCommitStockMovement, isStockFunctionUnavailable } from '../../../lib/commitStockMovement'
+import { db } from '../../../firebase'
 import type { Category } from '../../../types'
 import { exportProductsExcel } from '../../lib/exportProductsExcel'
 import ProdottiActionBar from './ProdottiActionBar'
 import ProdottiLista from './ProdottiLista'
 import ProdottiScheda from './ProdottiScheda'
 import ProdottiTopBar from './ProdottiTopBar'
-import { DEFAULT_COLONNE, SAMPLE_CATEGORY_TREE } from './constants'
+import { DEFAULT_COLONNE } from './constants'
 import {
-  AllegatiProdottoDialog,
   CategorieProdottiDialog,
   ConfermaEliminaDialog,
   ImmagineProdottoDialog,
   ImpostazioniListinoDialog,
-  MovimentoMagazzinoDialog,
   OpzioniApplicazioneDialog,
   StampaProdottoDialog,
 } from './dialogs/ProdottiDialogs'
+import OperazioneMagazzinoModal, {
+  createEmptyOperazioneMagazzino,
+  createOperazioneMagazzinoWithProdotto,
+  type OperazioneMagazzinoState,
+} from '../magazzino/OperazioneMagazzinoModal'
+import { commitOperazioneMagazzinoLine } from '../magazzino/commitOperazioneMagazzino'
+import type { OperazioneMagazzinoMode } from '../magazzino/constants'
+import { isStockFunctionUnavailable } from '../../../lib/commitStockMovement'
 import {
   emptyProdotto,
   productToProdotto,
@@ -53,7 +57,10 @@ import {
   type CercaVeloceModo,
 } from './types'
 import { applyCercaVeloce, ricalcolaListini, sortProdotti, aggiornaMagazzinoDisponibile } from './utils'
+import { matchesProductCategoryTree } from '../../lib/categoryUtils'
 import '../../theme/prodotti-section.css'
+import '../../theme/danea-anagrafica.css'
+import '../../theme/category-tree.css'
 import '../../theme/gestionale-tokens.css'
 
 export default function ProdottiSection() {
@@ -116,6 +123,7 @@ export default function ProdottiSection() {
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [filtraAttivo, setFiltraAttivo] = useState(true)
+  const [categoryFilterId, setCategoryFilterId] = useState<string | null>(null)
   const [mostraTotali, setMostraTotali] = useState(false)
 
   const [cercaCampo, setCercaCampo] = useState<CercaVeloceCampo>('codProdotto')
@@ -128,9 +136,13 @@ export default function ProdottiSection() {
   const [showImpostazioniListino, setShowImpostazioniListino] = useState<string | null>(null)
   const [showOpzioniApp, setShowOpzioniApp] = useState(false)
   const [showImmagine, setShowImmagine] = useState(false)
-  const [showAllegati, setShowAllegati] = useState(false)
   const [showStampa, setShowStampa] = useState<string | null>(null)
-  const [movimentoTipo, setMovimentoTipo] = useState<'Carica' | 'Scarica' | 'Rettifica' | null>(null)
+  const [operazioneMode, setOperazioneMode] = useState<OperazioneMagazzinoMode | null>(null)
+  const [operazioneState, setOperazioneState] = useState<OperazioneMagazzinoState>(() =>
+    createEmptyOperazioneMagazzino('load'),
+  )
+  const [operazioneSaving, setOperazioneSaving] = useState(false)
+  const [operazioneSaveError, setOperazioneSaveError] = useState<string | null>(null)
 
   const showInfo = useCallback((msg: string) => {
     setBannerError(msg)
@@ -140,22 +152,6 @@ export default function ProdottiSection() {
   const reloadCategories = useCallback(async () => {
     /* categorie sincronizzate in tempo reale */
   }, [])
-
-  const categorieLista = useMemo(() => {
-    if (categories.length) return categories.filter(c => !c.parentId).map(c => c.name)
-    return Object.keys(SAMPLE_CATEGORY_TREE)
-  }, [categories])
-
-  const sottocategorieMap = useMemo(() => {
-    if (categories.length) {
-      const map: Record<string, string[]> = {}
-      for (const r of categories.filter(c => !c.parentId)) {
-        map[r.name] = categories.filter(c => c.parentId === r.id).map(c => c.name)
-      }
-      return map
-    }
-    return SAMPLE_CATEGORY_TREE
-  }, [categories])
 
   const produttori = useMemo(() => {
     const set = new Set<string>()
@@ -170,15 +166,28 @@ export default function ProdottiSection() {
     if (editing?.isDraft && !list.some(p => p.id === editing.id)) {
       list = [editing, ...list]
     }
-    return applyCercaVeloce(list, cercaCampo, cercaModo, cercaQuery)
-  }, [prodotti, editing, cercaCampo, cercaModo, cercaQuery])
+    list = applyCercaVeloce(list, cercaCampo, cercaModo, cercaQuery)
+    if (categoryFilterId) {
+      list = list.filter(p =>
+        matchesProductCategoryTree(
+          { categoryId: p.categoryId, subcategoryId: p.subcategoryId },
+          categoryFilterId,
+          categories,
+        ),
+      )
+    }
+    return list
+  }, [prodotti, editing, cercaCampo, cercaModo, cercaQuery, categoryFilterId, categories])
 
   const listTruncated = productsTruncated || movementsTruncated
   const hasScopedFilters = useMemo(
     () =>
       listTruncated &&
-      (Boolean(cercaQuery.trim()) || Object.keys(filtriColonna).length > 0 || filtraAttivo),
-    [listTruncated, cercaQuery, filtriColonna, filtraAttivo],
+      (Boolean(cercaQuery.trim()) ||
+        Object.keys(filtriColonna).length > 0 ||
+        filtraAttivo ||
+        Boolean(categoryFilterId)),
+    [listTruncated, cercaQuery, filtriColonna, filtraAttivo, categoryFilterId],
   )
 
   const selected = useMemo(() => {
@@ -306,73 +315,74 @@ export default function ProdottiSection() {
     showInfo('Listini ricalcolati.')
   }, [editing, selected, handleChange, showInfo])
 
-  const handleMovimento = useCallback(
-    async (tipo: 'Carica' | 'Scarica' | 'Rettifica', qta: number) => {
+  const openOperazioneFromScheda = useCallback(
+    (mode: OperazioneMagazzinoMode) => {
       const target = editing ?? selected
-      if (!target?.magazzino || !studioId) return
+      if (!target?.magazzino) {
+        alert('Questo prodotto non gestisce il magazzino.')
+        return
+      }
       if (target.isDraft) {
         alert('Salva il prodotto prima di registrare movimenti di magazzino.')
         return
       }
-      const typeMap = { Carica: 'load' as const, Scarica: 'unload' as const, Rettifica: 'adjust' as const }
-      const today = new Date().toISOString().slice(0, 10)
-      setSaving(true)
-      setBannerError(null)
-      try {
-        await callCommitStockMovement({
-          movement: {
-            studioId,
-            date: today,
-            productId: target.id,
-            productCode: target.codProdotto,
-            productName: target.descrizione,
-            type: typeMap[tipo],
-            quantity: qta,
-            adjustTo: tipo === 'Rettifica' ? qta : undefined,
-            adjustMode: tipo === 'Rettifica' ? 'absolute' : undefined,
-            cause: `Da scheda prodotto (${tipo})`,
-            operatorId: user?.uid,
-            operatorName: userProfile?.name,
-          },
+      setOperazioneMode(mode)
+      setOperazioneState(createOperazioneMagazzinoWithProdotto(mode, target))
+      setOperazioneSaveError(null)
+    },
+    [editing, selected],
+  )
+
+  const handleSaveOperazione = useCallback(async () => {
+    if (!studioId || !operazioneMode || operazioneState.lines.length === 0) return
+    setOperazioneSaving(true)
+    setOperazioneSaveError(null)
+    setBannerError(null)
+    try {
+      for (const line of operazioneState.lines) {
+        await commitOperazioneMagazzinoLine(operazioneMode, operazioneState, line, {
+          studioId,
+          operatorId: user?.uid,
+          operatorName: userProfile?.name,
         })
-      } catch (err) {
-        if (isStockFunctionUnavailable(err)) {
-          const base = {
-            studioId,
-            date: today,
-            productId: target.id,
-            productCode: target.codProdotto,
-            productName: target.descrizione,
-            type: typeMap[tipo],
-            cause: `Da scheda prodotto (${tipo})`,
-            operatorId: user?.uid,
-            operatorName: userProfile?.name,
-            stockUpdated: false,
-          }
-          if (tipo === 'Carica') await addStockMovement({ ...base, loaded: qta })
-          else if (tipo === 'Scarica') await addStockMovement({ ...base, unloaded: qta })
-          else await addStockMovement({ ...base, adjustTo: qta })
-          const newStock =
-            tipo === 'Carica'
-              ? (target.magazzino?.giacenza ?? 0) + qta
-              : tipo === 'Scarica'
-                ? Math.max(0, (target.magazzino?.giacenza ?? 0) - qta)
-                : qta
-          await updateProduct(target.id, { stock: newStock })
-        } else {
-          setBannerError(err instanceof Error ? err.message : 'Movimento non registrato.')
-          return
+      }
+      const activeId = editing?.id ?? selectedId
+      if (activeId && operazioneState.lines.some(l => l.productId === activeId)) {
+        const snap = await getDoc(doc(db, 'products', activeId))
+        if (snap.exists()) {
+          const fresh = productToProdotto({ id: snap.id, ...snap.data() } as Product, movements)
+          if (editing?.id === activeId) setEditing(structuredClone(fresh))
         }
       }
-      const snap = await getDoc(doc(db, 'products', target.id))
-      if (snap.exists()) {
-        const fresh = { id: snap.id, ...snap.data() } as Product
-        setEditing(structuredClone(productToProdotto(fresh, movements)))
+      setOperazioneMode(null)
+      showInfo(
+        operazioneMode === 'load'
+          ? 'Carico magazzino registrato.'
+          : operazioneMode === 'unload'
+            ? 'Scarico magazzino registrato.'
+            : 'Rettifica giacenza registrata.',
+      )
+    } catch (err) {
+      if (isStockFunctionUnavailable(err)) {
+        setBannerError('Alcune giacenze potrebbero non essere aggiornate (function non attiva).')
+        setOperazioneMode(null)
+      } else {
+        setOperazioneSaveError(err instanceof Error ? err.message : 'Salvataggio non riuscito.')
       }
-      setMovimentoTipo(null)
-    },
-    [editing, selected, studioId, user?.uid, userProfile?.name],
-  )
+    } finally {
+      setOperazioneSaving(false)
+    }
+  }, [
+    studioId,
+    operazioneMode,
+    operazioneState,
+    user?.uid,
+    userProfile?.name,
+    editing?.id,
+    selectedId,
+    movements,
+    showInfo,
+  ])
 
   const handleExcel = useCallback(() => {
     const rows = prodotti.map(p => ({
@@ -408,6 +418,7 @@ export default function ProdottiSection() {
         <div className="prodotti-section__lista-col">
           <ProdottiLista
             prodotti={displayList}
+            categories={categories}
             selectedId={selectedId}
             selectionMode={selectionMode}
             selectedIds={selectedIds}
@@ -478,8 +489,13 @@ export default function ProdottiSection() {
               setCriterioRaggruppamento(c)
               setCollapsedGroups(new Set())
             }}
-            filtraAttivo={filtraAttivo || Object.keys(filtriColonna).length > 0}
-            onFiltra={() => setFiltraAttivo(v => !v)}
+            filtraAttivo={filtraAttivo || Object.keys(filtriColonna).length > 0 || Boolean(categoryFilterId)}
+            onFiltra={() => {
+              setFiltraAttivo(v => {
+                if (v) setCategoryFilterId(null)
+                return !v
+              })
+            }}
             selectionMode={selectionMode}
             onSelezione={() => {
               setSelectionMode(v => !v)
@@ -494,11 +510,14 @@ export default function ProdottiSection() {
           <ProdottiScheda
           prodotto={selected}
           activeTab={activeTab}
-          categorie={categorieLista}
-          sottocategorieMap={sottocategorieMap}
+          categories={categories}
           fornitori={fornitori}
           produttori={produttori.length ? produttori : ['Apple', 'Samsung', 'Generico']}
           prezziEspansi={prezziEspansi}
+          filtraAttivo={filtraAttivo}
+          prodotti={prodotti}
+          categoryFilterId={categoryFilterId}
+          onCategoryFilter={setCategoryFilterId}
           onTabChange={setActiveTab}
           onChange={p => {
             setEditing(p)
@@ -510,13 +529,12 @@ export default function ProdottiSection() {
             else setShowImpostazioniListino('privati')
           }}
           onCategorie={() => setShowCategorie(true)}
-          onAllegati={() => setShowAllegati(true)}
           onImmagine={() => setShowImmagine(true)}
           onCodiciAggiuntivi={() => showInfo('Codici aggiuntivi: usa il campo cod. barre in scheda.')}
           onComponenti={() => showInfo('Componenti: funzione disponibile in versione desktop completa.')}
-          onCarica={() => setMovimentoTipo('Carica')}
-          onScarica={() => setMovimentoTipo('Scarica')}
-          onRettifica={() => setMovimentoTipo('Rettifica')}
+          onCarica={() => openOperazioneFromScheda('load')}
+          onScarica={() => openOperazioneFromScheda('unload')}
+          onRettifica={() => openOperazioneFromScheda('adjust')}
         />
         </div>
       </div>
@@ -546,9 +564,16 @@ export default function ProdottiSection() {
         <CategorieProdottiDialog
           studioId={studioId}
           categories={categories}
-          selectedPath={selected.sottocategoria ? `${selected.categoria} » ${selected.sottocategoria}` : selected.categoria}
-          onSelect={(cat, sub, catId, subId) => {
-            const next = { ...(editing ?? selected), categoria: cat, sottocategoria: sub, categoryId: catId, subcategoryId: subId }
+          selectedPath={selected.categoryPath || selected.categoria}
+          onSelect={selection => {
+            const next = {
+              ...(editing ?? selected),
+              categoria: selection.categoria,
+              sottocategoria: selection.sottocategoria,
+              categoryPath: selection.categoryPath,
+              categoryId: selection.categoryId,
+              subcategoryId: selection.subcategoryId,
+            }
             setEditing(next)
             handleChange(next)
           }}
@@ -581,71 +606,21 @@ export default function ProdottiSection() {
         />
       ) : null}
 
-      {showAllegati && selected ? (
-        <AllegatiProdottoDialog
-          files={(editing ?? selected).allegati?.map(name => ({ name })) ?? []}
-          onImport={() => {
-            const input = document.createElement('input')
-            input.type = 'file'
-            input.multiple = true
-            input.onchange = () => {
-              const names = Array.from(input.files || []).map(f => f.name)
-              if (!names.length) return
-              const target = editing ?? selected
-              if (!target) return
-              const allegati = [...(target.allegati ?? []), ...names]
-              handleChange({ ...target, allegati })
-            }
-            input.click()
-          }}
-          onRename={() => {
-            const target = editing ?? selected
-            const list = target?.allegati ?? []
-            if (!list.length) return
-            const name = window.prompt('Nuovo nome allegato', list[list.length - 1])
-            if (!name?.trim()) return
-            const allegati = [...list.slice(0, -1), name.trim()]
-            handleChange({ ...target!, allegati })
-          }}
-          onDelete={() => {
-            const target = editing ?? selected
-            const list = target?.allegati ?? []
-            if (!list.length) return
-            handleChange({ ...target!, allegati: list.slice(0, -1) })
-          }}
-          onExport={() => {
-            const list = (editing ?? selected)?.allegati ?? []
-            if (!list.length) return
-            const blob = new Blob([list.join('\n')], { type: 'text/plain' })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `allegati-${selected.codProdotto}.txt`
-            a.click()
-            URL.revokeObjectURL(url)
-          }}
-          onPrint={() => {
-            const list = (editing ?? selected)?.allegati ?? []
-            if (!list.length) return
-            const html = `<html><body><h3>Allegati prodotto</h3><ul>${list.map(n => `<li>${n}</li>`).join('')}</ul></body></html>`
-            const w = window.open('', '_blank')
-            if (w) {
-              w.document.write(html)
-              w.document.close()
-              w.print()
-            }
-          }}
-          onClose={() => setShowAllegati(false)}
-        />
-      ) : null}
-
       {showStampa ? <StampaProdottoDialog modello={showStampa} prodotto={selected} onClose={() => setShowStampa(null)} /> : null}
 
-      {movimentoTipo ? (
-        <MovimentoMagazzinoDialog
-          tipo={movimentoTipo}
-          onOk={qta => handleMovimento(movimentoTipo, qta)}
-          onClose={() => setMovimentoTipo(null)}
+      {operazioneMode ? (
+        <OperazioneMagazzinoModal
+          open
+          mode={operazioneMode}
+          state={operazioneState}
+          studioId={studioId}
+          saving={operazioneSaving}
+          saveError={operazioneSaveError}
+          onChange={setOperazioneState}
+          onSave={() => void handleSaveOperazione()}
+          onClose={() => {
+            if (!operazioneSaving) setOperazioneMode(null)
+          }}
         />
       ) : null}
 

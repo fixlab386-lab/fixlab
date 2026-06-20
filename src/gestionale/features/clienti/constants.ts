@@ -3,6 +3,7 @@ import type { ColonnaId, RaggruppaCriterio, SchedaTabId } from './types'
 export const SCHEDA_TABS: { id: SchedaTabId; label: string }[] = [
   { id: 'anagrafica', label: 'Anagrafica' },
   { id: 'rapporti', label: 'Rapporti commerciali' },
+  { id: 'riparazioni', label: 'Riparazioni' },
   { id: 'varie', label: 'Varie' },
 ]
 
@@ -33,12 +34,11 @@ export const COLONNE_DEF: { id: ColonnaId; label: string; default: boolean }[] =
   { id: 'nazione', label: 'Nazione', default: false },
   { id: 'codDestinatario', label: 'Cod. destinatario', default: false },
   { id: 'partitaIva', label: 'Partita Iva', default: true },
-  { id: 'agente', label: 'Agente', default: true },
-  { id: 'dichIntento', label: 'Dich. d\'intento', default: true },
+  { id: 'agente', label: 'Agente', default: false },
+  { id: 'dichIntento', label: 'Dich. d\'intento', default: false },
 ]
 
 export const STAMPA_MODELLI = ['Scheda cliente/fornitore', 'Elenco'] as const
-export const ETICHETTE_MODELLO = 'Etichette indici 3x8' as const
 
 export const AGENTI = ['(Nessuno)', 'Agente 1', 'Agente 2', 'Agente 3'] as const
 
@@ -74,13 +74,6 @@ export const NUOVO_DOC_ITEMS = [
   'Fattura accomp.',
   'Ddt',
   'Nota di credito',
-] as const
-
-export const COMUNICAZIONI_ITEMS = [
-  'Richiesta dati per ricevuta fattura elettronica',
-  'Invio coordinate bancarie',
-  'Invio informativa dati personali',
-  'Invia comunicazione con WhatsApp…',
 ] as const
 
 export const STAMPA_ITEMS = ['Scheda cliente/fornitore', 'Elenco'] as const

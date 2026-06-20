@@ -10,6 +10,7 @@ import { useAuth } from '../hooks/useAuth'
 import {
   ensureLegacyMembership,
   fetchStudioArchives,
+  normalizeMemberships,
   persistDefaultStudioId,
   resolveInitialActiveStudioId,
   writeActiveStudioToStorage,
@@ -62,6 +63,17 @@ export function ActiveStudioProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false
     setLoading(true)
+
+    const optimisticMemberships = normalizeMemberships(userProfile?.memberships, legacyStudioId)
+    const optimisticStudioId = resolveInitialActiveStudioId({
+      userId,
+      legacyStudioId,
+      defaultStudioId: userProfile?.defaultStudioId,
+      memberships: optimisticMemberships,
+    })
+    setMemberships(optimisticMemberships)
+    setActiveStudioIdState(optimisticStudioId)
+    writeActiveStudioToStorage(userId, optimisticStudioId)
 
     const init = async () => {
       try {

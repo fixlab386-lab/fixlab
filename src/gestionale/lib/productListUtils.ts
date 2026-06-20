@@ -1,6 +1,6 @@
 import type { DataTableColumn, DataTableSortDirection } from '../../components/ui'
-import type { Product } from '../../types'
-import { collectDescendantIds } from './categoryUtils'
+import type { Category, Product } from '../../types'
+import { matchesProductCategoryTree } from './categoryUtils'
 
 export type ProductDetailTab = 'prodotto' | 'caratteristiche' | 'magazzino'
 export type ProductGroupByMode = 'none' | 'category'
@@ -34,8 +34,7 @@ export function filterProducts(
 ): Product[] {
   let result = products
   if (categoryFilter !== 'all') {
-    const ids = new Set(collectDescendantIds(categoryFilter, categories as Parameters<typeof collectDescendantIds>[1]))
-    result = result.filter(p => ids.has(p.categoryId) || ids.has(p.subcategoryId || ''))
+    result = result.filter(p => matchesProductCategoryTree(p, categoryFilter, categories as Category[]))
   }
   if (searchLower) {
     result = result.filter(p => getSearchHaystack(p).toLowerCase().includes(searchLower))

@@ -8,23 +8,19 @@ import { useAppWindows } from '../../../contexts/AppWindowsContext'
 import {
   addDocument,
   getCategories,
-  getClients,
-  getDocuments,
   getNextDocumentNumber,
-  getProducts,
   updateDocument,
 } from '../../../lib/firestore'
+import { loadRecentClients, loadSubjectDocuments, loadRecentProducts, hasLinkableClientDocuments } from '../../../lib/loadStudioCatalog'
 import { callCommitDocument, isCommitFunctionUnavailable } from '../../../lib/commitDocument'
+import { formatCallableError } from '../../../lib/cloudFunctions'
 import { omitUndefined } from '../../../lib/firestoreSanitize'
-import {
-  attachmentUrls,
-  deleteDocumentAttachment,
-  uploadDocumentAttachment,
-  type DocumentAttachment,
-} from '../../../lib/documentAttachments'
 import { GENERIC_CLIENT_LABEL } from '../../../lib/clientSearch'
-import { sendFiscalReceiptToRt, documentRowsToRtItems, rtItemsGrossTotal, rtShouldSkipLanPrint } from '../../../lib/rtPrinter'
-import { buildVenditaBancoFIXLabPrintBody, VENDITA_BANCO_PRINT_CSS } from '../../../lib/venditaBancoPrint'
+import { sendFiscalReceiptToRt, documentRowsToRtItems, rtItemsGrossTotal, rtShouldSkipLanPrint, normalizeRtPaymentLabel } from '../../../lib/rtPrinter'
+import { buildVenditaBancoConfermaModel, buildVenditaBancoDaneaHtml, VENDITA_BANCO_DANEA_CSS } from '../../../lib/venditaBancoPrint'
+import { DEFAULT_VENDITA_BANCO_DISCLAIMER } from '../../../lib/confermaOrdineTemplate'
+import { getDocumentTypePrintOptions, resolvePrintDisclaimer, studioDataToConfermaStudio } from '../../../lib/printTemplates'
+import { applyModelloToPrintOptions, type StampaModello } from '../../../lib/stampaModelli'
 import {
   buildPrintFilename,
   downloadHtmlAsPdf,
@@ -33,25 +29,28 @@ import {
 import { buildFullNumber, documentYearFromDate } from '../../../gestionale/features/documenti'
 import { mergeIncludedRows } from '../documenti/inclusionUtils'
 import { emitPaymentsForDocumentIfNeeded } from '../../lib/paymentSchedule'
+import { docRecordToVenditaBancoState } from '../../lib/docRecordLoaders'
 import { invalidateDashboardCache } from '../start/dashboardCache'
-import type { Category, Client, DocRecord, DocumentType } from '../../../types'
+import {
+  confirmSaveDocumentOnClose,
+  documentNeedsSaveOnClose,
+  isDocumentStateDirty,
+  snapshotDocumentState,
+} from '../../lib/confirmSaveOnClose'
+import type { Category, Client, DocRecord, DocumentType, Product } from '../../../types'
 import ClientFormModal from '../../../components/ClientFormModal'
-import { LISTINI, NUMERAZIONI, VENDITA_BANCO_TABS, TIPI_SPESE, IVA_ALIQUOTE, COMMENTI_INTERNI_PREDEFINITI } from './constants'
+import { NUMERAZIONI, VENDITA_BANCO_TABS, COMMENTI_INTERNI_PREDEFINITI } from './constants'
 import { getCustomCommentiInterni, addCustomCommentoInterno } from '../../../lib/userPrefs'
-import { useAgentOptions } from '../../hooks/useAgentOptions'
 import StampaDialog from './dialogs/StampaDialog'
 import AnteprimaStampaDialog, { type AnteprimaStampaMeta } from './dialogs/AnteprimaStampaDialog'
 import RegistratoreCassaAvvisoDialog from './dialogs/RegistratoreCassaAvvisoDialog'
 import IncludiDocumentiDialog from './dialogs/IncludiDocumentiDialog'
 import AnomalieMagazzinoDialog from './dialogs/AnomalieMagazzinoDialog'
-import AllegatiDialog from './dialogs/AllegatiDialog'
 import GeneraDocCollegatoDialog from './dialogs/GeneraDocCollegatoDialog'
-import EtichetteDialog from './dialogs/EtichetteDialog'
 import EasyfattCalcDialog from './dialogs/EasyfattCalcDialog'
 import ClientSearchDialog from '../../../components/clients/ClientSearchDialog'
 import FooterTotals from './FooterTotals'
 import { findAnomalieMagazzino, type AnomaliaMagazzino } from './stockCheck'
-import { printVenditaBancoEtichette } from './venditaBancoEtichette'
 import TabRigheDocumento from './tabs/TabRigheDocumento'
 import TabPagamento from './tabs/TabPagamento'
 import TabNote from './tabs/TabNote'
@@ -89,8 +88,7 @@ type StudioDoc = {
 
 export default function VenditaAlBancoModal() {
   const { studioId, loading: studioLoading } = useActiveStudio()
-  const agenti = useAgentOptions(studioId)
-  const { venditaBancoOpen, closeVenditaBanco } = useAppWindows()
+  const { venditaBancoOpen, closeVenditaBanco, venditaBancoSeed, venditaBancoEditId } = useAppWindows()
   const navigate = useNavigate()
 
   const [docState, setDocState] = useState<DocumentoVenditaBanco>(createInitialDocumento)
@@ -100,10 +98,11 @@ export default function VenditaAlBancoModal() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [savedDocumentId, setSavedDocumentId] = useState<string | null>(null)
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null)
   const [stockCommitted, setStockCommitted] = useState(false)
 
   const [clients, setClients] = useState<Client[]>([])
-  const [products, setProducts] = useState<Awaited<ReturnType<typeof getProducts>>>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [studioData, setStudioData] = useState<StudioDoc | null>(null)
 
@@ -118,11 +117,6 @@ export default function VenditaAlBancoModal() {
   const [showIncludiDoc, setShowIncludiDoc] = useState(false)
   const [includiDocs, setIncludiDocs] = useState<DocRecord[]>([])
   const [includiLoading, setIncludiLoading] = useState(false)
-  const [allegati, setAllegati] = useState<DocumentAttachment[]>([])
-  const [allegatiUploading, setAllegatiUploading] = useState(false)
-  const draftStorageKeyRef = useRef(crypto.randomUUID())
-  const [showAllegati, setShowAllegati] = useState(false)
-  const [showEtichette, setShowEtichette] = useState(false)
   const [showCalc, setShowCalc] = useState(false)
   const [showGeneraDoc, setShowGeneraDoc] = useState(false)
   const [anomalie, setAnomalie] = useState<AnomaliaMagazzino[] | null>(null)
@@ -141,6 +135,7 @@ export default function VenditaAlBancoModal() {
     setLoadError(null)
     setActionMessage(null)
     setSavedDocumentId(null)
+    setSavedSnapshot(null)
     setStockCommitted(false)
     setShowSelezioneCliente(false)
     setShowClientForm(false)
@@ -151,11 +146,6 @@ export default function VenditaAlBancoModal() {
     setShowRtAvviso(false)
     setShowIncludiDoc(false)
     setIncludiDocs([])
-    setAllegati([])
-    setAllegatiUploading(false)
-    draftStorageKeyRef.current = crypto.randomUUID()
-    setShowAllegati(false)
-    setShowEtichette(false)
     setShowCalc(false)
     setShowGeneraDoc(false)
     setAnomalie(null)
@@ -172,49 +162,91 @@ export default function VenditaAlBancoModal() {
   }, [venditaBancoOpen])
 
   useEffect(() => {
-    if (!venditaBancoOpen) return
-    reset()
-  }, [venditaBancoOpen, reset])
+    if (!venditaBancoOpen) {
+      setSavedSnapshot(null)
+      return
+    }
+    if (venditaBancoEditId) {
+      setActiveTab('righe')
+      setMinimized(false)
+      setLoadError(null)
+      setActionMessage(null)
+      setShowSelezioneCliente(false)
+      void getDoc(doc(db, 'documents', venditaBancoEditId)).then(snap => {
+        if (!snap.exists()) {
+          setLoadError('Documento non trovato.')
+          return
+        }
+        const record = { id: snap.id, ...(snap.data() as DocRecord) }
+        setDocState(docRecordToVenditaBancoState(record))
+        setSavedDocumentId(record.id)
+        setSavedSnapshot(null)
+        setStockCommitted(Boolean(record.stockCommitted))
+      })
+      return
+    }
+    if (!venditaBancoSeed) {
+      reset()
+    } else {
+      setActiveTab('righe')
+      setMinimized(false)
+      setLoadError(null)
+      setActionMessage(null)
+      setSavedDocumentId(null)
+      setStockCommitted(false)
+    }
+  }, [venditaBancoOpen, venditaBancoSeed, venditaBancoEditId, reset])
 
   useEffect(() => {
-    if (!venditaBancoOpen || !studioId) return
-    Promise.all([getClients(studioId), getProducts(studioId), getCategories(studioId)]).then(([c, p, cats]) => {
+    if (!venditaBancoOpen || !studioId || venditaBancoEditId) return
+    Promise.all([loadRecentClients(studioId), loadRecentProducts(studioId), getCategories(studioId)]).then(([c, p, cats]) => {
       setClients(c)
       setProducts(p)
       setCategories(cats)
-      setDocState(prev => ({
-        ...prev,
-        righe: refreshRigheListino(prev.righe, p, prev.listino),
-      }))
+      if (!venditaBancoSeed) {
+        setDocState(prev => ({
+          ...prev,
+          righe: refreshRigheListino(prev.righe, p, prev.listino),
+        }))
+      }
     })
     getDoc(doc(db, 'studios', studioId)).then(snap => {
       if (snap.exists()) setStudioData(snap.data() as StudioDoc)
     })
     const today = new Date().toISOString().slice(0, 10)
-    getNextDocumentNumber(studioId, 'vendita_banco', documentYearFromDate(today)).then(num =>
-      patchDoc({
-        data: today,
-        numero: num,
-        cliente: { id: '', nome: GENERIC_CLIENT_LABEL, codFiscale: '', partitaIva: '' },
-      }),
-    )
-  }, [venditaBancoOpen, studioId, patchDoc])
+    const docDate = venditaBancoSeed?.data || today
+    void getNextDocumentNumber(studioId, 'vendita_banco', documentYearFromDate(docDate)).then(num => {
+      if (venditaBancoSeed) {
+        const totals = documentTotalsFromRighe(venditaBancoSeed.righe, 0, 22)
+        patchDoc({
+          cliente: venditaBancoSeed.cliente,
+          listino: venditaBancoSeed.listino,
+          data: docDate,
+          numero: num,
+          intestatario: venditaBancoSeed.intestatario,
+          destinazione: venditaBancoSeed.destinazione,
+          tipoPagamento: venditaBancoSeed.tipoPagamento || '',
+          commentoInterno: venditaBancoSeed.commentoInterno || '',
+          righe: venditaBancoSeed.righe,
+          ...totals,
+        })
+      } else {
+        patchDoc({
+          data: today,
+          numero: num,
+          cliente: { id: '', nome: GENERIC_CLIENT_LABEL, codFiscale: '', partitaIva: '' },
+        })
+      }
+    })
+  }, [venditaBancoOpen, studioId, patchDoc, venditaBancoSeed])
 
   useEffect(() => {
     if (!studioId || !docState.cliente.id) {
       setIncludiDocAvailable(false)
       return
     }
-    void getDocuments(studioId).then(all => {
-      setIncludiDocAvailable(
-        all.some(
-          d =>
-            d.subjectId === docState.cliente.id &&
-            d.id !== savedDocumentId &&
-            d.type !== 'vendita_banco' &&
-            d.status !== 'cancelled',
-        ),
-      )
+    void loadSubjectDocuments(studioId, docState.cliente.id, 200).then(all => {
+      setIncludiDocAvailable(hasLinkableClientDocuments(all, docState.cliente.id, savedDocumentId))
     })
   }, [studioId, docState.cliente.id, savedDocumentId])
 
@@ -266,6 +298,17 @@ export default function VenditaAlBancoModal() {
     [docState, totals],
   )
 
+  const isDirty = useMemo(
+    () => isDocumentStateDirty(docWithTotals, savedSnapshot),
+    [docWithTotals, savedSnapshot],
+  )
+
+  useEffect(() => {
+    if (venditaBancoOpen && savedSnapshot === null) {
+      setSavedSnapshot(snapshotDocumentState(docWithTotals))
+    }
+  }, [venditaBancoOpen, docWithTotals, savedSnapshot])
+
   const documentYear = useMemo(() => documentYearFromDate(docState.data), [docState.data])
 
   const buildPayload = useCallback(
@@ -312,6 +355,7 @@ export default function VenditaAlBancoModal() {
         shippingVatRate: docState.speseImporto > 0 ? docState.speseIva : undefined,
         shippingDescription: docState.speseTipo || undefined,
         priceList: listinoToPriceList(docState.listino),
+        pricesVatIncluded: docState.prezziIvati ?? true,
         agentName,
         internalNotes: internalNotes || undefined,
         paymentMethod: docState.tipoPagamento || undefined,
@@ -322,10 +366,9 @@ export default function VenditaAlBancoModal() {
         deliveryCap: docState.destinazione.cap || undefined,
         status: saveStatus,
         stockCommitted,
-        attachments: allegati.length ? attachmentUrls(allegati) : undefined,
       }
     },
-    [studioId, docState, activeRighe, documentYear, totals, stockCommitted, allegati],
+    [studioId, docState, activeRighe, documentYear, totals, stockCommitted],
   )
 
   const saveWithFallback = useCallback(
@@ -415,7 +458,7 @@ export default function VenditaAlBancoModal() {
           const receipt = await sendFiscalReceiptToRt(rtItems, Math.round(rtTotal * 100) / 100, {
             rtIp: studioData?.rtIp,
             rtModel: studioData?.rtModel,
-            paymentLabel: docState.tipoPagamento || 'CONTANTI',
+            paymentLabel: normalizeRtPaymentLabel(docState.tipoPagamento || 'CONTANTI'),
           })
           setActionMessage(
             receipt.ok
@@ -425,6 +468,7 @@ export default function VenditaAlBancoModal() {
         } else {
           setActionMessage(`Documento ${result.fullNumber} salvato correttamente.${paymentNote}`)
         }
+        setSavedSnapshot(snapshotDocumentState({ ...docWithTotals, numero: result.number }))
         return true
       } catch (err) {
         if (isCommitFunctionUnavailable(err)) {
@@ -436,20 +480,32 @@ export default function VenditaAlBancoModal() {
               if (emitted > 0) paymentNote = ` ${emitted} scadenze pagamento create.`
             }
             setActionMessage(`Documento salvato (modalità locale).${paymentNote}`)
+            setSavedSnapshot(snapshotDocumentState(docWithTotals))
             return true
           } catch (fallbackErr) {
             setLoadError(fallbackErr instanceof Error ? fallbackErr.message : 'Salvataggio non riuscito.')
           }
         } else {
-          setLoadError(err instanceof Error ? err.message : 'Salvataggio non riuscito.')
+          setLoadError(formatCallableError(err, 'Salvataggio non riuscito.'))
         }
         return false
       } finally {
         setSaving(false)
       }
     },
-    [studioId, docState, activeRighe, buildPayload, savedDocumentId, patchDoc, saveWithFallback, studioData, emitScheduledPayments],
+    [studioId, docState, activeRighe, buildPayload, savedDocumentId, patchDoc, saveWithFallback, studioData, emitScheduledPayments, docWithTotals],
   )
+
+  const handleClose = useCallback(async () => {
+    const needsPrompt = documentNeedsSaveOnClose(activeRighe.length > 0, savedDocumentId, isDirty)
+    const outcome = await confirmSaveDocumentOnClose(needsPrompt, async () => {
+      const ok = await handleSave('confirmed')
+      if (!ok) throw new Error('Salvataggio non riuscito.')
+    })
+    if (outcome === 'close') {
+      closeVenditaBanco()
+    }
+  }, [activeRighe.length, savedDocumentId, isDirty, handleSave, closeVenditaBanco])
 
   const rtConfigured = Boolean(studioData?.rtIp?.trim()) && !rtShouldSkipLanPrint(studioData?.rtModel)
 
@@ -520,14 +576,14 @@ export default function VenditaAlBancoModal() {
   )
 
   const refreshListinoFromCatalog = useCallback(() => {
-    void getProducts(studioId!).then(p => {
+    void loadRecentProducts(studioId!).then(p => {
       setProducts(p)
       patchDoc({ righe: refreshRigheListino(docState.righe, p, docState.listino) })
       setActionMessage('Listino aggiornato dagli archivi prodotti.')
     })
   }, [studioId, docState.righe, docState.listino, patchDoc])
 
-  const buildPrintDoc = useCallback((): {
+  const buildPrintDoc = useCallback((modello?: StampaModello): {
     innerHtml: string
     title: string
     filename: string
@@ -539,15 +595,29 @@ export default function VenditaAlBancoModal() {
       createdAt: new Date(),
     }
     const righeCalcolate = activeRighe.map(calcRiga)
-    const innerHtml = buildVenditaBancoFIXLabPrintBody({
-      doc: docRecord,
-      studio: studioData || undefined,
-      cliente: docState.cliente,
-      intestatario: docState.intestatario,
-      destinazione: docState.destinazione,
-      righe: righeCalcolate,
-    })
-    const title = `Vendita al banco ${docRecord.fullNumber}`
+    const baseOptions = getDocumentTypePrintOptions(studioData ?? undefined, 'vendita_banco')
+    const printOptions = applyModelloToPrintOptions(baseOptions, modello, 'vendita_banco')
+    const studio = studioDataToConfermaStudio(studioData || undefined) ?? { name: 'FIXLab' }
+    const model = {
+      ...buildVenditaBancoConfermaModel(
+        {
+          doc: docRecord,
+          cliente: docState.cliente,
+          intestatario: docState.intestatario,
+          destinazione: docState.destinazione,
+          righe: righeCalcolate,
+        },
+        studio,
+        printOptions.titoloStampa || 'Vendita al banco',
+      ),
+      clientBoxTitle: printOptions.template.clientBoxTitle,
+      rightBoxTitle: printOptions.template.secondBoxTitle,
+      showRightBox: printOptions.template.showSecondBox,
+      totalLabel: printOptions.template.totalLabel,
+      disclaimer: resolvePrintDisclaimer(studio, printOptions, DEFAULT_VENDITA_BANCO_DISCLAIMER),
+    }
+    const innerHtml = buildVenditaBancoDaneaHtml(model)
+    const title = `${printOptions.titoloStampa || 'Vendita al banco'} ${docRecord.fullNumber}`
     const filename = buildPrintFilename('vendita_banco', 'Vendita_al_banco', docRecord.fullNumber)
     const meta: AnteprimaStampaMeta = {
       title,
@@ -571,8 +641,8 @@ export default function VenditaAlBancoModal() {
   ])
 
   const openAnteprima = useCallback(
-    (copie: number) => {
-      const { innerHtml, meta } = buildPrintDoc()
+    (copie: number, modello?: StampaModello) => {
+      const { innerHtml, meta } = buildPrintDoc(modello)
       setAnteprimaHtml(innerHtml)
       setAnteprimaMeta(meta)
       setAnteprimaCopie(copie)
@@ -583,17 +653,17 @@ export default function VenditaAlBancoModal() {
   )
 
   const handleStampaPreview = useCallback(
-    (copie: number) => {
-      openAnteprima(copie)
+    (copie: number, modello?: StampaModello) => {
+      openAnteprima(copie, modello)
     },
     [openAnteprima],
   )
 
   const handleStampaPrint = useCallback(
-    (copie: number) => {
-      const { innerHtml, title } = buildPrintDoc()
+    (copie: number, modello?: StampaModello) => {
+      const { innerHtml, title } = buildPrintDoc(modello)
       for (let i = 0; i < Math.max(1, copie); i++) {
-        printHtmlInIframe(innerHtml, title, VENDITA_BANCO_PRINT_CSS)
+        printHtmlInIframe(innerHtml, title, VENDITA_BANCO_DANEA_CSS)
       }
       setShowStampa(false)
     },
@@ -601,10 +671,10 @@ export default function VenditaAlBancoModal() {
   )
 
   const handleStampaPdf = useCallback(
-    async (_copie: number) => {
-      const { innerHtml, filename } = buildPrintDoc()
+    async (_copie: number, modello?: StampaModello) => {
+      const { innerHtml, filename } = buildPrintDoc(modello)
       try {
-        await downloadHtmlAsPdf(innerHtml, filename, VENDITA_BANCO_PRINT_CSS)
+        await downloadHtmlAsPdf(innerHtml, filename, VENDITA_BANCO_DANEA_CSS)
         setShowStampa(false)
       } catch {
         alert('Generazione PDF non riuscita.')
@@ -613,126 +683,9 @@ export default function VenditaAlBancoModal() {
     [buildPrintDoc],
   )
 
-  const handleStampaEmail = useCallback(() => {
-    const { meta } = buildPrintDoc()
-    const subject = encodeURIComponent(`Vendita al banco ${meta.fullNumber}`)
-    const body = encodeURIComponent(
-      [
-        `Vendita al banco n. ${meta.fullNumber} del ${meta.docDate}`,
-        `Cliente: ${meta.clienteNome}`,
-        `Totale documento: € ${meta.totalDocument.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`,
-        '',
-        meta.studioName,
-      ].join('\n'),
-    )
-    window.location.href = `mailto:?subject=${subject}&body=${body}`
-  }, [buildPrintDoc])
-
-  const handleStampaWhatsApp = useCallback(() => {
-    const { meta } = buildPrintDoc()
-    const text = encodeURIComponent(
-      `Vendita al banco n. ${meta.fullNumber} del ${meta.docDate}\nCliente: ${meta.clienteNome}\nTotale: € ${meta.totalDocument.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`,
-    )
-    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer')
-  }, [buildPrintDoc])
-
-  const handleEtichette = useCallback(() => {
-    if (activeRighe.length === 0) {
-      alert('Aggiungi almeno una riga con codice prodotto.')
-      return
-    }
-    setShowEtichette(true)
-  }, [activeRighe.length])
-
-  const handleEtichettePrint = useCallback(() => {
-    printVenditaBancoEtichette(activeRighe.map(calcRiga), docState.cliente.nome)
-    setShowEtichette(false)
-  }, [activeRighe, docState.cliente.nome])
-
-  const handleAllegati = useCallback(() => {
-    setShowAllegati(true)
-  }, [])
-
-  const documentStorageKey = savedDocumentId || `draft-${draftStorageKeyRef.current}`
-
-  const uploadAllegatiFiles = useCallback(
-    async (files: FileList | File[]) => {
-      if (!studioId) {
-        alert('Archivio non disponibile.')
-        return
-      }
-      const list = Array.from(files)
-      if (!list.length) return
-      setAllegatiUploading(true)
-      try {
-        const uploaded: DocumentAttachment[] = []
-        for (const file of list) {
-          uploaded.push(await uploadDocumentAttachment(studioId, documentStorageKey, file))
-        }
-        setAllegati(prev => [...prev, ...uploaded])
-        setActionMessage(`${uploaded.length} allegato/i caricato/i su cloud.`)
-      } catch (err) {
-        alert(err instanceof Error ? err.message : 'Caricamento allegati non riuscito.')
-      } finally {
-        setAllegatiUploading(false)
-      }
-    },
-    [studioId, documentStorageKey],
-  )
-
-  const handleAllegatiImport = useCallback(() => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.multiple = true
-    input.onchange = () => {
-      if (input.files?.length) void uploadAllegatiFiles(input.files)
-    }
-    input.click()
-  }, [uploadAllegatiFiles])
-
-  const handleAllegatiScan = useCallback(() => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.multiple = true
-    input.accept = 'image/*,application/pdf'
-    input.onchange = () => {
-      if (input.files?.length) void uploadAllegatiFiles(input.files)
-    }
-    input.click()
-    setActionMessage('Seleziona il file acquisito dallo scanner (immagine o PDF).')
-  }, [uploadAllegatiFiles])
-
-  const handleAllegatiDelete = useCallback(async (item: DocumentAttachment) => {
-    if (!confirm(`Eliminare l'allegato "${item.name}"?`)) return
-    await deleteDocumentAttachment(item)
-    setAllegati(prev => prev.filter(a => a.path !== item.path))
-    setActionMessage(`Allegato "${item.name}" eliminato.`)
-  }, [])
-
-  const handleAllegatiOpen = useCallback((item: DocumentAttachment) => {
-    window.open(item.url, '_blank', 'noopener,noreferrer')
-  }, [])
-
-  const handleAllegatiSmartphone = useCallback(() => {
-    const { meta } = buildPrintDoc()
-    const subject = encodeURIComponent(`Allegati — Vendita al banco ${meta.fullNumber}`)
-    const body = encodeURIComponent(
-      [
-        'Invia una risposta a questa e-mail con gli allegati da associare al documento.',
-        '',
-        `Documento: ${meta.fullNumber} del ${meta.docDate}`,
-        `Cliente: ${meta.clienteNome}`,
-        '',
-        meta.studioName,
-      ].join('\n'),
-    )
-    window.location.href = `mailto:?subject=${subject}&body=${body}`
-    setActionMessage('Aperta e-mail per invio allegati da smartphone.')
-  }, [buildPrintDoc])
-
   const refreshProducts = useCallback(async () => {
     if (!studioId) return
-    const p = await getProducts(studioId)
+    const p = await loadRecentProducts(studioId)
     setProducts(p)
     setDocState(prev => ({
       ...prev,
@@ -758,32 +711,48 @@ export default function VenditaAlBancoModal() {
         let venditaId = savedDocumentId
         if (!venditaId) {
           const payload = omitUndefined(buildPayload('confirmed'))
-          const saved = await callCommitDocument({ document: payload, assignNumber: true })
-          venditaId = saved.documentId
-          setSavedDocumentId(saved.documentId)
-          patchDoc({ numero: saved.number })
-          setStockCommitted(saved.stockCommitted)
-          const docForPayments = {
-            ...payload,
-            number: saved.number,
-            fullNumber: saved.fullNumber,
-            documentYear: payload.documentYear,
+          try {
+            const saved = await callCommitDocument({ document: payload, assignNumber: true })
+            venditaId = saved.documentId
+            setSavedDocumentId(saved.documentId)
+            patchDoc({ numero: saved.number })
+            setStockCommitted(saved.stockCommitted)
+            try {
+              const docForPayments = {
+                ...payload,
+                number: saved.number,
+                fullNumber: saved.fullNumber,
+                documentYear: payload.documentYear,
+              }
+              await emitScheduledPayments(saved.documentId, docForPayments)
+            } catch {
+              /* pagamenti non bloccano la generazione documento */
+            }
+            invalidateDashboardCache(studioId)
+          } catch (err) {
+            if (isCommitFunctionUnavailable(err)) {
+              const fallback = await saveWithFallback('confirmed')
+              venditaId = fallback.documentId
+              try {
+                await emitScheduledPayments(fallback.documentId, fallback.payload)
+              } catch {
+                /* pagamenti non bloccano */
+              }
+            } else {
+              throw err
+            }
           }
-          await emitScheduledPayments(saved.documentId, docForPayments)
-          invalidateDashboardCache(studioId)
         }
 
         const today = new Date().toISOString().slice(0, 10)
         const year = documentYearFromDate(today)
-        const newNumber = await getNextDocumentNumber(studioId, targetType, year)
-        const fullNum = buildFullNumber(newNumber, year, docState.numerazione)
         const rows = activeRighe.map(rigaToDocumentRow).map(r => ({ ...r, id: crypto.randomUUID() }))
         const linkedPayload = omitUndefined({
           studioId,
           type: targetType,
-          number: newNumber,
+          number: 0,
+          fullNumber: '',
           numbering: docState.numerazione || undefined,
-          fullNumber: fullNum,
           date: today,
           documentYear: year,
           subjectType: 'client' as const,
@@ -816,7 +785,9 @@ export default function VenditaAlBancoModal() {
           navigate(`/documenti/${result.documentId}`)
         } catch (err) {
           if (isCommitFunctionUnavailable(err)) {
-            const ref = await addDocument(linkedPayload)
+            const newNumber = await getNextDocumentNumber(studioId, targetType, year)
+            const fullNum = buildFullNumber(newNumber, year, docState.numerazione)
+            const ref = await addDocument({ ...linkedPayload, number: newNumber, fullNumber: fullNum })
             closeVenditaBanco()
             navigate(`/documenti/${ref.id}`)
           } else {
@@ -824,7 +795,7 @@ export default function VenditaAlBancoModal() {
           }
         }
       } catch (e) {
-        setLoadError(e instanceof Error ? e.message : 'Generazione documento non riuscita.')
+        setLoadError(formatCallableError(e, 'Generazione documento non riuscita.'))
       } finally {
         setSaving(false)
       }
@@ -839,6 +810,8 @@ export default function VenditaAlBancoModal() {
       totals,
       closeVenditaBanco,
       navigate,
+      emitScheduledPayments,
+      saveWithFallback,
     ],
   )
 
@@ -850,7 +823,7 @@ export default function VenditaAlBancoModal() {
     setShowIncludiDoc(true)
     setIncludiLoading(true)
     try {
-      const all = await getDocuments(studioId!)
+      const all = await loadSubjectDocuments(studioId!, docState.cliente.id, 200)
       setIncludiDocs(
         all.filter(
           d =>
@@ -920,8 +893,8 @@ export default function VenditaAlBancoModal() {
         e.preventDefault()
         if (docState.protetto) handleUnlock()
       }
-      if (e.key === 'Escape' && !showStampa && !showAnteprima && !showSelezioneCliente && !showRtAvviso && !showIncludiDoc && !showAllegati && !showEtichette && !anomalie) {
-        closeVenditaBanco()
+      if (e.key === 'Escape' && !showStampa && !showAnteprima && !showSelezioneCliente && !showRtAvviso && !showIncludiDoc && !anomalie) {
+        void handleClose()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -930,14 +903,12 @@ export default function VenditaAlBancoModal() {
     venditaBancoOpen,
     handleScontrino,
     handleUnlock,
-    closeVenditaBanco,
+    handleClose,
     showStampa,
     showAnteprima,
     showSelezioneCliente,
     showRtAvviso,
     showIncludiDoc,
-    showAllegati,
-    showEtichette,
     anomalie,
     docState.protetto,
   ])
@@ -978,7 +949,7 @@ export default function VenditaAlBancoModal() {
             type="button"
             className="gestionale-mdi-window__title-btn gestionale-mdi-window__title-btn--close"
             title="Chiudi"
-            onClick={closeVenditaBanco}
+            onClick={() => void handleClose()}
           >
             ✕
           </button>
@@ -1014,8 +985,8 @@ export default function VenditaAlBancoModal() {
                   </div>
                 ) : null}
 
-                <div className="gestionale-mdi-window__scroll">
-                  <div className="vb-header-row">
+                    <div className="gestionale-mdi-window__doc-shell">
+                      <div className="vb-header-row vb-header-row--danea">
                     <WinField label="Cliente" htmlFor="vb-cliente" className="vb-header-field--cliente">
                       <div className="vb-row">
                         <WinInput
@@ -1032,53 +1003,6 @@ export default function VenditaAlBancoModal() {
                           onClick={() => !protetto && setShowSelezioneCliente(true)}
                         >
                           🔭
-                        </WinIconBtn>
-                      </div>
-                    </WinField>
-
-                    <WinField label="Listino" htmlFor="vb-listino" className="vb-header-field--listino">
-                      <div className="vb-row">
-                        <WinSelect
-                          id="vb-listino"
-                          className="vb-input--flex"
-                          value={docState.listino}
-                          disabled={protetto}
-                          onChange={e => handleListinoChange(e.target.value)}
-                        >
-                          {LISTINI.map(l => (
-                            <option key={l} value={l}>
-                              {l}
-                            </option>
-                          ))}
-                        </WinSelect>
-                        <WinIconBtn
-                          title="Aggiorna listino"
-                          className="vb-icon-btn--refresh"
-                          disabled={protetto}
-                          onClick={refreshListinoFromCatalog}
-                        >
-                          ↻
-                        </WinIconBtn>
-                      </div>
-                    </WinField>
-
-                    <WinField label="Agente" htmlFor="vb-agente" className="vb-header-field--agente">
-                      <div className="vb-row">
-                        <WinSelect
-                          id="vb-agente"
-                          className="vb-input--flex"
-                          value={docState.agente || agenti[0]}
-                          disabled={protetto}
-                          onChange={e => patchDoc({ agente: e.target.value })}
-                        >
-                          {agenti.map(a => (
-                            <option key={a} value={a}>
-                              {a}
-                            </option>
-                          ))}
-                        </WinSelect>
-                        <WinIconBtn title="Scheda agente" disabled={protetto}>
-                          📄
                         </WinIconBtn>
                       </div>
                     </WinField>
@@ -1166,7 +1090,7 @@ export default function VenditaAlBancoModal() {
                     ))}
                   </div>
 
-                  <div className="gestionale-mdi-window__panel" role="tabpanel">
+                      <div className="gestionale-mdi-window__panel gestionale-mdi-window__panel--doc" role="tabpanel">
                     {activeTab === 'righe' ? (
                       <TabRigheDocumento
                         doc={docWithTotals}
@@ -1174,6 +1098,8 @@ export default function VenditaAlBancoModal() {
                         categories={categories}
                         studioId={studioId || undefined}
                         protetto={protetto}
+                        prezziIvati={docState.prezziIvati ?? true}
+                        onPrezziModeChange={ivati => patchDoc({ prezziIvati: ivati })}
                         onChange={patchDoc}
                         onProductsChange={() => void refreshProducts()}
                         onToast={setActionMessage}
@@ -1189,54 +1115,6 @@ export default function VenditaAlBancoModal() {
 
                 <div className="vb-footer-row">
                   <div className="vb-footer-fields">
-                    <WinField label="Spese" htmlFor="vb-spese-tipo">
-                      <div className="vb-row">
-                        <WinSelect
-                          id="vb-spese-tipo"
-                          className="vb-input--flex"
-                          value={docState.speseTipo}
-                          disabled={protetto}
-                          onChange={e =>
-                            patchDoc({
-                              speseTipo: e.target.value === '(Nessuna)' ? '' : e.target.value,
-                            })
-                          }
-                        >
-                          {TIPI_SPESE.map(t => (
-                            <option key={t} value={t}>
-                              {t}
-                            </option>
-                          ))}
-                        </WinSelect>
-                        <WinIconBtn title="Tipi spese">📄</WinIconBtn>
-                      </div>
-                    </WinField>
-                    <WinField label="Iva" htmlFor="vb-spese-iva">
-                      <WinSelect
-                        id="vb-spese-iva"
-                        value={docState.speseIva}
-                        disabled={protetto}
-                        onChange={e => patchDoc({ speseIva: parseInt(e.target.value, 10) || 22 })}
-                      >
-                        {IVA_ALIQUOTE.map(v => (
-                          <option key={v} value={v}>
-                            {v}
-                          </option>
-                        ))}
-                      </WinSelect>
-                    </WinField>
-                    <WinField label="Importo ivato" htmlFor="vb-spese-importo">
-                      <WinInput
-                        id="vb-spese-importo"
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        className="vb-input--right"
-                        value={docState.speseImporto || ''}
-                        disabled={protetto}
-                        onChange={e => patchDoc({ speseImporto: parseFloat(e.target.value) || 0 })}
-                      />
-                    </WinField>
                     <WinField label="Commento ad uso interno" htmlFor="vb-commento" className="vb-footer-field--commento">
                       <div className="vb-row">
                         <WinInput
@@ -1276,23 +1154,6 @@ export default function VenditaAlBancoModal() {
                   </button>
                   <button type="button" className="gestionale-mdi-window__action-btn" onClick={handleStampaOpen} disabled={saving}>
                     🖨 Stampa
-                  </button>
-                  <button
-                    type="button"
-                    className="gestionale-mdi-window__action-btn"
-                    onClick={handleEtichette}
-                    disabled={saving}
-                  >
-                    🏷 Etichette
-                  </button>
-                  <button
-                    type="button"
-                    className="gestionale-mdi-window__action-btn"
-                    onClick={handleAllegati}
-                    disabled={saving}
-                    title={allegati.length ? allegati.map(a => a.name).join(', ') : undefined}
-                  >
-                    📎 Allegati…{allegati.length ? ` (${allegati.length})` : ''}
                   </button>
                   <button
                     type="button"
@@ -1344,7 +1205,7 @@ export default function VenditaAlBancoModal() {
                   <button
                     type="button"
                     className="gestionale-mdi-window__action-btn gestionale-mdi-window__action-btn--close"
-                    onClick={closeVenditaBanco}
+                    onClick={() => void handleClose()}
                   >
                     ✕ Chiudi
                   </button>
@@ -1357,7 +1218,7 @@ export default function VenditaAlBancoModal() {
 
       {studioReady && showSelezioneCliente ? (
         <ClientSearchDialog
-          clients={clients}
+          studioId={studioId}
           onSelect={selectClient}
           onNoClient={selectNoClient}
           onNewClient={() => {
@@ -1386,9 +1247,7 @@ export default function VenditaAlBancoModal() {
           onClose={() => setShowStampa(false)}
           onPreview={handleStampaPreview}
           onPrint={handleStampaPrint}
-          onPdf={copie => void handleStampaPdf(copie)}
-          onEmail={() => handleStampaEmail()}
-          onWhatsApp={() => handleStampaWhatsApp()}
+          onPdf={(copie, modello) => void handleStampaPdf(copie, modello)}
         />
       ) : null}
 
@@ -1397,6 +1256,7 @@ export default function VenditaAlBancoModal() {
           innerHtml={anteprimaHtml}
           meta={anteprimaMeta}
           initialCopie={anteprimaCopie}
+          printCss={VENDITA_BANCO_DANEA_CSS}
           onClose={() => setShowAnteprima(false)}
         />
       ) : null}
@@ -1430,29 +1290,8 @@ export default function VenditaAlBancoModal() {
         />
       ) : null}
 
-      {showAllegati ? (
-        <AllegatiDialog
-          attachments={allegati}
-          uploading={allegatiUploading}
-          onSmartphone={handleAllegatiSmartphone}
-          onScan={handleAllegatiScan}
-          onImport={handleAllegatiImport}
-          onOpen={handleAllegatiOpen}
-          onDelete={item => void handleAllegatiDelete(item)}
-          onClose={() => setShowAllegati(false)}
-        />
-      ) : null}
-
       {showGeneraDoc ? (
         <GeneraDocCollegatoDialog onGenerate={tipo => void handleGeneraDocConfirm(tipo)} onClose={() => setShowGeneraDoc(false)} />
-      ) : null}
-
-      {showEtichette ? (
-        <EtichetteDialog
-          righe={activeRighe.map(calcRiga)}
-          onPrint={handleEtichettePrint}
-          onClose={() => setShowEtichette(false)}
-        />
       ) : null}
 
       {showCalc ? (
@@ -1465,6 +1304,7 @@ export default function VenditaAlBancoModal() {
           }}
         />
       ) : null}
+
     </div>,
     document.body,
   )

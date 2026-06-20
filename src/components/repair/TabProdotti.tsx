@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import type { Product, RepairProduct, Category } from '../../types'
+import { buildCategoryPath, matchesProductCategoryTree } from '../../gestionale/lib/categoryUtils'
 
 interface Props {
   products: Product[]
@@ -10,13 +11,6 @@ interface Props {
   onRemove: (productId: string) => void
   onChangeQty: (productId: string, qty: number) => void
   categories?: Category[]
-}
-
-function collectDescendantIds(catId: string, categories: Category[]): string[] {
-  const children = categories.filter(c => c.parentId === catId)
-  let ids = [catId]
-  for (const child of children) ids = [...ids, ...collectDescendantIds(child.id, categories)]
-  return ids
 }
 
 export default function TabProdotti({ products, selected, search, onSearch, onAdd, onRemove, onChangeQty, categories = [] }: Props) {
@@ -51,8 +45,7 @@ export default function TabProdotti({ products, selected, search, onSearch, onAd
     let result = products
 
     if (filterCategoryId) {
-      const ids = collectDescendantIds(filterCategoryId, categories)
-      result = result.filter(p => ids.includes(p.categoryId))
+      result = result.filter(p => matchesProductCategoryTree(p, filterCategoryId, categories))
     }
 
     if (filterBrand) {
@@ -78,8 +71,7 @@ export default function TabProdotti({ products, selected, search, onSearch, onAd
   const getAvailableBrands = () => {
     let pool = products
     if (filterCategoryId) {
-      const ids = collectDescendantIds(filterCategoryId, categories)
-      pool = pool.filter(p => ids.includes(p.categoryId))
+      pool = pool.filter(p => matchesProductCategoryTree(p, filterCategoryId, categories))
     }
     const brands = new Map<string, number>()
     for (const p of pool) {
@@ -93,7 +85,7 @@ export default function TabProdotti({ products, selected, search, onSearch, onAd
   const hasFilters = filterCategoryId !== null || filterBrand !== null || filterStock !== null
   const clearFilters = () => { setFilterCategoryId(null); setFilterBrand(null); setFilterStock(null); onSearch('') }
 
-  const filterCategoryName = filterCategoryId ? (categories.find(c => c.id === filterCategoryId)?.name || '') : ''
+  const filterCategoryName = filterCategoryId ? buildCategoryPath(filterCategoryId, categories) : ''
   const filterCategoryEmoji = filterCategoryId ? (categories.find(c => c.id === filterCategoryId)?.emoji || '📦') : ''
 
   const chipStyle = (active: boolean): React.CSSProperties => ({
@@ -137,7 +129,7 @@ export default function TabProdotti({ products, selected, search, onSearch, onAd
                     <span>{c.emoji}</span>
                     <span style={{ fontWeight: 500 }}>{c.name}</span>
                     <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginLeft: 'auto' }}>
-                      {products.filter(p => collectDescendantIds(c.id, categories).includes(p.categoryId)).length} prodotti
+                      {products.filter(p => matchesProductCategoryTree(p, c.id, categories)).length} prodotti
                     </span>
                   </div>
                 ))}

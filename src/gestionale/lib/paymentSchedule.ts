@@ -1,6 +1,7 @@
 import type { DocRecord, Payment } from '../../types'
 import { buildScadenzario } from '../features/vendita-banco/utils'
-import { addPayment, getPayments } from '../../lib/firestore'
+import { addPayment } from '../../lib/firestore'
+import { hasPaymentsForDocument } from '../../lib/firestorePagination'
 
 export function paymentPayloadsFromDocument(
   doc: Omit<DocRecord, 'id' | 'createdAt' | 'updatedAt'>,
@@ -44,7 +45,6 @@ export async function emitPaymentsForDocumentIfNeeded(
   documentId: string,
   doc: Omit<DocRecord, 'id' | 'createdAt' | 'updatedAt'>,
 ): Promise<number> {
-  const existing = await getPayments(studioId)
-  if (existing.some(p => p.linkedDocumentId === documentId)) return 0
+  if (await hasPaymentsForDocument(studioId, documentId)) return 0
   return emitPaymentsForDocument(documentId, doc)
 }

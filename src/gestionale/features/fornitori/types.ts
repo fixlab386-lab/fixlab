@@ -1,4 +1,4 @@
-import type { Supplier } from '../../../types'
+import type { ClientExtraData, Supplier } from '../../../types'
 
 export interface Indirizzo {
   denominazione: string
@@ -290,12 +290,31 @@ export function fornitoreToSupplierPayload(
       fornitore.fatturaElettronica.recapito === 'CodDest' ? fornitore.fatturaElettronica.valore : undefined,
     adminRef: fornitore.fatturaElettronica.rifAmmin || undefined,
     website: fornitore.contatti.internet || fornitore.varie.homePage || undefined,
-    notes: fornitore.note || undefined,
-    extraData: {
-      ...(fornitore.sedeLegale ? { sedeLegale: fornitore.sedeLegale } : {}),
-      ...(fornitore.sediAmmin.length ? { sediAmmin: fornitore.sediAmmin } : {}),
-      ...(fornitore.sediExtra.length ? { sediExtra: fornitore.sediExtra } : {}),
-      ...(fornitore.contattiExtra.length ? { contattiExtra: fornitore.contattiExtra } : {}),
-    },
+    notes: buildFornitoreNotes(fornitore),
+    ...(buildFornitoreExtraData(fornitore) ? { extraData: buildFornitoreExtraData(fornitore) } : {}),
   }
+}
+
+function buildFornitoreNotes(fornitore: Fornitore): string | undefined {
+  const parts = [
+    fornitore.note?.trim(),
+    fornitore.varie.tipologia ? `Tipologia: ${fornitore.varie.tipologia}` : '',
+    fornitore.varie.solvibilita ? `Solvibilità: ${fornitore.varie.solvibilita}` : '',
+    fornitore.varie.libero3 ? `Libero 3: ${fornitore.varie.libero3}` : '',
+    fornitore.varie.libero4 ? `Libero 4: ${fornitore.varie.libero4}` : '',
+    fornitore.varie.libero5 ? `Libero 5: ${fornitore.varie.libero5}` : '',
+    fornitore.varie.libero6 ? `Libero 6: ${fornitore.varie.libero6}` : '',
+    fornitore.varie.loginWeb ? `Login web: ${fornitore.varie.loginWeb}` : '',
+  ].filter(Boolean)
+  return parts.length ? parts.join('\n') : undefined
+}
+
+function buildFornitoreExtraData(fornitore: Fornitore): ClientExtraData | undefined {
+  const extraData: ClientExtraData = {
+    ...(fornitore.sedeLegale ? { sedeLegale: fornitore.sedeLegale } : {}),
+    ...(fornitore.sediAmmin.length ? { sediAmmin: fornitore.sediAmmin } : {}),
+    ...(fornitore.sediExtra.length ? { sediExtra: fornitore.sediExtra } : {}),
+    ...(fornitore.contattiExtra.length ? { contattiExtra: fornitore.contattiExtra } : {}),
+  }
+  return Object.keys(extraData).length ? extraData : undefined
 }

@@ -14,8 +14,10 @@ const sourcePng = join(buildDir, 'icon-source.png')
 const svgPath = join(root, 'public', 'favicon.svg')
 const pngPath = join(buildDir, 'icon.png')
 const icoPath = join(buildDir, 'icon.ico')
+const publicDir = join(root, 'public')
 
 if (!existsSync(buildDir)) mkdirSync(buildDir, { recursive: true })
+if (!existsSync(publicDir)) mkdirSync(publicDir, { recursive: true })
 
 if (existsSync(sourcePng)) {
   await sharp(sourcePng)
@@ -44,3 +46,19 @@ const icoBuffer = await pngToIco(pngBuffers)
 writeFileSync(icoPath, icoBuffer)
 console.log(`Icona generata: ${pngPath}`)
 console.log(`Icona ICO: ${icoPath}`)
+
+const webSizes = [
+  { size: 32, name: 'favicon-32.png' },
+  { size: 192, name: 'favicon-192.png' },
+  { size: 512, name: 'icon-512.png' },
+  { size: 180, name: 'apple-touch-icon.png' },
+]
+
+for (const { size, name } of webSizes) {
+  const out = join(publicDir, name)
+  await sharp(pngPath).resize(size, size, { fit: 'cover' }).png().toFile(out)
+  console.log(`Web icon: ${out}`)
+}
+
+writeFileSync(join(publicDir, 'favicon.ico'), icoBuffer)
+console.log(`Web favicon: ${join(publicDir, 'favicon.ico')}`)

@@ -8,25 +8,33 @@ export function agentNamesFromList(agents: Agent[]): string[] {
   return [DEFAULT_AGENT_LABEL, ...agents.filter(a => a.isActive !== false).map(a => a.name)]
 }
 
-export function useAgentOptions(studioId: string | null | undefined): string[] {
-  const [options, setOptions] = useState<string[]>([DEFAULT_AGENT_LABEL, 'Agente 1', 'Agente 2', 'Agente 3'])
+export function useAgentOptions(studioId: string | null | undefined, refreshKey = 0): string[] {
+  const agents = useAgents(studioId, refreshKey)
+  return agentNamesFromList(agents)
+}
+
+export function useAgents(studioId: string | null | undefined, refreshKey = 0): Agent[] {
+  const [agents, setAgents] = useState<Agent[]>([])
 
   useEffect(() => {
-    if (!studioId) return
+    if (!studioId) {
+      setAgents([])
+      return
+    }
     let cancelled = false
     ensureDefaultAgents(studioId)
       .then(list => {
-        if (!cancelled) setOptions(agentNamesFromList(list))
+        if (!cancelled) setAgents(list)
       })
       .catch(() => {
-        if (!cancelled) setOptions([DEFAULT_AGENT_LABEL])
+        if (!cancelled) setAgents([])
       })
     return () => {
       cancelled = true
     }
-  }, [studioId])
+  }, [studioId, refreshKey])
 
-  return options
+  return agents
 }
 
 export async function refreshAgentOptions(studioId: string): Promise<string[]> {

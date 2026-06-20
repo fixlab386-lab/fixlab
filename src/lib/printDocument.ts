@@ -1,3 +1,4 @@
+import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 
 /** Intestazione condivisa per anteprima, stampa e PDF. */
@@ -244,6 +245,9 @@ export function wrapPrintDocument(header: PrintDocumentHeader, bodyHtml: string,
   `
 }
 
+const PDF_PAGE_WIDTH_PX = 794
+const PDF_MARGIN_MM = 10
+
 export function buildPrintHtmlPage(innerHtml: string, title: string, extraCss = ''): string {
   return `<!DOCTYPE html>
 <html lang="it">
@@ -256,9 +260,60 @@ export function buildPrintHtmlPage(innerHtml: string, title: string, extraCss = 
 </html>`
 }
 
+/** Pagina HTML per PDF/stampa template gestionale (solo CSS del modello, come in anteprima). */
+function buildTemplatePdfHtmlPage(innerHtml: string, templateCss: string): string {
+  return `<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <title>PDF</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      width: ${PDF_PAGE_WIDTH_PX}px;
+    }
+    ${templateCss}
+  </style>
+</head>
+<body>${innerHtml}</body>
+</html>`
+}
+
+const PDF_TEMPLATE_ROOT_SELECTORS = ['.co-print', '.vbd', '.ddt-doc', '.print-doc'] as const
+
+const VBD_CSS_VARS: Record<string, string> = {
+  '--vbd-red': '#d6334f',
+  '--vbd-pink': '#fbe7ec',
+  '--vbd-sep': '#f1ccd4',
+}
+
+function resolvePdfCaptureTarget(doc: Document): HTMLElement {
+  for (const selector of PDF_TEMPLATE_ROOT_SELECTORS) {
+    const el = doc.querySelector(selector)
+    if (el instanceof HTMLElement) return el
+  }
+  const first = doc.body.firstElementChild
+  if (first instanceof HTMLElement) return first
+  return doc.body
+}
+
+function prepareClonedTemplateRoot(root: HTMLElement): void {
+  if (root.classList.contains('vbd')) {
+    for (const [key, value] of Object.entries(VBD_CSS_VARS)) {
+      root.style.setProperty(key, value)
+    }
+  }
+  root.style.background = '#ffffff'
+  root.style.boxSizing = 'border-box'
+}
+
 /** Stampa in iframe nascosto — non richiede popup del browser. */
 export function printHtmlInIframe(innerHtml: string, title: string, extraCss = ''): void {
-  const fullPage = buildPrintHtmlPage(innerHtml, title, extraCss)
+  const fullPage = extraCss.trim()
+    ? buildTemplatePdfHtmlPage(innerHtml, extraCss)
+    : buildPrintHtmlPage(innerHtml, title, extraCss)
   const iframe = document.createElement('iframe')
   iframe.setAttribute('aria-hidden', 'true')
   iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;'
@@ -315,28 +370,118 @@ export function printHtmlDocument(innerHtml: string, title: string, extraCss = '
   printHtmlInIframe(innerHtml, title, extraCss)
 }
 
-/** Genera e scarica un PDF dal contenuto HTML (jsPDF, come generateRepairPDF). */
+async function waitForDocumentReady(doc: Document): Promise<void> {
+  if (doc.fonts?.ready) await doc.fonts.ready
+  await Promise.all(
+    Array.from(doc.images).map(
+      img =>
+        img.complete
+          ? Promise.resolve()
+          : new Promise<void>(resolve => {
+              img.onload = () => resolve()
+              img.onerror = () => resolve()
+            }),
+    ),
+  )
+  await new Promise(resolve => setTimeout(resolve, 80))
+}
+
+function addCanvasPagesToPdf(pdf: jsPDF, canvas: HTMLCanvasElement, marginMm: number): void {
+  const pageWidthMm = 210
+  const pageHeightMm = 297
+  const contentWidthMm = pageWidthMm - marginMm * 2
+  const contentHeightMm = pageHeightMm - marginMm * 2
+  const pxPerMm = canvas.width / contentWidthMm
+  const pageHeightPx = Math.max(1, Math.floor(contentHeightMm * pxPerMm))
+
+  let offsetY = 0
+  let pageIndex = 0
+
+  while (offsetY < canvas.height) {
+    if (pageIndex > 0) pdf.addPage()
+
+    const sliceHeight = Math.min(pageHeightPx, canvas.height - offsetY)
+    const pageCanvas = document.createElement('canvas')
+    pageCanvas.width = canvas.width
+    pageCanvas.height = sliceHeight
+    const ctx = pageCanvas.getContext('2d')
+    if (!ctx) throw new Error('Canvas non disponibile')
+
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height)
+    ctx.drawImage(canvas, 0, offsetY, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight)
+
+    pdf.addImage(
+      pageCanvas.toDataURL('image/jpeg', 0.92),
+      'JPEG',
+      marginMm,
+      marginMm,
+      contentWidthMm,
+      sliceHeight / pxPerMm,
+    )
+
+    offsetY += sliceHeight
+    pageIndex += 1
+  }
+}
+
+/** Genera e scarica un PDF dal contenuto HTML (iframe + html2canvas). */
 export async function downloadHtmlAsPdf(innerHtml: string, filename: string, extraCss = ''): Promise<void> {
-  const container = document.createElement('div')
-  container.style.position = 'fixed'
-  container.style.left = '-10000px'
-  container.style.top = '0'
-  container.style.width = '794px'
-  container.style.background = '#fff'
-  container.innerHTML = `<style>${PRINT_DOCUMENT_CSS}${extraCss}</style>${innerHtml}`
-  document.body.appendChild(container)
+  const usesTemplateCss = extraCss.trim().length > 0
+  const iframe = document.createElement('iframe')
+  iframe.setAttribute('aria-hidden', 'true')
+  iframe.style.cssText = `position:fixed;left:0;top:0;width:${PDF_PAGE_WIDTH_PX}px;min-height:1123px;border:0;opacity:0;pointer-events:none;z-index:-1;overflow:hidden;`
+  document.body.appendChild(iframe)
+
+  const win = iframe.contentWindow
+  const doc = win?.document
+  if (!doc) {
+    document.body.removeChild(iframe)
+    throw new Error('Generazione PDF non disponibile')
+  }
 
   try {
-    const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
-    await pdf.html(container, {
-      margin: [10, 10, 12, 10],
-      autoPaging: 'text',
-      width: 190,
-      windowWidth: 794,
-      html2canvas: { scale: 0.75, useCORS: true },
+    doc.open()
+    doc.write(
+      usesTemplateCss
+        ? buildTemplatePdfHtmlPage(innerHtml, extraCss)
+        : buildPrintHtmlPage(innerHtml, 'PDF', extraCss),
+    )
+    doc.close()
+
+    await new Promise<void>(resolve => {
+      if (doc.readyState === 'complete') resolve()
+      else iframe.onload = () => resolve()
     })
+    await waitForDocumentReady(doc)
+
+    const target = resolvePdfCaptureTarget(doc)
+    const captureWidth = Math.max(target.scrollWidth, target.offsetWidth, PDF_PAGE_WIDTH_PX)
+
+    const canvas = await html2canvas(target, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      windowWidth: captureWidth,
+      scrollX: 0,
+      scrollY: 0,
+      logging: false,
+      onclone: clonedDoc => {
+        const clonedTarget = resolvePdfCaptureTarget(clonedDoc)
+        prepareClonedTemplateRoot(clonedTarget)
+        clonedTarget.style.width = `${captureWidth}px`
+      },
+    })
+
+    if (canvas.width === 0 || canvas.height === 0) {
+      throw new Error('Contenuto PDF vuoto')
+    }
+
+    const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
+    addCanvasPagesToPdf(pdf, canvas, PDF_MARGIN_MM)
     pdf.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`)
   } finally {
-    document.body.removeChild(container)
+    if (iframe.parentNode) document.body.removeChild(iframe)
   }
 }

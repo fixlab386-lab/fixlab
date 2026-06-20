@@ -1,6 +1,6 @@
 /** Scorciatoie menu «Nuovo» — stile gestionale enterprise (senza fatturazione elettronica). */
 
-export type NewMenuModalId = 'vendita_banco'
+export type NewMenuModalId = 'vendita_banco' | 'ordine_cliente' | 'ordine_fornitore' | 'ddt'
 
 export type NewMenuItem =
   | {
@@ -24,12 +24,18 @@ export const NEW_MENU_SECTIONS: NewMenuItem[][] = [
     { id: 'cliente', label: 'Cliente', icon: '👤', kind: 'route', to: '/clienti?new=1' },
     { id: 'fornitore', label: 'Fornitore', icon: '🏭', kind: 'route', to: '/fornitori?new=1' },
     { id: 'prodotto', label: 'Prodotto', icon: '📦', kind: 'route', to: '/magazzino?new=1' },
-    { id: 'riparazione', label: 'Riparazione', icon: '🔧', kind: 'route', to: '/riparazioni/nuova' },
-    { id: 'dispositivo', label: 'Dispositivo', icon: '📱', kind: 'route', to: '/dispositivi?new=1' },
+    { id: 'riparazione', label: 'Riparazione', icon: '🔧', kind: 'route', to: '/riparazioni' },
   ],
   [
-    { id: 'preventivo', label: 'Preventivo', icon: '📋', kind: 'route', to: '/documenti/nuovo?type=preventivo' },
-    { id: 'ddt', label: 'Doc. di trasporto', icon: '🚚', kind: 'route', to: '/documenti/nuovo?type=ddt' },
+    { id: 'ordine_cliente', label: 'Ordine cliente', icon: '📦', kind: 'modal', modal: 'ordine_cliente' },
+    {
+      id: 'ordine_fornitore',
+      label: 'Ordine fornitore',
+      icon: '🏭',
+      kind: 'modal',
+      modal: 'ordine_fornitore',
+    },
     { id: 'vendita_banco', label: 'Vendita al banco', icon: '€', kind: 'modal', modal: 'vendita_banco' },
+    { id: 'ddt', label: 'Documento di trasporto', icon: '🚚', kind: 'modal', modal: 'ddt' },
   ],
 ]

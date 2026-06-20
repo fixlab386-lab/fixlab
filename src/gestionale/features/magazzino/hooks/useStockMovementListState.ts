@@ -1,26 +1,34 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { DataTableSortDirection } from '../../../../components/ui'
-import { filterStockMovements, type MovementPeriodFilter } from '../utils'
 import type { StockMovement } from '../../../../types'
+import type { MovementPeriod, MovementStatusFilter } from '../constants'
+import { DEFAULT_MOVEMENT_PERIOD } from '../constants'
+import { filterStockMovements } from '../utils'
 
 export function useStockMovementListState(movements: StockMovement[]) {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<StockMovement | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<string[]>([])
-  const [detailCollapsed, setDetailCollapsed] = useState(false)
-  const [period, setPeriod] = useState<MovementPeriodFilter>('all')
-  const [typeFilter, setTypeFilter] = useState('all')
+  const [period, setPeriod] = useState<MovementPeriod>(DEFAULT_MOVEMENT_PERIOD)
+  const [statusFilter, setStatusFilter] = useState<MovementStatusFilter>('all')
   const [productFilter, setProductFilter] = useState('all')
-  const [selectionMode, setSelectionMode] = useState(false)
-  const [showFilterMenu, setShowFilterMenu] = useState(false)
+  const [subjectFilter, setSubjectFilter] = useState('all')
   const [sortColumnId, setSortColumnId] = useState<string | null>('date')
   const [sortDirection, setSortDirection] = useState<DataTableSortDirection>('desc')
 
   const searchLower = useMemo(() => search.trim().toLowerCase(), [search])
 
   const filtered = useMemo(
-    () => filterStockMovements(movements, searchLower, period, typeFilter, productFilter),
-    [movements, searchLower, period, typeFilter, productFilter],
+    () =>
+      filterStockMovements(
+        movements,
+        searchLower,
+        period,
+        statusFilter,
+        productFilter,
+        subjectFilter,
+      ),
+    [movements, searchLower, period, statusFilter, productFilter, subjectFilter],
   )
 
   const handleSort = useCallback((columnId: string) => {
@@ -44,18 +52,11 @@ export function useStockMovementListState(movements: StockMovement[]) {
     setSelectedKeys([])
   }, [])
 
-  const toggleSelectionMode = useCallback(() => {
-    setSelectionMode(v => !v)
-  }, [])
-
-  const toggleFilterMenu = useCallback(() => {
-    setShowFilterMenu(v => !v)
-  }, [])
-
   const resetFilters = useCallback(() => {
-    setPeriod('all')
-    setTypeFilter('all')
+    setPeriod(DEFAULT_MOVEMENT_PERIOD)
+    setStatusFilter('all')
     setProductFilter('all')
+    setSubjectFilter('all')
   }, [])
 
   return {
@@ -65,24 +66,20 @@ export function useStockMovementListState(movements: StockMovement[]) {
     setSelected,
     selectedKeys,
     setSelectedKeys,
-    detailCollapsed,
-    setDetailCollapsed,
     period,
     setPeriod,
-    typeFilter,
-    setTypeFilter,
+    statusFilter,
+    setStatusFilter,
     productFilter,
     setProductFilter,
-    selectionMode,
-    showFilterMenu,
+    subjectFilter,
+    setSubjectFilter,
     sortColumnId,
     sortDirection,
     filtered,
     handleSort,
     selectItem,
     clearSelection,
-    toggleSelectionMode,
-    toggleFilterMenu,
     resetFilters,
   }
 }

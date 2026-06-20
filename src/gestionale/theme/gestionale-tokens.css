@@ -1,20 +1,55 @@
 /**
- * Token estetica gestionale enterprise — Windows desktop classico.
+ * Token estetica gestionale FixLab — allineati al logo.
  * Importare dopo gestionale.css nel layout.
  */
+
+/* Fallback globali per componenti in portal (fuori da .gestionale-theme) */
+:root {
+  --win-bg: #f0f0f0;
+  --win-panel-bg: #ffffff;
+  --win-focus-blue: var(--brand-blue);
+  --win-text-main: #000000;
+  --win-text-muted: #333333;
+  --win-border: #cccccc;
+  --win-link: #0066cc;
+  --tab-inactive-bg: #e1e1e1;
+  --tab-active-accent: #d2691e;
+  --gestionale-header-text: #ffffff;
+  --gestionale-text: #111827;
+  --gestionale-text-muted: #6b7280;
+  --gestionale-input-bg: #ffffff;
+  --gestionale-input-border: #d1d5db;
+  --gestionale-border: #d1d5db;
+  --gestionale-link: var(--brand-link, #6366f1);
+  --gestionale-font-size-label: 12px;
+  --gestionale-radius-sm: 2px;
+}
+
+/* Pulsanti disabilitati leggibili nelle action bar */
+.clienti-actionbar__btn:disabled,
+.pagamenti-actionbar__btn:disabled,
+.movimenti-actionbar__btn:disabled,
+.prodotti-actionbar__btn:disabled {
+  opacity: 1;
+  color: #757575;
+  background: #e4e4e4;
+  border-color: #bdbdbd;
+  cursor: default;
+}
+
 .gestionale-theme {
-  --gestionale-bg-app: #f0f0f0;
+  --gestionale-bg-app: #f3f4f6;
   --gestionale-bg-panel: #ffffff;
-  --gestionale-bg-header-col: #e6e6e6;
-  --gestionale-border-header-col: #d0d0d0;
-  --gestionale-bg-group-row: #e6f2ff;
-  --gestionale-selection-bg: #0078d7;
+  --gestionale-bg-header-col: #ede9fe;
+  --gestionale-border-header-col: #ddd6fe;
+  --gestionale-bg-group-row: var(--brand-surface-group);
+  --gestionale-selection-bg: var(--brand-blue);
   --gestionale-selection-fg: #ffffff;
-  --gestionale-border-ui: #ccc;
-  --gestionale-border-cell: #e0e0e0;
-  --gestionale-tab-inactive-bg: #e1e1e1;
-  --gestionale-tab-inactive-fg: #666666;
-  --gestionale-link: #0056b3;
+  --gestionale-border-ui: #d1d5db;
+  --gestionale-border-cell: #e5e7eb;
+  --gestionale-tab-inactive-bg: #f3f4f6;
+  --gestionale-tab-inactive-fg: #6b7280;
+  --gestionale-link: var(--brand-link);
   --gestionale-font-size-data: 12px;
   --gestionale-font-size-label: 11px;
   --gestionale-font-size-group: 13px;

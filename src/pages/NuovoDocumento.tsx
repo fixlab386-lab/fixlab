@@ -1,29 +1,28 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAppWindows } from '../contexts/AppWindowsContext'
+import { isActiveDocumentoClienteModalType } from '../gestionale/features/documento-cliente/constants'
+import { isActiveDocumentoFornitoreModalType } from '../gestionale/features/documento-fornitore/constants'
 import { useAuth } from '../hooks/useAuth'
 import { useActiveStudio } from '../hooks/useActiveStudio'
 import {
   addDocument,
   updateDocument,
   getNextDocumentNumber,
-  getProducts,
-  getClients,
-  getSuppliers,
-  getDocuments,
   getCategories,
 } from '../lib/firestore'
+import { loadRecentClients, loadSubjectDocuments, loadRecentProducts, loadRecentSuppliers } from '../lib/loadStudioCatalog'
+import { autocompleteClients, autocompleteSuppliers } from '../lib/firestorePagination'
 import { emitPaymentsForDocumentIfNeeded } from '../gestionale/lib/paymentSchedule'
 import { invalidateDashboardCache } from '../gestionale/features/start/dashboardCache'
 import { callCommitDocument, isCommitFunctionUnavailable } from '../lib/commitDocument'
+import { formatCallableError } from '../lib/cloudFunctions'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import type { Category, Client, DocRecord, DocumentRow, DocumentType, Product, Supplier } from '../types'
 import { generateDocumentPDF } from '../lib/generatePDF'
-import { sendFiscalReceiptToRt, documentRowsToRtItems, rtItemsGrossTotal } from '../lib/rtPrinter'
+import { sendFiscalReceiptToRt, documentRowsToRtItems, rtItemsGrossTotal, normalizeRtPaymentLabel } from '../lib/rtPrinter'
 import { printVenditaBancoDocument } from '../lib/venditaBancoPrint'
-import AllegatiDialog from '../gestionale/features/vendita-banco/dialogs/AllegatiDialog'
-import { printDocumentRowEtichette } from '../gestionale/features/vendita-banco/venditaBancoEtichette'
 import ClientFormModal from '../components/ClientFormModal'
 import ClientSearchDialog from '../components/clients/ClientSearchDialog'
 import { GENERIC_CLIENT_LABEL } from '../lib/clientSearch'
@@ -37,6 +36,8 @@ import {
   DocumentLineItemsSection,
   DocumentTotalsSection,
   VENDITA_BANCO_FORM_TABS,
+  DOCUMENT_FORM_TABS,
+  ORDINE_CLIENTE_FORM_TABS,
   IncludiDocumentiDialog,
   buildFullNumber,
   documentTotals,
@@ -49,6 +50,8 @@ import {
   isPurchaseDocumentType,
   subjectLabelForType,
 } from '../gestionale/features/documenti'
+import TabProvvigioni from '../gestionale/features/agenti/tabs/TabProvvigioni'
+import { useAgents } from '../gestionale/hooks/useAgentOptions'
 import type { ActiveDocumentType, DocumentFormTabId } from '../gestionale/features/documenti/constants'
 import { ActionBar, FormField, ToolButton, type ActionBarAction } from '../components/ui'
 import '../theme/gestionale-document-form.css'
@@ -78,11 +81,64 @@ function parseDocType(raw: string | null): ActiveDocumentType {
 export default function NuovoDocumento() {
   const { userProfile } = useAuth()
   const { studioId } = useActiveStudio()
+  const agents = useAgents(studioId)
   const navigate = useNavigate()
-  const { openVenditaBanco } = useAppWindows()
+  const { openVenditaBanco, openOrdineCliente, openOrdineFornitore, openDocumentoClienteNew, openDocumentoFornitoreNew, openVenditaBancoEdit, openOrdineClienteEdit, openOrdineFornitoreEdit, openDocumentoClienteEdit, openDocumentoFornitoreEdit } = useAppWindows()
   const { id } = useParams()
   const [searchParams] = useSearchParams()
   const isEdit = Boolean(id)
+  const [editRedirecting, setEditRedirecting] = useState(isEdit)
+
+  useEffect(() => {
+    if (!isEdit || !id) {
+      setEditRedirecting(false)
+      return
+    }
+    setEditRedirecting(true)
+    void getDoc(doc(db, 'documents', id)).then(snap => {
+      if (!snap.exists()) {
+        setEditRedirecting(false)
+        return
+      }
+      const d = snap.data() as DocRecord
+      const docType = d.type as ActiveDocumentType
+      if (docType === 'vendita_banco') {
+        openVenditaBancoEdit(id)
+        navigate('/', { replace: true })
+        return
+      }
+      if (docType === 'ordine_cliente') {
+        openOrdineClienteEdit(id)
+        navigate('/', { replace: true })
+        return
+      }
+      if (docType === 'ordine_fornitore') {
+        openOrdineFornitoreEdit(id)
+        navigate('/', { replace: true })
+        return
+      }
+      if (isActiveDocumentoClienteModalType(docType)) {
+        openDocumentoClienteEdit(id)
+        navigate('/', { replace: true })
+        return
+      }
+      if (isActiveDocumentoFornitoreModalType(docType)) {
+        openDocumentoFornitoreEdit(id)
+        navigate('/', { replace: true })
+        return
+      }
+      setEditRedirecting(false)
+    })
+  }, [
+    isEdit,
+    id,
+    navigate,
+    openVenditaBancoEdit,
+    openOrdineClienteEdit,
+    openOrdineFornitoreEdit,
+    openDocumentoClienteEdit,
+    openDocumentoFornitoreEdit,
+  ])
 
   const initialType = parseDocType(searchParams.get('type'))
   const initialSubjectType =
@@ -91,13 +147,47 @@ export default function NuovoDocumento() {
       : ('client' as const)
 
   useEffect(() => {
-    if (initialType === 'vendita_banco' && !isEdit) {
+    if (isEdit) return
+    if (initialType === 'vendita_banco') {
       openVenditaBanco()
       navigate('/', { replace: true })
+      return
     }
-  }, [initialType, isEdit, openVenditaBanco, navigate])
+    if (initialType === 'ordine_cliente') {
+      openOrdineCliente()
+      navigate('/', { replace: true })
+      return
+    }
+    if (initialType === 'ordine_fornitore') {
+      const supplierId = searchParams.get('subjectId') || undefined
+      openOrdineFornitore(supplierId ? { supplierId } : undefined)
+      navigate('/', { replace: true })
+      return
+    }
+    if (isActiveDocumentoClienteModalType(initialType)) {
+      openDocumentoClienteNew(initialType)
+      navigate('/', { replace: true })
+      return
+    }
+    if (isActiveDocumentoFornitoreModalType(initialType)) {
+      const supplierId = searchParams.get('subjectId') || undefined
+      openDocumentoFornitoreNew(initialType, supplierId ? { supplierId } : undefined)
+      navigate('/', { replace: true })
+    }
+  }, [initialType, isEdit, openVenditaBanco, openOrdineCliente, openOrdineFornitore, openDocumentoClienteNew, openDocumentoFornitoreNew, navigate, searchParams])
 
-  if (initialType === 'vendita_banco' && !isEdit) {
+  if (isEdit && editRedirecting) {
+    return null
+  }
+
+  if (
+    !isEdit &&
+    (initialType === 'vendita_banco' ||
+      initialType === 'ordine_cliente' ||
+      initialType === 'ordine_fornitore' ||
+      isActiveDocumentoClienteModalType(initialType) ||
+      isActiveDocumentoFornitoreModalType(initialType))
+  ) {
     return null
   }
 
@@ -111,7 +201,13 @@ export default function NuovoDocumento() {
   const [studioData, setStudioData] = useState<StudioDoc | null>(null)
   const [showClientForm, setShowClientForm] = useState(false)
   const [showClientSearch, setShowClientSearch] = useState(false)
+  const [ordineClienteBlocked, setOrdineClienteBlocked] = useState(
+    () => initialType === 'ordine_cliente' && !isEdit,
+  )
   const [clientSearch, setClientSearch] = useState('')
+  const [clientSuggestions, setClientSuggestions] = useState<Client[]>([])
+  const [supplierSuggestions, setSupplierSuggestions] = useState<Supplier[]>([])
+  const [subjectSuggestLoading, setSubjectSuggestLoading] = useState(false)
   const [showClientDropdown, setShowClientDropdown] = useState(false)
 
   const [type, setType] = useState<ActiveDocumentType>(parseDocType(searchParams.get('type')))
@@ -152,15 +248,21 @@ export default function NuovoDocumento() {
   const [savedDocumentId, setSavedDocumentId] = useState<string | null>(id || null)
   const [receiptResult, setReceiptResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
-  const [allegati, setAllegati] = useState<string[]>([])
   const [lotteryCode, setLotteryCode] = useState('')
   const [renewalReminder, setRenewalReminder] = useState(false)
   const [renewalMonths, setRenewalMonths] = useState(12)
   const [printDateTime, setPrintDateTime] = useState('')
-  const [showAllegati, setShowAllegati] = useState(false)
   const [showIncludi, setShowIncludi] = useState(false)
   const [includiLoading, setIncludiLoading] = useState(false)
   const [includibleDocs, setIncludibleDocs] = useState<DocRecord[]>([])
+  const [expectedCompletionDate, setExpectedCompletionDate] = useState('')
+  const [transportReason, setTransportReason] = useState('')
+  const [transportStartAt, setTransportStartAt] = useState('')
+  const [transportCarrier, setTransportCarrier] = useState('')
+  const [transportPackages, setTransportPackages] = useState('')
+  const [transportWeight, setTransportWeight] = useState('')
+  const [transportAppearance, setTransportAppearance] = useState('')
+  const [transportShippingCode, setTransportShippingCode] = useState('')
 
   const documentYear = useMemo(() => documentYearFromDate(date), [date])
   const fullNumberPreview = useMemo(
@@ -169,6 +271,19 @@ export default function NuovoDocumento() {
   )
   const activeRows = useMemo(() => rows.filter(r => r.description), [rows])
   const isVenditaBanco = type === 'vendita_banco'
+  const isOrdineCliente = type === 'ordine_cliente'
+  const isPurchaseDoc = isPurchaseDocumentType(type)
+  const isOrdineFornitore = type === 'ordine_fornitore'
+  const isOrdineLike = isOrdineCliente || isOrdineFornitore
+  const isArrivoMerce = type === 'arrivo_merce'
+  const isRegFatturaFornitore = type === 'reg_fattura_fornitore'
+  const isSupplierDoc = isPurchaseDoc || subjectType === 'supplier'
+  const usesTabbedForm = isVenditaBanco || isOrdineCliente || isPurchaseDoc
+  const formTabs = isOrdineCliente
+    ? ORDINE_CLIENTE_FORM_TABS
+    : isOrdineFornitore
+      ? DOCUMENT_FORM_TABS
+      : VENDITA_BANCO_FORM_TABS
   const totals = useMemo(
     () => documentTotals(activeRows, isVenditaBanco ? shippingCost : 0, isVenditaBanco ? shippingVatRate : 22),
     [activeRows, isVenditaBanco, shippingCost, shippingVatRate],
@@ -176,8 +291,14 @@ export default function NuovoDocumento() {
   const transforms = DOCUMENT_TRANSFORM_MAP[type] || []
 
   useEffect(() => {
+    if (isOrdineCliente && !isEdit && ordineClienteBlocked) {
+      setShowClientSearch(true)
+    }
+  }, [isOrdineCliente, isEdit, ordineClienteBlocked])
+
+  useEffect(() => {
     if (!studioId) return
-    Promise.all([getClients(studioId), getSuppliers(studioId), getProducts(studioId), getCategories(studioId)]).then(
+    Promise.all([loadRecentClients(studioId), loadRecentSuppliers(studioId), loadRecentProducts(studioId), getCategories(studioId)]).then(
       ([c, s, p, cats]) => {
         setClients(c)
         setSuppliers(s)
@@ -194,7 +315,7 @@ export default function NuovoDocumento() {
   }, [studioId, isEdit, type])
 
   useEffect(() => {
-    if (!isEdit || !id) return
+    if (!isEdit || !id || editRedirecting) return
     setLoadError(null)
     getDoc(doc(db, 'documents', id)).then(snap => {
       if (!snap.exists()) {
@@ -233,6 +354,13 @@ export default function NuovoDocumento() {
         setPrintDateTime(printMatch[1].trim())
         notesBody = notesBody.replace(/^Data\/ora stampa: .+\n?/m, '')
       }
+      const endNotesMatch = notesBody.match(/^Note a fine documento:\n([\s\S]*)$/m)
+      if (endNotesMatch) {
+        setDocumentEndNotes(endNotesMatch[1].trim())
+        notesBody = notesBody.replace(/^Note a fine documento:\n[\s\S]*$/m, '').trim()
+      } else {
+        setDocumentEndNotes('')
+      }
       setInternalNotes(notesBody.trim())
       setValidityDays(d.validityDays || 30)
       setPaymentMethod(d.paymentMethod || '')
@@ -243,7 +371,6 @@ export default function NuovoDocumento() {
       setShippingDescription(d.shippingDescription || '')
       setShippingCost(d.shippingCost || 0)
       setShippingVatRate(d.shippingVatRate ?? 22)
-      setDocumentEndNotes(d.internalNotes || '')
       setBankName(d.bankName || '')
       setBankIban(d.bankIban || '')
       setDeliveryAddress(d.deliveryAddress || '')
@@ -253,7 +380,7 @@ export default function NuovoDocumento() {
       setStatus(d.status)
       setStockCommitted(Boolean(d.stockCommitted))
     })
-  }, [isEdit, id])
+  }, [isEdit, id, editRedirecting])
 
   useEffect(() => {
     if (isEdit || !studioId) return
@@ -269,6 +396,7 @@ export default function NuovoDocumento() {
     setClientSearch(c.name)
     setShowClientDropdown(false)
     setShowClientSearch(false)
+    setOrdineClienteBlocked(false)
   }, [])
 
   const selectSupplier = useCallback((s: Supplier) => {
@@ -303,24 +431,57 @@ export default function NuovoDocumento() {
     setShowClientSearch(false)
   }, [])
 
+  useEffect(() => {
+    if (!studioId) return
+    const q = clientSearch.trim()
+    if (!q) {
+      setClientSuggestions([])
+      setSupplierSuggestions([])
+      return
+    }
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      setSubjectSuggestLoading(true)
+      const load =
+        subjectType === 'supplier'
+          ? autocompleteSuppliers(studioId, q, 12)
+          : autocompleteClients(studioId, q, 12)
+      void load
+        .then(items => {
+          if (cancelled) return
+          if (subjectType === 'supplier') setSupplierSuggestions(items as Supplier[])
+          else setClientSuggestions(items as Client[])
+        })
+        .finally(() => {
+          if (!cancelled) setSubjectSuggestLoading(false)
+        })
+    }, 250)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [studioId, clientSearch, subjectType])
+
   const filteredClients = useMemo(() => {
-    const q = clientSearch.trim().toLowerCase()
+    const q = clientSearch.trim()
+    if (studioId && q) return clientSuggestions
     if (!q) return clients.slice(0, 12)
-    return clients.filter(c => `${c.name} ${c.phone} ${c.email || ''}`.toLowerCase().includes(q)).slice(0, 12)
-  }, [clients, clientSearch])
+    return clients.filter(c => `${c.name} ${c.phone} ${c.email || ''}`.toLowerCase().includes(q.toLowerCase())).slice(0, 12)
+  }, [studioId, clients, clientSearch, clientSuggestions])
 
   const filteredSuppliers = useMemo(() => {
-    const q = clientSearch.trim().toLowerCase()
+    const q = clientSearch.trim()
+    if (studioId && q) return supplierSuggestions
     if (!q) return suppliers.slice(0, 12)
-    return suppliers.filter(s => `${s.name} ${s.phone || ''} ${s.email || ''}`.toLowerCase().includes(q)).slice(0, 12)
-  }, [suppliers, clientSearch])
+    return suppliers.filter(s => `${s.name} ${s.phone || ''} ${s.email || ''}`.toLowerCase().includes(q.toLowerCase())).slice(0, 12)
+  }, [studioId, suppliers, clientSearch, supplierSuggestions])
 
   const openIncludiDialog = useCallback(async () => {
     if (!studioId || !subjectId) return
     setShowIncludi(true)
     setIncludiLoading(true)
     try {
-      const all = await getDocuments(studioId)
+      const all = await loadSubjectDocuments(studioId, subjectId, 200)
       setIncludibleDocs(getIncludableDocuments(all, type, subjectId, subjectType))
     } finally {
       setIncludiLoading(false)
@@ -331,7 +492,7 @@ export default function NuovoDocumento() {
     (
       source: DocRecord,
       mode: Parameters<typeof mergeIncludedRows>[2],
-      opts: { copyPayment: boolean; copyNotes: boolean; copyShipping: boolean },
+      opts: { copyPayment: boolean; copyNotes: boolean; copyShipping: boolean; copyDestination?: boolean },
     ) => {
       setRows(prev => [...mergeIncludedRows(prev.filter(r => r.description.trim()), source, mode), emptyDocumentRow()])
       const side = applyInclusionSideEffects(
@@ -355,6 +516,18 @@ export default function NuovoDocumento() {
         !isVenditaBanco && saveStatus === 'confirmed'
           ? printDateTime || new Date().toLocaleString('it-IT')
           : printDateTime
+      const orderNotes = [
+        isOrdineCliente && expectedCompletionDate ? `Data prevista concl.: ${expectedCompletionDate}` : '',
+        isOrdineFornitore && transportReason ? `Causale trasporto: ${transportReason}` : '',
+        isOrdineFornitore && transportStartAt ? `Inizio trasporto: ${transportStartAt}` : '',
+        isOrdineFornitore && transportCarrier ? `Incaricato trasporto: ${transportCarrier}` : '',
+        isOrdineFornitore && transportPackages ? `N. colli: ${transportPackages}` : '',
+        isOrdineFornitore && transportWeight ? `Peso: ${transportWeight}` : '',
+        isOrdineFornitore && transportAppearance ? `Aspetto beni: ${transportAppearance}` : '',
+        isOrdineFornitore && transportShippingCode ? `Cod. spedizione: ${transportShippingCode}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n')
       return {
       studioId,
       type: type as DocumentType,
@@ -386,6 +559,7 @@ export default function NuovoDocumento() {
             .join('\n') || undefined
         : [
             internalNotes,
+            orderNotes,
             lotteryCode ? `Cod. lotteria: ${lotteryCode}` : '',
             renewalReminder ? `Rinnovo documento fra ${renewalMonths} mesi` : '',
             confirmedPrintStamp ? `Data/ora stampa: ${confirmedPrintStamp}` : '',
@@ -454,7 +628,16 @@ export default function NuovoDocumento() {
       deliveryCap,
       stockCommitted,
       isVenditaBanco,
-      internalNotes,
+      isOrdineCliente,
+      isOrdineFornitore,
+      expectedCompletionDate,
+      transportReason,
+      transportStartAt,
+      transportCarrier,
+      transportPackages,
+      transportWeight,
+      transportAppearance,
+      transportShippingCode,
     ],
   )
 
@@ -539,7 +722,7 @@ export default function NuovoDocumento() {
           const receipt = await sendFiscalReceiptToRt(rtItems, Math.round(rtTotal * 100) / 100, {
             rtIp: studioData?.rtIp,
             rtModel: studioData?.rtModel,
-            paymentLabel: paymentMethod || 'CONTANTI',
+            paymentLabel: normalizeRtPaymentLabel(paymentMethod || 'CONTANTI'),
           })
           setReceiptResult(receipt)
           if (receipt.ok) {
@@ -578,10 +761,10 @@ export default function NuovoDocumento() {
             }
             return true
           } catch (fallbackErr) {
-            setLoadError(fallbackErr instanceof Error ? fallbackErr.message : 'Salvataggio non riuscito.')
+            setLoadError(formatCallableError(fallbackErr, 'Salvataggio non riuscito.'))
           }
         } else {
-          setLoadError(err instanceof Error ? err.message : 'Salvataggio non riuscito.')
+          setLoadError(formatCallableError(err, 'Salvataggio non riuscito.'))
         }
         return false
       } finally {
@@ -648,25 +831,15 @@ export default function NuovoDocumento() {
         const newNumber = await getNextDocumentNumber(studioId, targetType, year)
         const fullNum = buildFullNumber(newNumber, year, numbering)
         const payload: Omit<DocRecord, 'id' | 'createdAt' | 'updatedAt'> = {
-          studioId,
+          ...buildPayload('draft'),
           type: targetType,
           number: newNumber,
-          numbering: numbering || undefined,
           fullNumber: fullNum,
           date: today,
           documentYear: year,
-          subjectType,
-          subjectId: subjectId || undefined,
-          subjectName,
-          subjectVat: subjectVat || undefined,
-          subjectAddress: subjectAddress || undefined,
           rows: activeRows.map(r => ({ ...r, id: crypto.randomUUID() })),
-          totalNet: totals.totalNet,
-          totalVat: totals.totalVat,
-          totalDocument: totals.totalDocument,
-          priceList,
           status: 'draft',
-          linkedDocumentId: id || undefined,
+          linkedDocumentId: savedDocumentId || id || undefined,
           linkedDocumentType: type as DocumentType,
         }
         try {
@@ -696,7 +869,7 @@ export default function NuovoDocumento() {
           }
         }
       } catch (e) {
-        setLoadError(e instanceof Error ? e.message : 'Generazione non riuscita.')
+        setLoadError(formatCallableError(e, 'Generazione non riuscita.'))
       } finally {
         setSaving(false)
       }
@@ -704,18 +877,13 @@ export default function NuovoDocumento() {
     [
       subjectName,
       studioId,
-      numbering,
-      subjectId,
-      subjectName,
-      subjectVat,
-      subjectAddress,
+      buildPayload,
       activeRows,
-      totals,
-      priceList,
+      savedDocumentId,
       id,
-      isEdit,
       type,
       navigate,
+      isEdit,
     ],
   )
 
@@ -762,26 +930,6 @@ export default function NuovoDocumento() {
               disabled: saving,
             },
             {
-              id: 'labels',
-              label: 'Etichette',
-              icon: '🏷',
-              onClick: () => {
-                if (activeRows.length === 0) {
-                  alert('Aggiungi almeno una riga con codice prodotto.')
-                  return
-                }
-                printDocumentRowEtichette(activeRows, subjectName || 'Cliente')
-              },
-              disabled: saving,
-            },
-            {
-              id: 'attachments',
-              label: allegati.length ? `Allegati… (${allegati.length})` : 'Allegati…',
-              icon: '📎',
-              onClick: () => setShowAllegati(true),
-              disabled: saving,
-            },
-            {
               id: 'confirm',
               label: saving ? 'Salvataggio…' : 'Genera doc.',
               icon: '✓',
@@ -795,7 +943,93 @@ export default function NuovoDocumento() {
               onClick: () => navigate('/documenti'),
             },
           ]
-        : [
+        : isOrdineCliente
+          ? [
+              {
+                id: 'print',
+                label: 'Stampa',
+                icon: '🖨',
+                onClick: handlePrint,
+                disabled: saving,
+              },
+              {
+                id: 'include',
+                label: 'Includi doc.',
+                icon: '📋',
+                onClick: () => void openIncludiDialog(),
+                disabled: saving || !subjectId,
+              },
+              {
+                id: 'confirm',
+                label: saving ? 'Salvataggio…' : 'Concludi ordine',
+                icon: '✓',
+                onClick: () => void handleSave('confirmed'),
+                disabled: saving,
+              },
+              {
+                id: 'close',
+                label: 'Chiudi',
+                icon: '✕',
+                onClick: () => navigate('/documenti'),
+              },
+            ]
+          : isPurchaseDoc
+            ? [
+                {
+                  id: 'print',
+                  label: 'Stampa',
+                  icon: '🖨',
+                  onClick: handlePrint,
+                  disabled: saving,
+                },
+                {
+                  id: 'include',
+                  label: 'Includi doc.',
+                  icon: '📋',
+                  onClick: () => void openIncludiDialog(),
+                  disabled: saving || !subjectId,
+                },
+                ...(isOrdineFornitore
+                  ? [
+                      {
+                        id: 'next-arrivo',
+                        label: 'Arrivo merce',
+                        icon: '📥',
+                        onClick: () => void handleTransform('arrivo_merce'),
+                        disabled: saving,
+                      },
+                    ]
+                  : []),
+                ...(isArrivoMerce
+                  ? [
+                      {
+                        id: 'next-reg-fattura',
+                        label: 'Reg. fattura',
+                        icon: '📑',
+                        onClick: () => void handleTransform('reg_fattura_fornitore'),
+                        disabled: saving,
+                      },
+                    ]
+                  : []),
+                {
+                  id: 'confirm',
+                  label: saving
+                    ? 'Salvataggio…'
+                    : isRegFatturaFornitore
+                      ? 'Registra fattura'
+                      : 'Conferma',
+                  icon: '✓',
+                  onClick: () => void handleSave('confirmed'),
+                  disabled: saving,
+                },
+                {
+                  id: 'close',
+                  label: 'Chiudi',
+                  icon: '✕',
+                  onClick: () => navigate('/documenti'),
+                },
+              ]
+          : [
             {
               id: 'save',
               label: saving ? 'Salvataggio…' : 'Salva',
@@ -831,7 +1065,25 @@ export default function NuovoDocumento() {
               onClick: () => navigate('/documenti'),
             },
           ],
-    [saving, handleSave, handleScontrino, handleStampaDocumento, navigate, isVenditaBanco, activeRows, subjectName, allegati.length, openIncludiDialog, subjectId],
+    [
+      saving,
+      handleSave,
+      handleScontrino,
+      handleStampaDocumento,
+      handlePrint,
+      handleTransform,
+      navigate,
+      isVenditaBanco,
+      isOrdineCliente,
+      isPurchaseDoc,
+      isOrdineFornitore,
+      isArrivoMerce,
+      isRegFatturaFornitore,
+      activeRows,
+      subjectName,
+      openIncludiDialog,
+      subjectId,
+    ],
   )
 
   if (!studioId) {
@@ -839,7 +1091,6 @@ export default function NuovoDocumento() {
   }
 
   const subjectPickerLabel = subjectLabelForType(type)
-  const isSupplierDoc = isPurchaseDocumentType(type) || subjectType === 'supplier'
 
   const clientPicker = (
     <FormField label={subjectPickerLabel} htmlFor="doc-client">
@@ -902,7 +1153,10 @@ export default function NuovoDocumento() {
   )
 
   return (
-    <div className={`gestionale-page gestionale-repair-sheet${isVenditaBanco ? ' gestionale-vendita-banco' : ''}`} data-tutorial="page-documento">
+    <div
+      className={`gestionale-page gestionale-repair-sheet${isVenditaBanco ? ' gestionale-vendita-banco' : ''}${isOrdineLike ? ' gestionale-ordine-cliente' : ''}`}
+      data-tutorial="page-documento"
+    >
       <header className="gestionale-repair-sheet__header">
         <div>
           <h1 className="gestionale-repair-sheet__title">
@@ -910,11 +1164,19 @@ export default function NuovoDocumento() {
               ? isEdit
                 ? 'Modifica vendita al banco'
                 : 'Vendita al banco'
-              : isEdit
-                ? 'Modifica documento'
-                : 'Nuovo documento'}
+              : isOrdineCliente
+                ? isEdit
+                  ? 'Modifica ordine cliente'
+                  : 'Ordine cliente'
+                : isOrdineFornitore
+                  ? isEdit
+                    ? 'Modifica ordine fornitore'
+                    : 'Ordine fornitore'
+                : isEdit
+                  ? 'Modifica documento'
+                  : 'Nuovo documento'}
           </h1>
-          {!isVenditaBanco ? (
+          {!usesTabbedForm ? (
             <div className="gestionale-repair-sheet__meta">
               <span className="gestionale-repair-sheet__badge">{documentTypeLabel(type)}</span>
               <span>{fullNumberPreview}</span>
@@ -922,7 +1184,7 @@ export default function NuovoDocumento() {
             </div>
           ) : null}
         </div>
-        {!isVenditaBanco ? (
+        {!usesTabbedForm ? (
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {transforms.map(t => (
               <ToolButton
@@ -955,10 +1217,12 @@ export default function NuovoDocumento() {
       ) : null}
 
       <div className="gestionale-repair-sheet__scroll">
-        {isVenditaBanco ? (
+        {usesTabbedForm && (!isOrdineCliente || !ordineClienteBlocked) ? (
           <>
-            <div className="gestionale-doc-form-header gestionale-doc-form-header--vendita">
-              {venditaBancoClientPicker}
+            <div
+              className={`gestionale-doc-form-header ${isVenditaBanco ? 'gestionale-doc-form-header--vendita' : 'gestionale-doc-form-header--ordine'}`}
+            >
+              {isVenditaBanco || isOrdineCliente ? venditaBancoClientPicker : clientPicker}
               <FormField label="Listino" htmlFor="doc-listino-vb">
                 <select
                   id="doc-listino-vb"
@@ -972,14 +1236,16 @@ export default function NuovoDocumento() {
                   <option value="vip">Vip</option>
                 </select>
               </FormField>
-              <FormField label="Agente" htmlFor="doc-agent-vb">
-                <input
-                  id="doc-agent-vb"
-                  className="gestionale-form-field__input"
-                  value={agentName}
-                  onChange={e => setAgentName(e.target.value)}
-                />
-              </FormField>
+              {isVenditaBanco || isOrdineCliente ? (
+                <FormField label="Agente" htmlFor="doc-agent-vb">
+                  <input
+                    id="doc-agent-vb"
+                    className="gestionale-form-field__input"
+                    value={agentName}
+                    onChange={e => setAgentName(e.target.value)}
+                  />
+                </FormField>
+              ) : null}
               <FormField label="Data" htmlFor="doc-date-vb">
                 <input
                   id="doc-date-vb"
@@ -1007,41 +1273,40 @@ export default function NuovoDocumento() {
                   onChange={e => setNumbering(e.target.value)}
                 />
               </FormField>
-              <label className="gestionale-doc-form-header__followup">
-                <input
-                  type="checkbox"
-                  checked={followUpDoc}
-                  onChange={e => setFollowUpDoc(e.target.checked)}
-                />
-                Seguirà doc. di vendita
-              </label>
+              {isVenditaBanco ? (
+                <label className="gestionale-doc-form-header__followup">
+                  <input
+                    type="checkbox"
+                    checked={followUpDoc}
+                    onChange={e => setFollowUpDoc(e.target.checked)}
+                  />
+                  Seguirà doc. di vendita
+                </label>
+              ) : null}
             </div>
 
-            <DocumentFormTabBar
-              tabs={VENDITA_BANCO_FORM_TABS}
-              activeTabId={activeFormTab}
-              onTabChange={setActiveFormTab}
-            />
+            <DocumentFormTabBar tabs={formTabs} activeTabId={activeFormTab} onTabChange={setActiveFormTab} />
 
             <div className="gestionale-doc-form-tab-panel" role="tabpanel">
               {activeFormTab === 'righe' ? (
                 <div className="gestionale-doc-form-righe">
                   <div className="gestionale-doc-form-righe__lines">
                     <DocumentLineItemsSection
+                      studioId={studioId}
                       products={products}
                       categories={categories}
                       rows={rows}
                       priceList={priceList || 'privati'}
                       onChange={setRows}
-                      variant="vendita_banco"
+                      variant={isOrdineCliente ? 'ordine_cliente' : isPurchaseDoc ? 'purchase' : 'vendita_banco'}
                     />
                   </div>
                   <div className="gestionale-doc-form-righe__totals">
                     <DocumentTotalsSection
                       rows={rows}
-                      shippingCost={shippingCost}
-                      shippingVatRate={shippingVatRate}
-                      variant="vendita_banco"
+                      shippingCost={isVenditaBanco ? shippingCost : 0}
+                      shippingVatRate={isVenditaBanco ? shippingVatRate : 22}
+                      variant={isVenditaBanco ? 'vendita_banco' : 'default'}
                     />
                   </div>
                 </div>
@@ -1064,44 +1329,97 @@ export default function NuovoDocumento() {
                       ))}
                     </select>
                   </FormField>
+                  {isOrdineCliente || isPurchaseDoc ? (
+                    <FormField label="Acconto" htmlFor="doc-payment-deposit">
+                      <input
+                        id="doc-payment-deposit"
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        className="gestionale-form-field__input"
+                        value={paymentTerms}
+                        onChange={e => setPaymentTerms(e.target.value)}
+                        placeholder="Importo acconto"
+                      />
+                    </FormField>
+                  ) : null}
                 </div>
               ) : null}
 
               {activeFormTab === 'note' ? (
                 <div className="gestionale-doc-form-stack gestionale-doc-form-stack--wide">
                   <p className="gestionale-doc-form-section-title">Campi aggiuntivi</p>
-                  <FormField label="Desc. preventivo" htmlFor="doc-note-quote">
-                    <input
-                      id="doc-note-quote"
-                      className="gestionale-form-field__input"
-                      value={noteQuoteDesc}
-                      onChange={e => setNoteQuoteDesc(e.target.value)}
-                    />
-                  </FormField>
-                  <FormField label="Consegna" htmlFor="doc-note-delivery">
-                    <input
-                      id="doc-note-delivery"
-                      className="gestionale-form-field__input"
-                      value={noteDelivery}
-                      onChange={e => setNoteDelivery(e.target.value)}
-                    />
-                  </FormField>
-                  <FormField label="Libero 3" htmlFor="doc-note-free3">
-                    <input
-                      id="doc-note-free3"
-                      className="gestionale-form-field__input"
-                      value={noteFree3}
-                      onChange={e => setNoteFree3(e.target.value)}
-                    />
-                  </FormField>
-                  <FormField label="Libero 4" htmlFor="doc-note-free4">
-                    <input
-                      id="doc-note-free4"
-                      className="gestionale-form-field__input"
-                      value={noteFree4}
-                      onChange={e => setNoteFree4(e.target.value)}
-                    />
-                  </FormField>
+                  {isOrdineCliente ? (
+                    <>
+                      <FormField label="Libero 1" htmlFor="doc-note-quote">
+                        <input
+                          id="doc-note-quote"
+                          className="gestionale-form-field__input"
+                          value={noteQuoteDesc}
+                          onChange={e => setNoteQuoteDesc(e.target.value)}
+                        />
+                      </FormField>
+                      <FormField label="Libero 2" htmlFor="doc-note-delivery">
+                        <input
+                          id="doc-note-delivery"
+                          className="gestionale-form-field__input"
+                          value={noteDelivery}
+                          onChange={e => setNoteDelivery(e.target.value)}
+                        />
+                      </FormField>
+                      <FormField label="Libero 3" htmlFor="doc-note-free3">
+                        <input
+                          id="doc-note-free3"
+                          className="gestionale-form-field__input"
+                          value={noteFree3}
+                          onChange={e => setNoteFree3(e.target.value)}
+                        />
+                      </FormField>
+                      <FormField label="Libero 4" htmlFor="doc-note-free4">
+                        <input
+                          id="doc-note-free4"
+                          className="gestionale-form-field__input"
+                          value={noteFree4}
+                          onChange={e => setNoteFree4(e.target.value)}
+                        />
+                      </FormField>
+                    </>
+                  ) : (
+                    <>
+                      <FormField label="Desc. preventivo" htmlFor="doc-note-quote">
+                        <input
+                          id="doc-note-quote"
+                          className="gestionale-form-field__input"
+                          value={noteQuoteDesc}
+                          onChange={e => setNoteQuoteDesc(e.target.value)}
+                        />
+                      </FormField>
+                      <FormField label="Consegna" htmlFor="doc-note-delivery">
+                        <input
+                          id="doc-note-delivery"
+                          className="gestionale-form-field__input"
+                          value={noteDelivery}
+                          onChange={e => setNoteDelivery(e.target.value)}
+                        />
+                      </FormField>
+                      <FormField label="Libero 3" htmlFor="doc-note-free3">
+                        <input
+                          id="doc-note-free3"
+                          className="gestionale-form-field__input"
+                          value={noteFree3}
+                          onChange={e => setNoteFree3(e.target.value)}
+                        />
+                      </FormField>
+                      <FormField label="Libero 4" htmlFor="doc-note-free4">
+                        <input
+                          id="doc-note-free4"
+                          className="gestionale-form-field__input"
+                          value={noteFree4}
+                          onChange={e => setNoteFree4(e.target.value)}
+                        />
+                      </FormField>
+                    </>
+                  )}
                   <FormField label="Note a fine documento" htmlFor="doc-note-end">
                     <textarea
                       id="doc-note-end"
@@ -1162,14 +1480,16 @@ export default function NuovoDocumento() {
                       value={printDateTime}
                     />
                   </FormField>
-                  <FormField label="Cod. lotteria" htmlFor="doc-lottery-code">
-                    <input
-                      id="doc-lottery-code"
-                      className="gestionale-form-field__input"
-                      value={lotteryCode}
-                      onChange={e => setLotteryCode(e.target.value)}
-                    />
-                  </FormField>
+                  {!isOrdineLike ? (
+                    <FormField label="Cod. lotteria" htmlFor="doc-lottery-code">
+                      <input
+                        id="doc-lottery-code"
+                        className="gestionale-form-field__input"
+                        value={lotteryCode}
+                        onChange={e => setLotteryCode(e.target.value)}
+                      />
+                    </FormField>
+                  ) : null}
                   <label className="gestionale-doc-form-header__followup">
                     <input
                       type="checkbox"
@@ -1190,48 +1510,103 @@ export default function NuovoDocumento() {
               ) : null}
             </div>
 
-            <div className="gestionale-vendita-banco-footer">
-              <div className="gestionale-vendita-banco-footer__left">
-                <FormField label="Spese" htmlFor="doc-shipping-desc">
+            {isOrdineLike ? (
+              <div className="gestionale-ordine-cliente-footer">
+                <FormField label="Spese" htmlFor="doc-order-expenses">
                   <input
-                    id="doc-shipping-desc"
+                    id="doc-order-expenses"
                     className="gestionale-form-field__input"
                     value={shippingDescription}
                     onChange={e => setShippingDescription(e.target.value)}
-                    placeholder="es. Spese di spedizione"
+                    placeholder="Tipo spese"
                   />
                 </FormField>
-                <FormField label="Iva" htmlFor="doc-shipping-vat">
-                  <input
-                    id="doc-shipping-vat"
-                    type="number"
+                <FormField label="Stato" htmlFor="doc-order-status">
+                  <select
+                    id="doc-order-status"
                     className="gestionale-form-field__input"
-                    value={shippingVatRate}
-                    onChange={e => setShippingVatRate(parseFloat(e.target.value) || 0)}
-                  />
+                    value={status}
+                    onChange={e => setStatus(e.target.value as DocRecord['status'])}
+                  >
+                    <option value="draft">Da confermare</option>
+                    <option value="confirmed">Confermato</option>
+                    <option value="completed">Concluso</option>
+                    <option value="cancelled">Annullato</option>
+                  </select>
                 </FormField>
-                <FormField label="Importo ivato" htmlFor="doc-shipping-cost">
+                <FormField label="Data prevista concl." htmlFor="doc-order-expected">
                   <input
-                    id="doc-shipping-cost"
-                    type="number"
-                    min={0}
-                    step={0.01}
+                    id="doc-order-expected"
+                    type="date"
                     className="gestionale-form-field__input"
-                    value={shippingCost}
-                    onChange={e => setShippingCost(parseFloat(e.target.value) || 0)}
+                    value={expectedCompletionDate}
+                    onChange={e => setExpectedCompletionDate(e.target.value)}
                   />
                 </FormField>
-                <FormField label="Commento ad uso interno" htmlFor="doc-internal-comment">
+                <FormField label="Commento ad uso interno" htmlFor="doc-order-internal">
                   <input
-                    id="doc-internal-comment"
+                    id="doc-order-internal"
                     className="gestionale-form-field__input"
                     value={internalNotes}
                     onChange={e => setInternalNotes(e.target.value)}
                   />
                 </FormField>
+                <div className="gestionale-ordine-cliente-footer__totals">
+                  <div>Tot. netto: € {totals.totalNet.toFixed(2)}</div>
+                  <div>Iva: € {totals.totalVat.toFixed(2)}</div>
+                  <div>
+                    <strong>Totale documento: € {totals.totalDocument.toFixed(2)}</strong>
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="gestionale-vendita-banco-footer">
+                <div className="gestionale-vendita-banco-footer__left">
+                  <FormField label="Spese" htmlFor="doc-shipping-desc">
+                    <input
+                      id="doc-shipping-desc"
+                      className="gestionale-form-field__input"
+                      value={shippingDescription}
+                      onChange={e => setShippingDescription(e.target.value)}
+                      placeholder="es. Spese di spedizione"
+                    />
+                  </FormField>
+                  <FormField label="Iva" htmlFor="doc-shipping-vat">
+                    <input
+                      id="doc-shipping-vat"
+                      type="number"
+                      className="gestionale-form-field__input"
+                      value={shippingVatRate}
+                      onChange={e => setShippingVatRate(parseFloat(e.target.value) || 0)}
+                    />
+                  </FormField>
+                  <FormField label="Importo ivato" htmlFor="doc-shipping-cost">
+                    <input
+                      id="doc-shipping-cost"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      className="gestionale-form-field__input"
+                      value={shippingCost}
+                      onChange={e => setShippingCost(parseFloat(e.target.value) || 0)}
+                    />
+                  </FormField>
+                  <FormField label="Commento ad uso interno" htmlFor="doc-internal-comment">
+                    <input
+                      id="doc-internal-comment"
+                      className="gestionale-form-field__input"
+                      value={internalNotes}
+                      onChange={e => setInternalNotes(e.target.value)}
+                    />
+                  </FormField>
+                </div>
+              </div>
+            )}
           </>
+        ) : isOrdineCliente && ordineClienteBlocked ? (
+          <div className="gestionale-datatable__empty" style={{ padding: '2rem 1rem' }}>
+            Seleziona o crea un cliente per iniziare l&apos;ordine.
+          </div>
         ) : (
           <>
             <RepairSection title="Testata documento" id="doc-testata">
@@ -1316,10 +1691,12 @@ export default function NuovoDocumento() {
 
             <RepairSection title="Righe documento" id="doc-righe">
               <DocumentLineItemsSection
+                studioId={studioId}
                 products={products}
                 rows={rows}
                 priceList={priceList || 'privati'}
                 onChange={setRows}
+                variant={isSupplierDoc ? 'purchase' : 'default'}
               />
             </RepairSection>
 
@@ -1330,18 +1707,25 @@ export default function NuovoDocumento() {
         )}
       </div>
 
-      <ActionBar actions={footerActions} />
+      <ActionBar actions={isOrdineCliente && ordineClienteBlocked ? [] : footerActions} />
 
       {showClientSearch ? (
         <ClientSearchDialog
-          clients={clients}
+          studioId={studioId}
           onSelect={selectClient}
           onNoClient={selectNoClient}
           onNewClient={() => {
             setShowClientSearch(false)
             setShowClientForm(true)
           }}
-          onClose={() => setShowClientSearch(false)}
+          onClose={() => {
+            setShowClientSearch(false)
+            if (ordineClienteBlocked && !subjectName.trim()) {
+              navigate('/documenti')
+            }
+          }}
+          requireClient={isOrdineCliente}
+          title={isOrdineCliente ? 'Selezione cliente' : 'Cerca cliente'}
         />
       ) : null}
 
@@ -1358,32 +1742,6 @@ export default function NuovoDocumento() {
         />
       ) : null}
 
-      {showAllegati ? (
-        <AllegatiDialog
-          onSmartphone={() => {
-            const subject = encodeURIComponent(`Allegati — Vendita al banco ${fullNumberPreview}`)
-            const body = encodeURIComponent(
-              `Invia una risposta con gli allegati per il documento ${fullNumberPreview}.\nCliente: ${subjectName}`,
-            )
-            window.location.href = `mailto:?subject=${subject}&body=${body}`
-          }}
-          onScan={() => setActionMessage('Nessuno scanner rilevato. Usa Importa o Da smartphone/e-mail.')}
-          onImport={() => {
-            const input = document.createElement('input')
-            input.type = 'file'
-            input.multiple = true
-            input.onchange = () => {
-              const names = Array.from(input.files || []).map(f => f.name)
-              if (names.length) {
-                setAllegati(prev => [...prev, ...names])
-                setActionMessage(`${names.length} allegato/i importato/i.`)
-              }
-            }
-            input.click()
-          }}
-          onClose={() => setShowAllegati(false)}
-        />
-      ) : null}
       {showIncludi ? (
         <IncludiDocumentiDialog
           documents={includibleDocs}

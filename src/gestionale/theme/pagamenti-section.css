@@ -1,0 +1,795 @@
+/* Pagamenti — stile Danea Easyfatt */
+
+.pagamenti-section {
+  --win-bg: #f0f0f0;
+  --win-panel-bg: #ffffff;
+  --win-border: #c0c0c0;
+  --win-link: #0056b3;
+  --win-selection: #316ac5;
+  --win-zebra: #eef5fc;
+
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--win-bg);
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  font-size: 12px;
+}
+
+.pagamenti-section__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  flex: 1;
+  min-height: 0;
+  border-top: 1px solid var(--win-border);
+}
+
+.pagamenti-section__lista {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--win-panel-bg);
+  border-right: 1px solid var(--win-border);
+}
+
+.pagamenti-section__lista .gestionale-datatable {
+  flex: 1;
+  min-height: 0;
+}
+
+.pagamenti-section__lista .gestionale-datatable tbody tr:nth-child(even) {
+  background: var(--win-zebra);
+}
+
+.pagamenti-section__lista .gestionale-datatable tbody tr.gestionale-datatable__row--selected {
+  background: var(--win-selection) !important;
+  color: #fff;
+}
+
+.pagamenti-section__lista .gestionale-datatable tbody tr.gestionale-datatable__row--selected a,
+.pagamenti-section__lista .gestionale-datatable tbody tr.gestionale-datatable__row--selected .pagamenti-cell-link {
+  color: #fff;
+}
+
+.pagamenti-section__foot {
+  display: grid;
+  grid-template-columns: 88px 110px minmax(120px, 1fr) minmax(140px, 1.4fr) 100px 96px 96px 56px;
+  gap: 0;
+  padding: 4px 8px;
+  border-top: 1px solid var(--win-border);
+  background: #e8e8e8;
+  font-size: 11px;
+  font-weight: 600;
+  align-items: center;
+}
+
+.pagamenti-section__foot-count {
+  grid-column: 1 / 5;
+}
+
+.pagamenti-section__foot-in,
+.pagamenti-section__foot-out {
+  text-align: right;
+}
+
+.pagamenti-section__foot-in {
+  color: #000;
+}
+
+.pagamenti-section__foot-out {
+  color: #a22;
+}
+
+.pagamenti-cell-link {
+  color: var(--win-link);
+  cursor: pointer;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+}
+
+.pagamenti-cell-in {
+  text-align: right;
+  color: #000;
+  font-weight: 600;
+}
+
+.pagamenti-cell-out {
+  text-align: right;
+  color: #a22;
+  font-weight: 600;
+}
+
+.pagamenti-cell-settled {
+  text-align: center;
+}
+
+.pagamenti-cell-settled input {
+  cursor: pointer;
+}
+
+/* Sidebar */
+.pagamenti-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px 12px;
+  overflow-y: auto;
+  background: #111;
+  border-left: 1px solid #333;
+  color: #fff;
+  font-size: 11px;
+}
+
+.pagamenti-sidebar__section {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding-bottom: 10px;
+}
+
+.pagamenti-sidebar__title {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.pagamenti-sidebar__radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+  cursor: pointer;
+  color: #fff;
+}
+
+.pagamenti-sidebar__select-label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #fff;
+}
+
+.pagamenti-sidebar__select {
+  width: 100%;
+  font-size: 11px;
+  padding: 2px 4px;
+  border: 1px solid var(--win-border);
+}
+
+.pagamenti-sidebar__saldo-row {
+  display: flex;
+  justify-content: space-between;
+  margin: 4px 0;
+}
+
+.pagamenti-sidebar__saldo--pos {
+  color: #1a6b1a;
+}
+
+.pagamenti-sidebar__saldo--neg {
+  color: #a22;
+}
+
+/* Action bar */
+.pagamenti-actionbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: linear-gradient(180deg, #f8f8f8 0%, #e4e4e4 100%);
+  border-top: 1px solid var(--win-border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.pagamenti-actionbar__group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.pagamenti-actionbar__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 3px 10px;
+  border: 1px solid #888;
+  background: linear-gradient(180deg, #fff 0%, #e8e8e8 100%);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+
+.pagamenti-actionbar__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pagamenti-actionbar__icon--new {
+  color: #2e7d32;
+  font-weight: 700;
+}
+
+.pagamenti-actionbar__icon--danger {
+  color: #c62828;
+}
+
+/* Modal Pagamento */
+.pagamenti-modal-overlay {
+  z-index: 14000;
+}
+
+.pagamenti-modal {
+  width: min(620px, 96vw);
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #888;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.pagamenti-modal__header {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: start;
+  padding: 12px 14px 10px;
+  background: linear-gradient(180deg, #fff 0%, #ece9d8 100%);
+  border-bottom: 1px solid #a0a0a0;
+}
+
+.pagamenti-modal__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 400;
+  color: #1a5fb4;
+}
+
+.pagamenti-modal__subtitle {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: #555;
+}
+
+.pagamenti-modal__euro {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #f4c430;
+  border: 2px solid #d4a017;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.pagamenti-modal__close {
+  border: none;
+  background: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: #666;
+  padding: 2px 6px;
+}
+
+.pagamenti-modal__body {
+  padding: 14px 16px;
+  overflow-y: auto;
+}
+
+.pagamenti-modal__row {
+  display: grid;
+  gap: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.pagamenti-modal__row--3 {
+  grid-template-columns: 130px 1fr 1.4fr;
+}
+
+.pagamenti-modal__row--2 {
+  grid-template-columns: 130px 1fr;
+}
+
+.pagamenti-modal__row--ref {
+  grid-template-columns: 1fr auto;
+  align-items: end;
+}
+
+.pagamenti-modal__row--amounts {
+  grid-template-columns: 1fr 1fr auto auto;
+  align-items: end;
+}
+
+.pagamenti-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.pagamenti-modal__field--wide {
+  grid-column: span 1;
+}
+
+.pagamenti-modal__label {
+  font-size: 11px;
+  color: #333;
+}
+
+.pagamenti-modal__label--bold {
+  font-weight: 700;
+}
+
+.pagamenti-modal__input {
+  width: 100%;
+  font-size: 12px;
+  padding: 3px 6px;
+  border: 1px solid #a8a8a8;
+  background: #fff;
+  min-height: 24px;
+}
+
+.pagamenti-modal__input--flex {
+  flex: 1;
+  min-width: 0;
+}
+
+.pagamenti-modal__input--money {
+  text-align: right;
+  font-weight: 600;
+}
+
+.pagamenti-modal__inline {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.pagamenti-modal__subject {
+  position: relative;
+}
+
+.pagamenti-modal__icon-btn {
+  flex-shrink: 0;
+  width: 26px;
+  height: 24px;
+  border: 1px solid #a8a8a8;
+  background: linear-gradient(180deg, #fff 0%, #e8e8e8 100%);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+}
+
+.pagamenti-modal__icon-btn--green {
+  color: #2e7d32;
+}
+
+.pagamenti-modal__suggest {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #7eb4ea;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 180px;
+  overflow: auto;
+}
+
+.pagamenti-modal__suggest button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 5px 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.pagamenti-modal__suggest button:hover {
+  background: #e8f2fc;
+}
+
+.pagamenti-modal__suggest-type {
+  color: #666;
+  margin-right: 6px;
+  font-size: 11px;
+}
+
+.pagamenti-modal__money {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagamenti-modal__money span {
+  font-weight: 600;
+}
+
+.pagamenti-modal__check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding-bottom: 4px;
+  white-space: nowrap;
+}
+
+.pagamenti-modal__sollecito {
+  border: none;
+  background: none;
+  color: var(--win-link);
+  cursor: pointer;
+  font-size: 12px;
+  text-decoration: underline;
+  padding: 0 4px 4px;
+}
+
+.pagamenti-modal__sollecito:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagamenti-modal__allegati {
+  min-height: 24px;
+  padding: 3px 12px;
+  border: 1px solid #888;
+  background: linear-gradient(180deg, #fff 0%, #e8e8e8 100%);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.pagamenti-modal__allegati:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagamenti-modal__error {
+  margin: 0;
+  color: #b00020;
+  font-size: 12px;
+}
+
+.pagamenti-modal__footer {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 16px 14px;
+  background: #f0f0f0;
+  border-top: 1px solid #c0c0c0;
+}
+
+.pagamenti-modal__btn {
+  min-width: 88px;
+  min-height: 28px;
+  padding: 4px 16px;
+  border: 1px solid #888;
+  background: linear-gradient(180deg, #fff 0%, #e0e0e0 100%);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.pagamenti-modal__btn--primary {
+  font-weight: 600;
+}
+
+.pagamenti-modal__btn--help {
+  min-width: 32px;
+  padding: 4px 8px;
+}
+
+.pagamenti-modal__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .pagamenti-section__body {
+    grid-template-columns: 1fr;
+  }
+
+  .pagamenti-sidebar {
+    border-top: 1px solid var(--win-border);
+    max-height: 200px;
+  }
+
+  .pagamenti-modal__row--3,
+  .pagamenti-modal__row--2,
+  .pagamenti-modal__row--amounts {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Dettaglio pagamento / Reg. spese MDI */
+.pagamenti-dettaglio-backdrop {
+  z-index: 15000;
+}
+
+.gestionale-mdi-window--pagamento-dettaglio {
+  width: min(900px, 96vw);
+  height: min(640px, 92vh);
+}
+
+.pagamenti-dettaglio__body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pagamenti-dettaglio__header {
+  display: grid;
+  grid-template-columns: 1fr 130px 72px 100px;
+  gap: 8px 10px;
+  padding: 8px 10px 0;
+  align-items: end;
+}
+
+.pagamenti-dettaglio__field-soggetto {
+  grid-column: 1;
+}
+
+.pagamenti-dettaglio__desc-spesa {
+  padding: 0 10px 6px;
+}
+
+.pagamenti-dettaglio__protetto {
+  margin: 0 10px 6px;
+  padding: 6px 10px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagamenti-dettaglio__protetto-icon {
+  font-size: 16px;
+}
+
+.pagamenti-dettaglio__sblocca {
+  border: none;
+  background: none;
+  color: var(--win-link);
+  cursor: pointer;
+  text-decoration: underline;
+  font: inherit;
+  padding: 0;
+}
+
+.pagamenti-dettaglio__panel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 10px 8px;
+}
+
+.pagamenti-dettaglio-righe {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+}
+
+.pagamenti-dettaglio-righe__table-wrap {
+  flex: 1;
+  min-height: 120px;
+  overflow: auto;
+  border: 1px solid #888;
+  background: #fff;
+}
+
+.pagamenti-dettaglio-righe__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.pagamenti-dettaglio-righe__table th,
+.pagamenti-dettaglio-righe__table td {
+  border: 1px solid #c8c8c8;
+  padding: 2px 4px;
+  vertical-align: middle;
+}
+
+.pagamenti-dettaglio-righe__table th {
+  background: #ece9d8;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+}
+
+.pagamenti-dettaglio-righe__row--selected td {
+  background: #316ac5;
+  color: #fff;
+}
+
+.pagamenti-dettaglio-righe__row--selected .pagamenti-dettaglio-righe__input {
+  color: #000;
+}
+
+.pagamenti-dettaglio-righe__input {
+  width: 100%;
+  font-size: 11px;
+  border: 1px solid #a8a8a8;
+  padding: 2px 4px;
+  min-height: 22px;
+}
+
+.pagamenti-dettaglio-righe__input--num {
+  text-align: right;
+}
+
+.pagamenti-dettaglio-righe__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.pagamenti-dettaglio-righe__tool {
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid #888;
+  background: linear-gradient(180deg, #fff 0%, #e8e8e8 100%);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.pagamenti-dettaglio-righe__tool:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pagamenti-dettaglio-righe__tool--danger {
+  color: #a22;
+}
+
+.pagamenti-dettaglio__tab-pagamento {
+  padding: 8px 0;
+}
+
+.pagamenti-dettaglio__pagamento-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  gap: 8px 12px;
+  margin-bottom: 10px;
+}
+
+.pagamenti-dettaglio__textarea {
+  width: 100%;
+  font-size: 12px;
+  border: 1px solid #a8a8a8;
+  padding: 6px;
+}
+
+.pagamenti-dettaglio__indirizzi-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 56px;
+  gap: 8px;
+}
+
+.pagamenti-dettaglio__rif {
+  margin: 8px 0 0;
+  font-size: 11px;
+}
+
+.pagamenti-dettaglio__error {
+  margin: 0 10px 6px;
+  color: #b00020;
+  font-size: 12px;
+}
+
+.pagamenti-dettaglio__footer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: end;
+  padding: 6px 10px;
+  border-top: 1px solid #a8a8a8;
+  background: #f4f4f4;
+}
+
+.pagamenti-dettaglio__totale {
+  text-align: right;
+  min-width: 160px;
+}
+
+.pagamenti-dettaglio__totale-label {
+  display: block;
+  font-size: 11px;
+  color: #444;
+}
+
+.pagamenti-dettaglio__totale-value {
+  font-size: 18px;
+  color: #1a5fb4;
+}
+
+.pagamenti-dettaglio__actionbar {
+  justify-content: space-between;
+}
+
+.pagamenti-dettaglio__actionbar-right {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+/* Scheda cliente/fornitore da Pagamenti (Danea) */
+.scheda-soggetto-overlay {
+  z-index: 26000;
+}
+
+.scheda-soggetto-modal {
+  width: min(720px, 96vw);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.scheda-soggetto-modal__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #ccc;
+}
+
+.scheda-soggetto-modal__code {
+  width: 72px;
+  flex-shrink: 0;
+}
+
+.scheda-soggetto-modal__tabs {
+  flex-shrink: 0;
+}
+
+.scheda-soggetto-modal__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.scheda-soggetto-modal__footer {
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.scheda-soggetto-modal__error {
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: #8b1a1a;
+  background: #fde8e8;
+  border-top: 1px solid #f5b4b4;
+}

@@ -1,0 +1,55 @@
+/* Fornitori — estensioni specifiche (base in danea-anagrafica.css) */
+
+.fornitori-varie {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.fornitori-varie__row {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+}
+
+.fornitori-varie__label {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--win-text-main);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.fornitori-varie__control {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.fornitori-varie__control .clienti-input,
+.fornitori-varie__control .clienti-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.fornitori-varie__edit-btn {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--win-border);
+  background: linear-gradient(180deg, #fefefe 0%, #e8e8e8 100%);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  color: #333;
+}
+
+.fornitori-varie__edit-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

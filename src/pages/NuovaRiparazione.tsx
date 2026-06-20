@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { useActiveStudio } from '../hooks/useActiveStudio'
+import { useStudioFeatures } from '../hooks/useStudioFeatures'
 import {
-  getProducts,
   addRepair,
   updateRepair,
-  findDeviceByCode,
-  addRepairToDevice,
 } from '../lib/firestore'
-import type { Product, Repair, RepairPhoto, RepairProduct } from '../types'
-import { useNavigate, useParams } from 'react-router-dom'
+import { loadRecentProducts } from '../lib/loadStudioCatalog'
+import type { Product, Repair, RepairPhoto, RepairProduct, Client } from '../types'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { db } from '../firebase'
 import { doc, getDoc } from 'firebase/firestore'
 import TabCliente from '../components/repair/TabCliente'
@@ -90,8 +89,11 @@ type StudioDoc = Record<string, unknown> & {
 export default function NuovaRiparazione() {
   const { userProfile, loading: authLoading } = useAuth()
   const { studioId } = useActiveStudio()
+  const { isEnabled } = useStudioFeatures()
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const clientIdParam = searchParams.get('clientId')
 
   const [form, setForm] = useState(emptyForm)
   const [products, setProducts] = useState<Product[]>([])
@@ -99,7 +101,8 @@ export default function NuovaRiparazione() {
   const [photos, setPhotos] = useState<RepairPhoto[]>([])
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [studioData, setStudioData] = useState<StudioDoc | null>(null)
   const [savedRepairId, setSavedRepairId] = useState<string | undefined>(id)
@@ -115,15 +118,15 @@ export default function NuovaRiparazione() {
   useEffect(() => {
     if (authLoading) return
     if (!studioId) {
-      setLoading(false)
+      setInitialLoading(false)
       return
     }
     let cancelled = false
-    setLoading(true)
+    setInitialLoading(true)
     setLoadError(null)
     ;(async () => {
       try {
-        const prods = await getProducts(studioId)
+        const prods = await loadRecentProducts(studioId)
         if (cancelled) return
         setProducts(prods)
         const studioSnap = await getDoc(doc(db, 'studios', studioId))
@@ -184,20 +187,38 @@ export default function NuovaRiparazione() {
             setPhotos((data.photos as RepairPhoto[]) || [])
           }
         } else {
-          setForm({ ...emptyForm })
+          let initial = { ...emptyForm }
+          if (clientIdParam) {
+            const clientSnap = await getDoc(doc(db, 'clients', clientIdParam))
+            if (clientSnap.exists()) {
+              const c = clientSnap.data() as Client
+              initial = {
+                ...initial,
+                clientId: clientIdParam,
+                clientName: c.name || '',
+                clientPhone: c.phone || c.cellPhone || '',
+                clientEmail: c.email || '',
+                clientAddress: c.address || '',
+                clientCity: c.city || '',
+                clientProvince: c.province || '',
+                clientCap: c.cap || '',
+              }
+            }
+          }
+          setForm(initial)
           setLines([])
           setPhotos([])
         }
       } catch (e) {
         if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Errore di caricamento.')
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setInitialLoading(false)
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [authLoading, studioId, id])
+  }, [authLoading, studioId, id, clientIdParam])
 
   const s = useCallback((field: string, val: unknown) => setForm(f => ({ ...f, [field]: val })), [])
 
@@ -283,39 +304,17 @@ export default function NuovaRiparazione() {
     [form, lines, documentTotal, photos, studioId, ticketNumber],
   )
 
-  const linkRepairToDevice = useCallback(
-    async (repairId: string, ticket?: string) => {
-      let deviceId = form.deviceId
-      if (!deviceId && form.imei?.trim()) {
-        const device = await findDeviceByCode(studioId, form.imei.trim())
-        deviceId = device?.id
-      }
-      if (!deviceId) return
-      await addRepairToDevice(deviceId, {
-        repairId,
-        ticketNumber: ticket || ticketNumber,
-        date: form.acceptanceDate || new Date().toISOString().slice(0, 10),
-        problem: form.problem,
-        status: form.status,
-        totalCost: documentTotal,
-      })
-    },
-    [form, studioId, documentTotal, ticketNumber],
-  )
-
   const persistRepair = useCallback(async (): Promise<string> => {
     const newTicket = savedRepairId ? undefined : `FIX-${Date.now().toString().slice(-6)}`
     const data = buildRepairPayload(newTicket)
     if (savedRepairId) {
       await updateRepair(savedRepairId, data)
-      await linkRepairToDevice(savedRepairId, (data.ticketNumber as string) || ticketNumber)
       return savedRepairId
     }
     const ref = await addRepair(data as Omit<Repair, 'id' | 'createdAt' | 'updatedAt'>)
     setSavedRepairId(ref.id)
-    await linkRepairToDevice(ref.id, newTicket)
     return ref.id
-  }, [savedRepairId, buildRepairPayload, linkRepairToDevice, ticketNumber])
+  }, [savedRepairId, buildRepairPayload])
 
   const studioForPrint = useMemo(
     () =>
@@ -440,41 +439,48 @@ export default function NuovaRiparazione() {
   const goBack = useCallback(() => navigate('/riparazioni'), [navigate])
 
   const footerActions: ActionBarAction[] = useMemo(
-    () => [
-      {
-        id: 'save',
-        label: saving ? 'Salvataggio…' : 'Salva',
-        icon: '✓',
-        onClick: () => void handleSave(),
-        disabled: saving,
-      },
-      {
-        id: 'save-print',
-        label: 'Salva e stampa',
-        icon: '🖨',
-        onClick: () => void handleSave({ print: true, stay: true }),
-        disabled: saving,
-      },
-      {
-        id: 'whatsapp',
-        label: 'Invia WhatsApp',
-        icon: '💬',
-        onClick: () => void handleWhatsApp(),
-        disabled: !form.clientPhone,
-      },
-      {
-        id: 'cassa',
-        label: 'Invia in cassa',
-        icon: '💰',
-        onClick: () => void handleSave({ goToCash: true }),
-        disabled: saving,
-      },
-    ],
-    [saving, handleSave, handleWhatsApp, form.clientPhone],
+    () => {
+      const actions: ActionBarAction[] = [
+        {
+          id: 'save',
+          label: saving ? 'Salvataggio…' : 'Salva',
+          icon: '✓',
+          onClick: () => void handleSave(),
+          disabled: saving,
+        },
+        {
+          id: 'save-print',
+          label: 'Salva e stampa',
+          icon: '🖨',
+          onClick: () => void handleSave({ print: true, stay: true }),
+          disabled: saving,
+        },
+      ]
+      if (isEnabled('whatsapp')) {
+        actions.push({
+          id: 'whatsapp',
+          label: 'Invia WhatsApp',
+          icon: '💬',
+          onClick: () => void handleWhatsApp(),
+          disabled: !form.clientPhone,
+        })
+      }
+      if (isEnabled('pos')) {
+        actions.push({
+          id: 'cassa',
+          label: 'Invia in cassa',
+          icon: '💰',
+          onClick: () => void handleSave({ goToCash: true }),
+          disabled: saving,
+        })
+      }
+      return actions
+    },
+    [saving, handleSave, handleWhatsApp, form.clientPhone, isEnabled],
   )
 
-  if (authLoading || loading) {
-    return <div className="gestionale-page gestionale-datatable__empty">Caricamento scheda…</div>
+  if (authLoading) {
+    return <div className="gestionale-page gestionale-datatable__empty">Caricamento profilo…</div>
   }
 
   if (!studioId) {
@@ -492,6 +498,7 @@ export default function NuovaRiparazione() {
 
   return (
     <div className="gestionale-page gestionale-repair-sheet" data-tutorial="page-riparazione-form">
+      {initialLoading ? <div className="gestionale-page-skeleton">Caricamento scheda…</div> : null}
       <header className="gestionale-repair-sheet__header">
         <div>
           <h1 className="gestionale-repair-sheet__title">{isEdit ? 'Modifica scheda riparazione' : 'Nuova scheda riparazione'}</h1>
@@ -525,12 +532,7 @@ export default function NuovaRiparazione() {
         </RepairSection>
 
         <RepairSection title="Informazioni dispositivo" id="sezione-dispositivo">
-          <TabDispositivo
-            form={form}
-            studioId={studioId}
-            s={s}
-            onDeviceLinked={device => s('deviceId', device?.id || '')}
-          />
+          <TabDispositivo form={form} s={s} />
         </RepairSection>
 
         <RepairSection title="Difetto e lavorazione" id="sezione-lavorazione">

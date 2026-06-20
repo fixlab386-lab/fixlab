@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useVirtualWindow } from '../../../hooks/useVirtualWindow'
+import CategoryTreeFilter from '../../components/CategoryTreeFilter'
+import type { Category } from '../../../types'
 import { COLONNE_DEF, CERCA_VELOCE_CAMPI, CERCA_VELOCE_MODI } from './constants'
 import type { ColonnaId, ColumnFilter, Prodotto, CercaVeloceCampo, CercaVeloceModo } from './types'
 import type { RaggruppaCriterio } from './types'
@@ -7,6 +9,7 @@ import { applyColumnFilters, buildGroupedList, getColumnValue, uniqueColumnValue
 
 type Props = {
   prodotti: Prodotto[]
+  categories: Category[]
   selectedId: string | null
   selectionMode: boolean
   selectedIds: Set<string>
@@ -31,16 +34,41 @@ type Props = {
 function FilterPopover({
   col,
   prodotti,
+  categories,
   filter,
   onChange,
   onClose,
 }: {
   col: ColonnaId
   prodotti: Prodotto[]
+  categories: Category[]
   filter?: ColumnFilter
   onChange: (f: ColumnFilter | undefined) => void
   onClose: () => void
 }) {
+  if (col === 'categoria') {
+    const selectedTreeId =
+      filter?.kind === 'categoryTree' ? filter.categoryId || null : null
+    return (
+      <div className="prodotti-filter-popover prodotti-filter-popover--tree" onClick={e => e.stopPropagation()}>
+        <CategoryTreeFilter
+          categories={categories}
+          products={prodotti.map(p => ({ categoryId: p.categoryId, subcategoryId: p.subcategoryId }))}
+          selectedId={selectedTreeId}
+          onSelect={id => {
+            if (!id) onChange(undefined)
+            else onChange({ kind: 'categoryTree', categoryId: id })
+          }}
+          title="Categoria"
+          className="prodotti-filter-popover__tree"
+        />
+        <button type="button" className="prodotti-dialog__btn" style={{ marginTop: 6 }} onClick={onClose}>
+          Chiudi
+        </button>
+      </div>
+    )
+  }
+
   if (col === 'cod') {
     const text = filter?.kind === 'text' ? filter.search : ''
     return (
@@ -187,6 +215,7 @@ function CercaVeloceMenu({
 
 export default function ProdottiLista({
   prodotti,
+  categories,
   selectedId,
   selectionMode,
   selectedIds,
@@ -211,7 +240,10 @@ export default function ProdottiLista({
   const [showCercaMenu, setShowCercaMenu] = useState(false)
   const headerRef = useRef<HTMLTableSectionElement>(null)
 
-  const filtered = useMemo(() => applyColumnFilters(prodotti, filtriColonna), [prodotti, filtriColonna])
+  const filtered = useMemo(
+    () => applyColumnFilters(prodotti, filtriColonna, categories),
+    [prodotti, filtriColonna, categories],
+  )
   const itemCount = filtered.length
   const rows: GroupedRow[] = useMemo(
     () => buildGroupedList(filtered, criterioRaggruppamento, collapsedGroups),
@@ -219,7 +251,7 @@ export default function ProdottiLista({
   )
 
   const visibleCols = COLONNE_DEF.filter(c => colonneVisibili[c.id])
-  const colSpan = visibleCols.length + (selectionMode ? 2 : 1)
+  const colSpan = visibleCols.length + 2
   const { scrollRef, start, end, enabled, topPad, bottomPad } = useVirtualWindow(rows.length, 28)
   const visibleRows = enabled ? rows.slice(start, end) : rows
   const cercaLabel = CERCA_VELOCE_CAMPI.find(c => c.id === cercaCampo)?.label ?? 'Cerca codice'
@@ -227,6 +259,9 @@ export default function ProdottiLista({
   return (
     <div className="prodotti-section__lista">
       <div className="prodotti-lista-search">
+        <span className="prodotti-lista-search__icon" aria-hidden="true">
+          🔍
+        </span>
         <div className="prodotti-lista-search__field">
           <button
             type="button"
@@ -263,7 +298,7 @@ export default function ProdottiLista({
         <table className="prodotti-grid">
           <thead ref={headerRef}>
             <tr>
-              {selectionMode ? <th style={{ width: 28 }} /> : null}
+              <th style={{ width: 28 }} aria-label="Selezione" />
               {visibleCols.map(col => (
                 <th
                   key={col.id}
@@ -288,6 +323,7 @@ export default function ProdottiLista({
                     <FilterPopover
                       col={col.id}
                       prodotti={prodotti}
+                      categories={categories}
                       filter={filtriColonna[col.id]}
                       onChange={f => onFilterChange(col.id, f)}
                       onClose={() => setFilterCol(null)}
@@ -332,15 +368,16 @@ export default function ProdottiLista({
                       className={`${selected ? 'prodotti-grid__row--selected' : ''} ${draft ? 'prodotti-grid__row--draft' : ''}`}
                       onClick={() => onSelect(p)}
                     >
-                      {selectionMode ? (
-                        <td onClick={e => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.has(p.id)}
-                            onChange={() => onToggleSelect(p.id)}
-                          />
-                        </td>
-                      ) : null}
+                      <td onClick={e => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectionMode ? selectedIds.has(p.id) : p.id === selectedId}
+                          readOnly={!selectionMode}
+                          onChange={() => {
+                            if (selectionMode) onToggleSelect(p.id)
+                          }}
+                        />
+                      </td>
                       {visibleCols.map(col => (
                         <td
                           key={col.id}

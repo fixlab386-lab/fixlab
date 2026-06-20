@@ -95,7 +95,7 @@ function ensureSpace(pdf: jsPDF, y: number, needed: number): number {
 
 function drawTableHeader(pdf: jsPDF, y: number): number {
   pdf.setFontSize(7)
-  pdf.setFont('helvetica', 'normal')
+  pdf.setFont('helvetica', 'bold')
   TABLE_COLS.forEach(col => {
     const tx = col.align === 'right' ? col.x + col.w - 1 : col.x + 1
     pdf.text(col.label, tx, y + 4.2, { align: col.align })
@@ -178,18 +178,19 @@ function drawStudioHeader(pdf: jsPDF, model: ConfermaOrdineViewModel, logoDataUr
     hy += 4
   }
 
-  y = Math.max(y + logoMax, hy) + 4
+  const headerBottom = Math.max(y + logoMax, hy, MARGIN + 22) + 4
 
-  const numRowY = MARGIN + 2
   const rightEdge = PAGE_W - MARGIN
+  const boxNumW = 28
+  const boxDateW = 24
+  const boxH = 7
+  const numRowY = headerBottom - boxH - 2
+
   pdf.setFontSize(8)
   pdf.setFont('helvetica', 'normal')
 
   const label1 = "Conferma d'ordine nr."
   const label2 = 'del'
-  const boxNumW = 28
-  const boxDateW = 24
-  const boxH = 7
 
   const totalW = pdf.getTextWidth(label1) + 2 + boxNumW + 4 + pdf.getTextWidth(label2) + 2 + boxDateW
   let nx = rightEdge - totalW
@@ -202,7 +203,7 @@ function drawStudioHeader(pdf: jsPDF, model: ConfermaOrdineViewModel, logoDataUr
   nx += pdf.getTextWidth(label2) + 2
   drawValueBox(pdf, nx, numRowY, boxDateW, boxH, model.orderDate)
 
-  return Math.max(y, numRowY + boxH + 6)
+  return headerBottom
 }
 
 function drawClientDeviceBlocks(pdf: jsPDF, model: ConfermaOrdineViewModel, y: number): number {
@@ -219,9 +220,10 @@ function drawClientDeviceBlocks(pdf: jsPDF, model: ConfermaOrdineViewModel, y: n
 
   const blockH = Math.max(estimateH(model.clientBody, colW), estimateH(model.deviceBody, colW))
 
-  drawThinRect(pdf, leftX, blockTop, colW, blockH, true)
-  drawThinRect(pdf, rightX, blockTop, colW, blockH, true)
   pdf.setDrawColor(0)
+  pdf.setLineWidth(0.3)
+  pdf.line(MARGIN, blockTop, MARGIN + CONTENT_W, blockTop)
+  pdf.line(MARGIN, blockTop + blockH, MARGIN + CONTENT_W, blockTop + blockH)
   pdf.setLineWidth(0.2)
   pdf.line(rightX, blockTop, rightX, blockTop + blockH)
 
@@ -231,44 +233,47 @@ function drawClientDeviceBlocks(pdf: jsPDF, model: ConfermaOrdineViewModel, y: n
   drawBlockTitle(pdf, rightX, blockTop + 5, 'Informazioni dispositivo')
   drawPreLineBlock(pdf, rightX, blockTop + 10, model.deviceBody, colW, 7.5)
 
-  return blockTop + blockH + 5
+  return blockTop + blockH + 6
 }
 
 function drawFooter(pdf: jsPDF, model: ConfermaOrdineViewModel) {
-  const footerY = FOOTER_ZONE_Y
-  const sigLineW = 78
+  const lineY = 264
+
+  pdf.setFontSize(8)
+  pdf.setFont('helvetica', 'bold')
+  const accontoText = model.deposit ? `Acconto:  ${formatEuroIt(model.deposit)}` : 'Acconto:'
+  pdf.text(accontoText, PAGE_W / 2, lineY - 2.5, { align: 'center' })
 
   pdf.setDrawColor(0)
   pdf.setLineWidth(0.3)
-  pdf.line(MARGIN, footerY, MARGIN + sigLineW, footerY)
+  pdf.line(MARGIN, lineY, PAGE_W - MARGIN, lineY)
+
   pdf.setFontSize(8)
   pdf.setFont('helvetica', 'bold')
-  pdf.text('Firma per accettazione', MARGIN, footerY + 5)
-  pdf.setFont('helvetica', 'normal')
-  if (model.orderDate) pdf.text(model.orderDate, MARGIN, footerY + 10)
+  pdf.text('Firma per accettazione', MARGIN, lineY + 5)
 
-  const accontoX = MARGIN + 95
-  pdf.setFont('helvetica', 'bold')
-  pdf.text('Acconto:', accontoX, footerY + 2)
-  pdf.setFont('helvetica', 'normal')
-  if (model.deposit) {
-    pdf.text(formatEuroIt(model.deposit), accontoX + 18, footerY + 2)
-  }
-
-  const totaleX = PAGE_W - MARGIN - 53
+  const totBoxW = 56
   const totBoxH = 8
-  drawThinRect(pdf, totaleX, footerY - 10, 53, totBoxH)
+  const totaleX = PAGE_W - MARGIN - totBoxW
+  const totaleY = lineY + 1
+  drawThinRect(pdf, totaleX, totaleY, totBoxW, totBoxH)
   pdf.setFontSize(8)
   pdf.setFont('helvetica', 'bold')
-  pdf.text('Tot. documento', totaleX + 2, footerY - 4)
+  pdf.text('Tot. documento', totaleX + 2, totaleY + totBoxH - 2.5)
   pdf.setFontSize(11)
-  pdf.text(formatEuroIt(model.total), totaleX + 51, footerY - 3.5, { align: 'right' })
+  pdf.text(formatEuroIt(model.total), totaleX + totBoxW - 2, totaleY + totBoxH - 2, { align: 'right' })
+
+  const bottomY = 282
+  pdf.setFontSize(7)
+  pdf.setFont('helvetica', 'normal')
+  pdf.setTextColor(0)
+  if (model.orderDate) pdf.text(model.orderDate, MARGIN, bottomY)
 
   pdf.setFontSize(5.5)
-  pdf.setFont('helvetica', 'normal')
   pdf.setTextColor(60)
-  const discLines = pdf.splitTextToSize(model.disclaimer, CONTENT_W)
-  pdf.text(discLines, MARGIN, footerY + 16)
+  const discX = MARGIN + 18
+  const discLines = pdf.splitTextToSize(model.disclaimer, CONTENT_W - 18)
+  pdf.text(discLines, discX, bottomY - 1)
   pdf.setTextColor(0)
 }
 

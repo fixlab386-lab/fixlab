@@ -100,7 +100,7 @@
 }
 
 .gestionale-archives-list__row--active {
-  background: #eaf2fb;
+  background: var(--brand-surface-hover);
 }
 
 .gestionale-archives-list__name {

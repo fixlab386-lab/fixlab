@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.moveClientToStudio = exports.onMembershipClaimsSync = exports.syncStudioClaims = exports.revertStockMovement = exports.commitStockMovement = exports.commitDocument = void 0;
+exports.updateStudioSubscription = exports.extendSubscription = exports.getAllStudios = exports.deleteStudioComplete = exports.impersonateUser = exports.setSuperAdmin = exports.sendArubaInvoice = exports.testArubaConnection = exports.saveArubaCredentials = exports.verifyEmailCode = exports.requestEmailVerificationCode = exports.lookupVat = exports.moveClientToStudio = exports.onMembershipClaimsSync = exports.syncStudioClaims = exports.revertStockMovement = exports.commitStockMovement = exports.commitDocument = void 0;
 const app_1 = require("firebase-admin/app");
 (0, app_1.initializeApp)();
 var commitDocument_1 = require("./commitDocument");
@@ -13,4 +13,20 @@ Object.defineProperty(exports, "syncStudioClaims", { enumerable: true, get: func
 Object.defineProperty(exports, "onMembershipClaimsSync", { enumerable: true, get: function () { return syncStudioClaims_1.onMembershipClaimsSync; } });
 var moveClientToStudio_1 = require("./moveClientToStudio");
 Object.defineProperty(exports, "moveClientToStudio", { enumerable: true, get: function () { return moveClientToStudio_1.moveClientToStudio; } });
+var vatLookup_1 = require("./vatLookup");
+Object.defineProperty(exports, "lookupVat", { enumerable: true, get: function () { return vatLookup_1.lookupVat; } });
+var emailVerification_1 = require("./emailVerification");
+Object.defineProperty(exports, "requestEmailVerificationCode", { enumerable: true, get: function () { return emailVerification_1.requestEmailVerificationCode; } });
+Object.defineProperty(exports, "verifyEmailCode", { enumerable: true, get: function () { return emailVerification_1.verifyEmailCode; } });
+var arubaInvoicing_1 = require("./arubaInvoicing");
+Object.defineProperty(exports, "saveArubaCredentials", { enumerable: true, get: function () { return arubaInvoicing_1.saveArubaCredentials; } });
+Object.defineProperty(exports, "testArubaConnection", { enumerable: true, get: function () { return arubaInvoicing_1.testArubaConnection; } });
+Object.defineProperty(exports, "sendArubaInvoice", { enumerable: true, get: function () { return arubaInvoicing_1.sendArubaInvoice; } });
+var admin_1 = require("./admin");
+Object.defineProperty(exports, "setSuperAdmin", { enumerable: true, get: function () { return admin_1.setSuperAdmin; } });
+Object.defineProperty(exports, "impersonateUser", { enumerable: true, get: function () { return admin_1.impersonateUser; } });
+Object.defineProperty(exports, "deleteStudioComplete", { enumerable: true, get: function () { return admin_1.deleteStudioComplete; } });
+Object.defineProperty(exports, "getAllStudios", { enumerable: true, get: function () { return admin_1.getAllStudios; } });
+Object.defineProperty(exports, "extendSubscription", { enumerable: true, get: function () { return admin_1.extendSubscription; } });
+Object.defineProperty(exports, "updateStudioSubscription", { enumerable: true, get: function () { return admin_1.updateStudioSubscription; } });
 //# sourceMappingURL=index.js.map

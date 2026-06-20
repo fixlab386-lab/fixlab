@@ -46,6 +46,26 @@ export function rtShouldSkipLanPrint(rtModel: string | undefined | null): boolea
   return !m || m === 'none'
 }
 
+/** Etichetta pagamento compatibile con RT fiscale (max 16 caratteri). */
+export function normalizeRtPaymentLabel(raw: string | undefined | null): string {
+  const value = (raw || 'CONTANTI').trim().toLowerCase()
+  if (!value) return 'CONTANTI'
+  if (value.includes('bancomat') || value.includes('pos') || value.includes('carta')) return 'BANCOMAT'
+  if (value.includes('contant')) return 'CONTANTI'
+  if (value.includes('assegno')) return 'ASSEGNO'
+  if (value.includes('bonifico')) return 'BONIFICO'
+  if (value.includes('riba')) return 'RIBA'
+  if (value.includes('paypal')) return 'PAYPAL'
+  return raw!.trim().substring(0, 16).toUpperCase()
+}
+
+/** Codice paymentType Epson ePOS-Print: 0 contanti, 2 elettronico/carta. */
+export function rtEpsonPaymentTypeCode(label: string): string {
+  const normalized = normalizeRtPaymentLabel(label)
+  if (normalized === 'BANCOMAT' || normalized === 'PAYPAL') return '2'
+  return '0'
+}
+
 function escapeXmlAttr(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -88,7 +108,8 @@ export async function sendFiscalReceiptToRt(
     return { ok: false, msg: 'Nessuna riga da stampare sullo scontrino.' }
   }
 
-  const paymentLabel = (config.paymentLabel || 'CONTANTI').substring(0, 16).toUpperCase()
+  const paymentLabel = normalizeRtPaymentLabel(config.paymentLabel)
+  const paymentTypeCode = rtEpsonPaymentTypeCode(paymentLabel)
 
   try {
     let body = ''
@@ -108,7 +129,7 @@ export async function sendFiscalReceiptToRt(
 <printerFiscalReceipt>
   <beginFiscalReceipt operator="1"/>
   ${itemsXml}
-  <printRecTotal description="${escapeXmlAttr(paymentLabel)}" payment="0" paymentType="0" index="1"/>
+  <printRecTotal description="${escapeXmlAttr(paymentLabel)}" payment="0" paymentType="${paymentTypeCode}" index="1"/>
   <endFiscalReceipt operator="1"/>
 </printerFiscalReceipt>`
     } else {

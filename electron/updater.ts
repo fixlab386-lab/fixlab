@@ -1,10 +1,13 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import type { UpdateStatus } from './types'
 import { IDLE_UPDATE_STATUS } from './types'
 
+const AUTO_INSTALL_DELAY_MS = 4000
+
 let currentStatus: UpdateStatus = { ...IDLE_UPDATE_STATUS }
-let updateDialogVisible = false
+let installRequested = false
+let autoInstallTimer: ReturnType<typeof setTimeout> | null = null
 
 function log(message: string, detail?: unknown): void {
   if (detail !== undefined) {
@@ -31,48 +34,81 @@ export function getUpdateStatus(): UpdateStatus {
   return { ...currentStatus }
 }
 
-async function showUpdateReadyDialog(
-  window: BrowserWindow | null,
-  version: string,
-): Promise<void> {
-  if (!window || updateDialogVisible) return
-
-  updateDialogVisible = true
-  try {
-    const { response } = await dialog.showMessageBox(window, {
-      type: 'info',
-      title: 'Aggiornamento disponibile',
-      message: 'È disponibile un aggiornamento di FixLab.',
-      detail: `Versione ${version} pronta. Riavviare ora per installarla?`,
-      buttons: ['Riavvia ora', 'Più tardi'],
-      defaultId: 0,
-      cancelId: 1,
-      noLink: true,
-    })
-
-    if (response === 0) {
-      log('User chose to restart and install now')
-      autoUpdater.quitAndInstall(false, true)
-    } else {
-      log('User chose to install on next restart (autoInstallOnAppQuit enabled)')
-    }
-  } finally {
-    updateDialogVisible = false
+function clearAutoInstallTimer(): void {
+  if (autoInstallTimer != null) {
+    clearTimeout(autoInstallTimer)
+    autoInstallTimer = null
   }
 }
 
-export function registerUpdateIpc(): void {
+function scheduleAutoInstall(getMainWindow: () => BrowserWindow | null): void {
+  clearAutoInstallTimer()
+  autoInstallTimer = setTimeout(() => {
+    autoInstallTimer = null
+    log('Auto-install timer elapsed')
+    installPendingUpdate(getMainWindow)
+  }, AUTO_INSTALL_DELAY_MS)
+}
+
+function closeAllWindows(): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (window.isDestroyed()) continue
+    window.removeAllListeners('close')
+    window.destroy()
+  }
+}
+
+function installPendingUpdate(getMainWindow: () => BrowserWindow | null): void {
+  clearAutoInstallTimer()
+
+  if (installRequested) {
+    log('Install already requested, skipping duplicate call')
+    return
+  }
+  if (currentStatus.state !== 'downloaded') {
+    log('Install requested but no downloaded update is ready', currentStatus.state)
+    return
+  }
+
+  installRequested = true
+  log('Installing pending update via quitAndInstall (silent + restart)')
+
+  setImmediate(() => {
+    app.removeAllListeners('window-all-closed')
+    closeAllWindows()
+
+    setTimeout(() => {
+      try {
+        autoUpdater.quitAndInstall(true, true)
+      } catch (error) {
+        log('quitAndInstall failed', error)
+        installRequested = false
+        return
+      }
+
+      setTimeout(() => {
+        log('Force exit after quitAndInstall')
+        app.exit(0)
+      }, 5000)
+    }, 400)
+  })
+}
+
+export function registerUpdateIpc(getMainWindow: () => BrowserWindow | null): void {
   ipcMain.handle('app:get-version', () => app.getVersion())
   ipcMain.handle('update:get-status', () => getUpdateStatus())
   ipcMain.handle('update:install', () => {
     log('Install requested from renderer')
-    autoUpdater.quitAndInstall(false, true)
+    installPendingUpdate(getMainWindow)
   })
 }
 
 export function attachUpdateWindowListener(window: BrowserWindow): void {
   window.webContents.on('did-finish-load', () => {
     broadcastStatus(window, currentStatus)
+    if (currentStatus.state === 'downloaded' && !installRequested) {
+      scheduleAutoInstall(() => window)
+    }
   })
 }
 
@@ -84,6 +120,7 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void
 
   autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.autoRunAppAfterInstall = true
 
   autoUpdater.on('checking-for-update', () => {
     log('checking-for-update')
@@ -92,6 +129,7 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void
 
   autoUpdater.on('update-available', (info) => {
     log('update-available', info.version)
+    clearAutoInstallTimer()
     setStatus(getMainWindow(), {
       state: 'available',
       version: info.version,
@@ -113,23 +151,26 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void
     log(`download-progress ${Math.round(progress.percent)}%`)
     setStatus(getMainWindow(), {
       state: 'downloading',
+      version: currentStatus.version,
       progress: progress.percent,
     })
   })
 
   autoUpdater.on('update-downloaded', (info) => {
     log('update-downloaded', info.version)
+    installRequested = false
     setStatus(getMainWindow(), {
       state: 'downloaded',
       version: info.version,
       progress: 100,
       error: undefined,
     })
-    void showUpdateReadyDialog(getMainWindow(), info.version)
+    scheduleAutoInstall(getMainWindow)
   })
 
   autoUpdater.on('error', (error) => {
     log('error', error)
+    clearAutoInstallTimer()
     setStatus(getMainWindow(), {
       state: 'error',
       error: error.message,

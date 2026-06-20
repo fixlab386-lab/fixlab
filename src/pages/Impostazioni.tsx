@@ -1,6 +1,6 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useActiveStudio } from '../hooks/useActiveStudio'
 import { useOnboardingContext } from '../contexts/OnboardingContext'
@@ -18,6 +18,8 @@ import {
   writeBatch,
   query,
   where,
+  limit,
+  startAfter,
   Timestamp,
   DocumentReference,
   type Query,
@@ -37,12 +39,16 @@ import { FormField, ToolButton } from '../components/ui'
 import CapLookupPopup from '../components/anagrafica/assist/CapLookupPopup'
 import { FEATURE_OPTIONS } from '../components/onboarding/constants'
 import { DEFAULT_STUDIO_FEATURES } from '../lib/studioOnboarding'
+import { fetchStudioCollectionForExport } from '../lib/firestorePagination'
+import { backfillSearchTokens } from '../lib/searchBackfill'
+import { logoutAndClearSession } from '../lib/logout'
 import {
   DEFAULT_DISCLAIMER,
   DEFAULT_WA_TEMPLATE,
   settingsFormToFirestorePatch,
   studioDocToSettingsForm,
 } from '../lib/studioSettings'
+import { parseStudioArubaConfig, type StudioArubaPublicConfig } from '../lib/arubaInvoicing'
 import { uploadStudioLogoFile } from '../lib/studioLogo'
 import { WhatsAppConnectionPanel } from '../WhatsAppSetup'
 import type { StudioFeatures } from '../types'
@@ -52,7 +58,9 @@ import TabAzienda from '../components/settings/opzioni/TabAzienda'
 import TabClientiFornitori from '../components/settings/opzioni/TabClientiFornitori'
 import TabProdotti from '../components/settings/opzioni/TabProdotti'
 import TabDocumenti from '../components/settings/opzioni/TabDocumenti'
+import TabFatturazioneElettronica from '../components/settings/opzioni/TabFatturazioneElettronica'
 import TabAvvisi from '../components/settings/opzioni/TabAvvisi'
+import TabAbbonamento from '../components/settings/opzioni/TabAbbonamento'
 import TabVarie from '../components/settings/opzioni/TabVarie'
 import {
   applicationOptionsToFirestore,
@@ -103,12 +111,10 @@ const VERIFICA_SECTIONS: { title: string; subtitle: string; items: string[] }[] 
   },
   {
     title: 'Tecnico / Riparazioni',
-    subtitle: 'Flusso ticket e tracciabilità dispositivi.',
+    subtitle: 'Flusso ticket e dati riparazione.',
     items: [
       'Riparazioni: filtri e ricerca; apertura scheda; stati e priorità salvano correttamente.',
       'Nuova riparazione: cliente, dispositivo, problema e totali; salvataggio e riapertura senza perdita dati.',
-      'Dispositivi: ricerca IMEI/seriale/barcode; lettore USB con cursore nel campo giusto o pagina senza altri input attivi.',
-      'Collegamento riparazione ↔ dispositivo (se lo usate): dati allineati.',
     ],
   },
   {
@@ -152,7 +158,6 @@ const VERIFICA_SECTIONS: { title: string; subtitle: string; items: string[] }[] 
       '`/riparazioni` Lista-only: filtri, apertura ticket esistente da riga.',
       '`/riparazioni/nuova` Flusso nuovo ticket: cliente + dispositivo, salva e verifica che compaia in lista.',
       '`/riparazioni/{id}` Apri un ID reale dalla lista: dati coerenti, salvataggio campo di prova.',
-      '`/dispositivi` Ricerca seriale/IMEI; nessun loop di caricamento.',
       '`/documenti` Lista documenti; `/documenti/nuovo` creazione bozza; `/documenti/{id}` riapertura salvata.',
       '`/pagamenti` Lista e filtri periodo; totale coerente con righe visibili.',
       '`/movimenti` Movimenti magazzino: filtri e tabella popolata o stato vuoto gestito.',
@@ -200,24 +205,30 @@ function serializeForExport(value: unknown): unknown {
 }
 
 async function deleteDocsFromQuery(q: Query<DocumentData>): Promise<number> {
-  const snap = await getDocs(q)
-  if (snap.empty) return 0
-  let count = 0
-  const batchSize = 400
-  let batch = writeBatch(db)
-  let batchCount = 0
-  for (const docSnap of snap.docs) {
-    batch.delete(docSnap.ref)
-    batchCount++
-    count++
-    if (batchCount >= batchSize) {
-      await batch.commit()
-      batch = writeBatch(db)
-      batchCount = 0
+  let total = 0
+  const pageSize = 400
+  let lastDoc: import('firebase/firestore').QueryDocumentSnapshot<DocumentData> | undefined
+  for (;;) {
+    const pageQ = lastDoc ? query(q, startAfter(lastDoc), limit(pageSize)) : query(q, limit(pageSize))
+    const snap = await getDocs(pageQ)
+    if (snap.empty) break
+    let batch = writeBatch(db)
+    let batchCount = 0
+    for (const docSnap of snap.docs) {
+      batch.delete(docSnap.ref)
+      batchCount++
+      total++
+      if (batchCount >= pageSize) {
+        await batch.commit()
+        batch = writeBatch(db)
+        batchCount = 0
+      }
     }
+    if (batchCount > 0) await batch.commit()
+    if (snap.docs.length < pageSize) break
+    lastDoc = snap.docs[snap.docs.length - 1]
   }
-  if (batchCount > 0) await batch.commit()
-  return count
+  return total
 }
 
 const EXPORT_ZIP_MAX_TOTAL_BYTES = 350 * 1024 * 1024
@@ -245,18 +256,25 @@ function storageRelativeToStudio(fullPath: string, studioId: string): string {
   return fullPath.startsWith(prefix) ? fullPath.slice(prefix.length) : fullPath
 }
 
-async function loadExportPayload(studioId: string, userId: string) {
+async function loadExportPayload(
+  studioId: string,
+  userId: string,
+  onProgress?: (msg: string) => void,
+) {
   const [userSnap, studioSnap] = await Promise.all([
     getDoc(doc(db, 'users', userId)),
     getDoc(doc(db, 'studios', studioId)),
   ])
   const collections: Record<string, Array<{ id: string } & Record<string, unknown>>> = {}
   for (const name of TENANT_ROOT_COLLECTIONS) {
-    const snap = await getDocs(query(collection(db, name), where('studioId', '==', studioId)))
-    collections[name] = snap.docs.map(d => ({
-      id: d.id,
-      ...(serializeForExport(d.data()) as Record<string, unknown>),
-    }))
+    onProgress?.(`Esportazione ${name}…`)
+    const rows = await fetchStudioCollectionForExport(name, studioId, loaded => {
+      onProgress?.(`${name}: ${loaded} record…`)
+    })
+    collections[name] = rows.map(r => {
+      const { id, ...data } = r
+      return { id, ...(serializeForExport(data) as Record<string, unknown>) }
+    })
   }
   const storageFilePaths = await collectStorageFullPaths(`studios/${studioId}`)
   const payload: Record<string, unknown> = {
@@ -380,6 +398,7 @@ export type ImpostazioniPanelProps = {
 
 export default function ImpostazioniPanel({ onClose, initialTab: initialTabProp }: ImpostazioniPanelProps) {
   const { userProfile } = useAuth()
+  const navigate = useNavigate()
   const { studioId, legacyStudioId, loading: studioLoading } = useActiveStudio()
   const { reopenOnboarding } = useOnboardingContext()
   const { consent, openSettings: openCookieSettings } = useCookieConsent()
@@ -393,6 +412,7 @@ export default function ImpostazioniPanel({ onClose, initialTab: initialTabProp 
   const [activeTab, setActiveTab] = useState<OpzioniTabId>(() => initialTabProp ?? 'moduli')
   const [showCapPopup, setShowCapPopup] = useState(false)
   const [appOptions, setAppOptions] = useState<ApplicationOptions>(() => defaultApplicationOptions())
+  const [arubaConfig, setArubaConfig] = useState<StudioArubaPublicConfig>({})
 
   useEffect(() => {
     if (initialTabProp) setActiveTab(initialTabProp)
@@ -409,6 +429,9 @@ export default function ImpostazioniPanel({ onClose, initialTab: initialTabProp 
   const [exportMode, setExportMode] = useState<'idle' | 'json' | 'zip'>('idle')
   const [exportError, setExportError] = useState('')
   const [exportProgress, setExportProgress] = useState('')
+  const [indexingSearch, setIndexingSearch] = useState(false)
+  const [indexSearchProgress, setIndexSearchProgress] = useState('')
+  const [indexSearchError, setIndexSearchError] = useState('')
 
   const [shopName, setShopName] = useState('')
   const [subtitle, setSubtitle] = useState('')
@@ -478,6 +501,7 @@ export default function ImpostazioniPanel({ onClose, initialTab: initialTabProp 
             opts.azienda.phone2 = loaded.cellPhone
           }
           setAppOptions(opts)
+          setArubaConfig(parseStudioArubaConfig(data))
         } else {
           setLoadError('Dati officina non trovati per questo archivio.')
         }
@@ -578,7 +602,7 @@ export default function ImpostazioniPanel({ onClose, initialTab: initialTabProp 
     setExportError('')
     setExportProgress('Lettura dati…')
     try {
-      const { payload } = await loadExportPayload(studioId, userProfile.id)
+      const { payload } = await loadExportPayload(studioId, userProfile.id, msg => setExportProgress(msg))
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -598,6 +622,28 @@ export default function ImpostazioniPanel({ onClose, initialTab: initialTabProp 
     }
   }
 
+  const handleIndexSearch = async () => {
+    if (!studioId) return
+    setIndexingSearch(true)
+    setIndexSearchError('')
+    setIndexSearchProgress('Indicizzazione prodotti…')
+    try {
+      const counts = await backfillSearchTokens(studioId, ({ collection, updated }) => {
+        const label =
+          collection === 'products' ? 'prodotti' : collection === 'clients' ? 'clienti' : 'fornitori'
+        setIndexSearchProgress(`Indicizzazione ${label}: ${updated} record…`)
+      })
+      setIndexSearchProgress(
+        `Completato: ${counts.products} prodotti, ${counts.clients} clienti, ${counts.suppliers} fornitori.`,
+      )
+    } catch (e: unknown) {
+      setIndexSearchError(e instanceof Error ? e.message : 'Indicizzazione non riuscita')
+      setIndexSearchProgress('')
+    } finally {
+      setIndexingSearch(false)
+    }
+  }
+
   const handleExportZip = async () => {
     if (!studioId || !userProfile?.id) return
     setExporting(true)
@@ -606,7 +652,9 @@ export default function ImpostazioniPanel({ onClose, initialTab: initialTabProp 
     setExportProgress('')
     try {
       setExportProgress('Lettura dati…')
-      const { payload, storageFilePaths } = await loadExportPayload(studioId, userProfile.id)
+      const { payload, storageFilePaths } = await loadExportPayload(studioId, userProfile.id, msg =>
+        setExportProgress(msg),
+      )
       const zipBlob = await buildStudioExportZipBlob({
         studioId,
         payload,
@@ -651,26 +699,7 @@ export default function ImpostazioniPanel({ onClose, initialTab: initialTabProp 
 
   const deleteSubcollection = async (studioId: string, subcollectionName: string) => {
     const colRef = collection(db, 'studios', studioId, subcollectionName)
-    const snap = await getDocs(colRef)
-    if (snap.empty) return 0
-
-    let count = 0
-    const batchSize = 400
-    let batch = writeBatch(db)
-    let batchCount = 0
-
-    for (const docSnap of snap.docs) {
-      batch.delete(docSnap.ref)
-      batchCount++
-      count++
-      if (batchCount >= batchSize) {
-        await batch.commit()
-        batch = writeBatch(db)
-        batchCount = 0
-      }
-    }
-    if (batchCount > 0) await batch.commit()
-    return count
+    return deleteDocsFromQuery(query(colRef))
   }
 
   const handleDeleteAccount = async () => {
@@ -731,6 +760,12 @@ export default function ImpostazioniPanel({ onClose, initialTab: initialTabProp 
     setDeleteError('')
     setDeleteProgress('')
     setDeleting(false)
+  }
+
+  const handleLogout = async () => {
+    await logoutAndClearSession()
+    onClose?.()
+    navigate('/login')
   }
 
   const closeDeleteModal = () => {
@@ -987,6 +1022,14 @@ export default function ImpostazioniPanel({ onClose, initialTab: initialTabProp 
             </>
           )}
 
+          {activeTab === 'fatturazione' && studioId ? (
+            <TabFatturazioneElettronica
+              studioId={studioId}
+              config={arubaConfig}
+              onConfigChange={patch => setArubaConfig(prev => ({ ...prev, ...patch }))}
+            />
+          ) : null}
+
           {activeTab === 'avvisi' && (
             <TabAvvisi
               value={appOptions.avvisi}
@@ -995,6 +1038,8 @@ export default function ImpostazioniPanel({ onClose, initialTab: initialTabProp 
               }
             />
           )}
+
+          {activeTab === 'abbonamento' && <TabAbbonamento />}
 
           {activeTab === 'varie' && (
             <TabVarie
@@ -1067,6 +1112,26 @@ export default function ImpostazioniPanel({ onClose, initialTab: initialTabProp 
                           onClick={handleExportZip}
                           disabled={exporting}
                         />
+                      </div>
+                      <p className="gestionale-settings-section__hint" style={{ marginTop: 12 }}>
+                        Ricerca catalogo: indicizza prodotti, clienti e fornitori per trovare record anche molto vecchi
+                        (consigliato una volta dopo l&apos;aggiornamento, poi automatico su ogni salvataggio).
+                      </p>
+                      {indexSearchProgress ? (
+                        <p className="gestionale-settings-section__hint">{indexSearchProgress}</p>
+                      ) : null}
+                      {indexSearchError ? (
+                        <div className="gestionale-settings-info-box gestionale-settings-info-box--danger">{indexSearchError}</div>
+                      ) : null}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                        <ToolButton
+                          label={indexingSearch ? 'Indicizzazione…' : 'Indicizza ricerca catalogo'}
+                          onClick={() => void handleIndexSearch()}
+                          disabled={indexingSearch || exporting}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                        <ToolButton label="Esci e torna al login" onClick={() => void handleLogout()} />
                       </div>
                       <div className="gestionale-settings-info-box gestionale-settings-info-box--danger" style={{ marginTop: 12 }}>
                         Eliminando il tuo account verranno cancellati permanentemente tutti i dati. Azione irreversibile.

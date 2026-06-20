@@ -146,13 +146,15 @@ export async function getStudioAllowNegative(db: Firestore, studioId: string): P
 
 export function buildMovementFields(
   movement: MovementQuantities,
-): Pick<MovementQuantities, 'loaded' | 'unloaded' | 'committed' | 'incoming' | 'adjustTo' | 'adjustDelta'> {
-  return {
-    loaded: movement.type === 'load' ? movement.loaded : undefined,
-    unloaded: movement.type === 'unload' ? movement.unloaded : undefined,
-    committed: movement.type === 'committed' ? movement.committed : undefined,
-    incoming: movement.type === 'incoming' ? movement.incoming : undefined,
-    adjustTo: movement.type === 'adjust' ? movement.adjustTo : undefined,
-    adjustDelta: movement.type === 'adjust' ? movement.adjustDelta : undefined,
+): Partial<Pick<MovementQuantities, 'loaded' | 'unloaded' | 'committed' | 'incoming' | 'adjustTo' | 'adjustDelta'>> {
+  const out: Partial<Pick<MovementQuantities, 'loaded' | 'unloaded' | 'committed' | 'incoming' | 'adjustTo' | 'adjustDelta'>> = {}
+  if (movement.type === 'load' && movement.loaded != null) out.loaded = movement.loaded
+  if (movement.type === 'unload' && movement.unloaded != null) out.unloaded = movement.unloaded
+  if (movement.type === 'committed' && movement.committed != null) out.committed = movement.committed
+  if (movement.type === 'incoming' && movement.incoming != null) out.incoming = movement.incoming
+  if (movement.type === 'adjust') {
+    if (movement.adjustTo != null) out.adjustTo = movement.adjustTo
+    if (movement.adjustDelta != null) out.adjustDelta = movement.adjustDelta
   }
+  return out
 }

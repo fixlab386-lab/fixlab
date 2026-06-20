@@ -1,14 +1,27 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppWindows } from '../../contexts/AppWindowsContext'
+import { useStudioFeatures } from '../../hooks/useStudioFeatures'
+import { filterByStudioFeatures, NEW_MENU_ITEM_FEATURES } from '../../lib/studioFeatures'
 import { NEW_MENU_SECTIONS } from './newMenuConfig'
+import { IconNuovo } from './ToolbarIcons'
 import '../../theme/gestionale-new-menu.css'
 
 export default function ToolbarNewMenu() {
   const navigate = useNavigate()
-  const { openVenditaBanco } = useAppWindows()
+  const { openVenditaBanco, openOrdineCliente, openOrdineFornitore, openDocumentoClienteNew } =
+    useAppWindows()
+  const { features } = useStudioFeatures()
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
+
+  const menuSections = useMemo(
+    () =>
+      NEW_MENU_SECTIONS.map(section =>
+        filterByStudioFeatures(section, features, NEW_MENU_ITEM_FEATURES),
+      ).filter(section => section.length > 0),
+    [features],
+  )
 
   const close = useCallback(() => setOpen(false), [])
 
@@ -32,30 +45,34 @@ export default function ToolbarNewMenu() {
     close()
     if (item.kind === 'modal') {
       if (item.modal === 'vendita_banco') openVenditaBanco()
+      if (item.modal === 'ordine_cliente') openOrdineCliente()
+      if (item.modal === 'ordine_fornitore') openOrdineFornitore()
+      if (item.modal === 'ddt') openDocumentoClienteNew('ddt')
       return
     }
     navigate(item.to)
   }
 
   return (
-    <div className="gestionale-toolbar-new" ref={rootRef}>
+    <div className="gestionale-toolbar-new" ref={rootRef} onMouseLeave={close}>
       <button
         type="button"
         className={`gestionale-toolbar-new__trigger${open ? ' gestionale-toolbar-new__trigger--open' : ''}`}
+        onMouseEnter={() => setOpen(true)}
         onClick={() => setOpen(prev => !prev)}
         aria-haspopup="menu"
         aria-expanded={open}
         title="Nuovo"
       >
-        <span className="gestionale-toolbar-new__icon gestionale-toolbar-new__icon--sun" aria-hidden="true">
-          ☀
+        <span className="gestionale-toolbar-new__icon" aria-hidden="true">
+          <IconNuovo size={32} />
         </span>
         <span className="gestionale-toolbar-new__label">Nuovo</span>
       </button>
 
       {open ? (
-        <div className="gestionale-toolbar-new__menu" role="menu">
-          {NEW_MENU_SECTIONS.map((section, sectionIndex) => (
+        <div className="gestionale-toolbar-new__menu" role="menu" onMouseEnter={() => setOpen(true)}>
+          {menuSections.map((section, sectionIndex) => (
             <div
               key={sectionIndex}
               className={`gestionale-toolbar-new__section${sectionIndex > 0 ? ' gestionale-toolbar-new__section--divider' : ''}`}

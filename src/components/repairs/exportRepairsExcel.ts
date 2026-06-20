@@ -1,6 +1,6 @@
 import { buildExportFilename, exportRowsToXlsx, type ExcelColumn } from '../../lib/exportExcel'
 import type { Repair } from '../../types'
-import { REPAIR_STATUS_LABELS } from '../devices/constants'
+import { REPAIR_STATUS_LABELS } from '../../gestionale/features/riparazioni/constants'
 
 function formatRepairDate(d: unknown): string {
   if (!d) return ''

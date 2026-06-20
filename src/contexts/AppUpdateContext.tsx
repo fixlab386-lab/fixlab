@@ -104,11 +104,11 @@ function desktopBanner(status: FixLabUpdateStatus | null, dismissedVersion: stri
       kind: 'desktop',
       version,
       message: version
-        ? `FixLab ${version} è pronto. Riavvia per completare l'installazione.`
-        : 'Aggiornamento pronto. Riavvia per installare.',
+        ? `FixLab ${version} pronto. Riavvio automatico tra pochi secondi…`
+        : 'Aggiornamento pronto. Riavvio automatico tra pochi secondi…',
       progress: 100,
       canApply: true,
-      applyLabel: 'Riavvia e installa',
+      applyLabel: 'Riavvia ora',
     }
   }
 
@@ -128,6 +128,7 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false
     let unsubscribe: (() => void) | undefined
+    let autoInstallTimer: number | undefined
 
     void (async () => {
       try {
@@ -139,11 +140,20 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
     })()
 
     unsubscribe = api.onUpdateStatusChanged(status => {
-      if (!cancelled) setDesktopStatus(status)
+      if (cancelled) return
+      setDesktopStatus(status)
+      if (status.state === 'downloaded' && status.version) {
+        if (autoInstallTimer != null) window.clearTimeout(autoInstallTimer)
+        autoInstallTimer = window.setTimeout(() => {
+          if (isDismissed(status.version!)) return
+          void api.installUpdate()
+        }, 4500)
+      }
     })
 
     return () => {
       cancelled = true
+      if (autoInstallTimer != null) window.clearTimeout(autoInstallTimer)
       unsubscribe?.()
     }
   }, [])

@@ -30,7 +30,7 @@
   margin: 0 0 4px;
   font-size: 11px;
   font-weight: 700;
-  color: #1a5fb4;
+  color: var(--brand-link);
 }
 
 .gestionale-doc-form-addresses {
@@ -100,6 +100,65 @@
 
 .gestionale-doc-lines__code-search:hover {
   background: #eef4fa;
+}
+
+.gestionale-doc-lines__code-cell--suggest {
+  position: relative;
+}
+
+.gestionale-doc-lines__code-suggest {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 180px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid var(--gestionale-border);
+  border-radius: var(--gestionale-radius-sm);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+}
+
+.gestionale-doc-lines__code-suggest-item {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.gestionale-doc-lines__code-suggest-item:hover {
+  background: #eef4fa;
+}
+
+.gestionale-doc-form-header--ordine {
+  grid-template-columns: minmax(200px, 2.2fr) 110px 120px 72px 72px 72px;
+}
+
+.gestionale-ordine-cliente-footer {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) minmax(180px, 2fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--gestionale-border);
+  border-radius: var(--gestionale-radius-md);
+  background: #f8fafc;
+}
+
+.gestionale-ordine-cliente-footer__totals {
+  text-align: right;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .gestionale-doc-form-header__client-wrap {

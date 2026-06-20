@@ -1,42 +1,43 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../../hooks/useAuth'
 import { useActiveStudio } from '../../../hooks/useActiveStudio'
+import { useStudioLiveQuery } from '../../../hooks/useStudioLiveQuery'
+import { useStudioPagedLiveQuery } from '../../../hooks/useStudioPagedLiveQuery'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '../../../firebase'
 import {
-  getStockMovements,
-  getProducts,
-  addStockMovement,
-  deleteStockMovement,
+  listenCategories,
+  listenStockMovements,
 } from '../../../lib/firestore'
+import { fetchStockMovementsPage } from '../../../lib/firestorePagination'
+import { loadRecentClients, loadRecentProducts, loadRecentSuppliers } from '../../../lib/loadStudioCatalog'
+import LoadMoreBar from '../../../components/ui/LoadMoreBar'
 import {
-  callCommitStockMovement,
   callRevertStockMovement,
   isStockFunctionUnavailable,
 } from '../../../lib/commitStockMovement'
 import type { Product, StockMovement } from '../../../types'
-import { MOVEMENT_TYPE_LABELS } from './constants'
 import { createMovementTableColumns } from './movementTableColumns'
 import { exportMovementsCsv } from './exportMovements'
-import { formatMovementDate, linkedDocumentLabel, sortMovementRows } from './utils'
-import { movementQuantityDisplay } from './stockPreview'
-import MovementFilterBar from './MovementFilterBar'
-import MovementSectionActions from './MovementSectionActions'
-import StockMovementFormPanel, {
-  createEmptyMovementForm,
-  type MovementFormState,
-} from './StockMovementFormPanel'
-import {
-  SectionHeader,
-  MasterDetailLayout,
-  DataTable,
-  DetailPanel,
-  ActionBar,
-  ToolButton,
-  type ActionBarAction,
-} from '../../../components/ui'
+import { formatMovementDate, movementTotals, sortMovementRows } from './utils'
+import MovimentiSidebar from './MovimentiSidebar'
+import MovimentiActionBar from './MovimentiActionBar'
+import OperazioneMagazzinoModal, {
+  createEmptyOperazioneMagazzino,
+  createOperazioneMagazzinoWithProduct,
+  type OperazioneMagazzinoState,
+} from './OperazioneMagazzinoModal'
+import MovimentoDettaglioModal from './MovimentoDettaglioModal'
+import { commitOperazioneMagazzinoLine } from './commitOperazioneMagazzino'
+import SchedaProdottoModal, {
+  buildSchedaProdottoPayload,
+  type SchedaProdottoPayload,
+} from '../shared/SchedaProdottoModal'
+import type { OperazioneMagazzinoMode } from './constants'
+import { SectionHeader, DataTable } from '../../../components/ui'
 import { useStockMovementListState } from './hooks/useStockMovementListState'
-
-const columns = createMovementTableColumns()
+import '../../theme/movimenti-section.css'
 
 type Props = {
   initialProductId?: string
@@ -45,16 +46,40 @@ type Props = {
 export default function MovimentiSection({ initialProductId }: Props) {
   const { user, userProfile, loading: authLoading } = useAuth()
   const { studioId } = useActiveStudio()
-  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const productIdFromUrl = initialProductId || searchParams.get('productId') || undefined
+  const opParam = searchParams.get('op')
 
-  const [movements, setMovements] = useState<StockMovement[]>([])
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const liveEnabled = !authLoading && Boolean(studioId)
+
+  const {
+    data: movements,
+    syncing: movementsSyncing,
+    loadingMore,
+    hasMore,
+    truncated,
+    error: movementsError,
+    loadMore,
+    showInitialSpinner: movementsInitial,
+  } = useStudioPagedLiveQuery(studioId, listenStockMovements, fetchStockMovementsPage, liveEnabled)
+
+  const { data: categories } = useStudioLiveQuery(studioId, listenCategories, liveEnabled, 500)
+
+  const loading = movementsInitial
+  const loadError = movementsError
+  const [actionError, setActionError] = useState<string | null>(null)
+
   const [stockWarning, setStockWarning] = useState<string | null>(null)
-  const [formMode, setFormMode] = useState<'new' | null>(null)
-  const [form, setForm] = useState<MovementFormState>(() => createEmptyMovementForm())
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
+
+  const [operazioneMode, setOperazioneMode] = useState<OperazioneMagazzinoMode | null>(null)
+  const [operazioneState, setOperazioneState] = useState<OperazioneMagazzinoState>(() =>
+    createEmptyOperazioneMagazzino('load'),
+  )
+  const [detailMovement, setDetailMovement] = useState<StockMovement | null>(null)
+  const [schedaPayload, setSchedaPayload] = useState<SchedaProdottoPayload | null>(null)
+  const [schedaProduct, setSchedaProduct] = useState<Product | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -64,44 +89,125 @@ export default function MovimentiSection({ initialProductId }: Props) {
   }, [movements, productIdFromUrl])
 
   const list = useStockMovementListState(scopedMovements)
+  const { setProductFilter } = list
 
-  const refresh = useCallback(async () => {
-    if (!studioId) return
-    try {
-      const [m, p] = await Promise.all([getStockMovements(studioId), getProducts(studioId)])
-      setMovements(m)
-      setProducts(p)
-      setLoadError(null)
-    } catch {
-      setLoadError('Impossibile aggiornare i movimenti.')
-    }
-  }, [studioId])
+  const [catalogSubjects, setCatalogSubjects] = useState<{ id: string; name: string }[]>([])
+  const [catalogProducts, setCatalogProducts] = useState<{ id: string; code: string; name: string }[]>([])
 
   useEffect(() => {
-    if (authLoading) return
-    if (!studioId) {
-      setLoading(false)
-      return
-    }
+    if (!studioId) return
     let cancelled = false
-    setLoading(true)
-    Promise.all([getStockMovements(studioId), getProducts(studioId)])
-      .then(([m, p]) => {
-        if (!cancelled) {
-          setMovements(m)
-          setProducts(p)
-        }
+    void Promise.all([
+      loadRecentClients(studioId, 200),
+      loadRecentSuppliers(studioId, 200),
+      loadRecentProducts(studioId, 300),
+    ])
+      .then(([clients, suppliers, products]) => {
+        if (cancelled) return
+        setCatalogSubjects([
+          ...clients.map(c => ({ id: c.id, name: c.name })),
+          ...suppliers.map(s => ({ id: s.id, name: s.name })),
+        ])
+        setCatalogProducts(products.map(p => ({ id: p.id, code: p.code || '', name: p.name })))
       })
       .catch(() => {
-        if (!cancelled) setLoadError('Impossibile caricare i movimenti.')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
+        /* catalogo non disponibile: la sidebar userà i soggetti dei movimenti */
       })
     return () => {
       cancelled = true
     }
-  }, [authLoading, studioId])
+  }, [studioId])
+
+  useEffect(() => {
+    if (productIdFromUrl) setProductFilter(productIdFromUrl)
+  }, [productIdFromUrl, setProductFilter])
+
+  const openDocument = useCallback(
+    (documentId: string) => {
+      navigate(`/documenti/${documentId}`)
+    },
+    [navigate],
+  )
+
+  const resolveProduct = useCallback(async (productId: string): Promise<Product | null> => {
+    const snap = await getDoc(doc(db, 'products', productId))
+    if (!snap.exists()) return null
+    return { id: snap.id, ...snap.data() } as Product
+  }, [])
+
+  const closeSchedaModal = useCallback(() => {
+    setSchedaPayload(null)
+    setSchedaProduct(null)
+  }, [])
+
+  const openSchedaFromMovement = useCallback(
+    async (m: StockMovement) => {
+      if (!m.productId) {
+        setDetailMovement(m)
+        list.selectItem(m)
+        return
+      }
+      try {
+        const product = await resolveProduct(m.productId)
+        if (!product) {
+          setActionError(`Prodotto «${m.productName || m.productCode || m.productId}» non trovato.`)
+          return
+        }
+        setActionError(null)
+        setSchedaProduct(product)
+        setSchedaPayload(buildSchedaProdottoPayload(product, movements))
+        setDetailMovement(null)
+        list.selectItem(m)
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'Apertura scheda prodotto non riuscita.')
+      }
+    },
+    [list, movements, resolveProduct],
+  )
+
+  const openOperazioneForSchedaProduct = useCallback(
+    async (mode: OperazioneMagazzinoMode) => {
+      if (!schedaProduct) return
+      const product = await resolveProduct(schedaProduct.id)
+      if (!product) {
+        setActionError('Prodotto non trovato.')
+        return
+      }
+      closeSchedaModal()
+      setOperazioneMode(mode)
+      setOperazioneState(createOperazioneMagazzinoWithProduct(mode, product))
+      setSaveError(null)
+      list.clearSelection()
+    },
+    [closeSchedaModal, list, resolveProduct, schedaProduct],
+  )
+
+  const columns = useMemo(
+    () =>
+      createMovementTableColumns({
+        onProductClick: productId => {
+          const m = scopedMovements.find(x => x.productId === productId)
+          if (m) void openSchedaFromMovement(m)
+          else {
+            void (async () => {
+              const product = await resolveProduct(productId)
+              if (!product) {
+                setActionError('Prodotto non trovato.')
+                return
+              }
+              setSchedaProduct(product)
+              setSchedaPayload(buildSchedaProdottoPayload(product, movements))
+              setDetailMovement(null)
+            })()
+          }
+        },
+        onCauseClick: m => {
+          if (m.linkedDocumentId) openDocument(m.linkedDocumentId)
+          else setDetailMovement(m)
+        },
+      }),
+    [movements, openDocument, openSchedaFromMovement, resolveProduct, scopedMovements],
+  )
 
   const tableRows = useMemo(
     () =>
@@ -110,105 +216,75 @@ export default function MovimentiSection({ initialProductId }: Props) {
         sortDirection: list.sortDirection,
         columns,
       }),
-    [list.filtered, list.sortColumnId, list.sortDirection],
+    [list.filtered, list.sortColumnId, list.sortDirection, columns],
   )
 
-  const hasActiveFilters =
-    list.period !== 'all' || list.typeFilter !== 'all' || list.productFilter !== 'all'
+  const totals = useMemo(() => movementTotals(list.filtered), [list.filtered])
 
-  const saveWithFallback = useCallback(async () => {
-    const product = products.find(p => p.id === form.productId)
-    if (!product) return
+  const openOperazione = useCallback((mode: OperazioneMagazzinoMode) => {
+    setOperazioneMode(mode)
+    setOperazioneState(createEmptyOperazioneMagazzino(mode))
+    setSaveError(null)
+    list.clearSelection()
+  }, [list])
 
-    const base = {
-      studioId,
-      date: form.date,
-      productId: product.id,
-      productCode: product.code || '',
-      productName: product.name,
-      type: form.type,
-      cause: form.cause || undefined,
-      notes: form.notes || undefined,
-      operatorId: user?.uid,
-      operatorName: userProfile?.name,
-      stockUpdated: false,
-    }
+  const handledOpRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!opParam || handledOpRef.current === opParam) return
+    handledOpRef.current = opParam
+    const opMode: OperazioneMagazzinoMode | null =
+      opParam === 'load' || opParam === 'unload'
+        ? opParam
+        : opParam === 'rettifica' || opParam === 'adjust'
+          ? 'adjust'
+          : null
+    if (opMode) openOperazione(opMode)
+    const next = new URLSearchParams(searchParams)
+    next.delete('op')
+    setSearchParams(next, { replace: true })
+  }, [opParam, openOperazione, searchParams, setSearchParams])
 
-    if (form.type === 'load') {
-      await addStockMovement({ ...base, loaded: form.quantity })
-    } else if (form.type === 'unload') {
-      await addStockMovement({ ...base, unloaded: form.quantity })
-    } else if (form.type === 'committed') {
-      await addStockMovement({ ...base, committed: form.quantity })
-    } else if (form.type === 'incoming') {
-      await addStockMovement({ ...base, incoming: form.quantity })
-    } else if (form.type === 'adjust') {
-      await addStockMovement({
-        ...base,
-        adjustTo: form.adjustMode === 'absolute' ? form.quantity : undefined,
-        adjustDelta: form.adjustMode === 'delta' ? form.quantity : undefined,
+  const commitLine = useCallback(
+    async (mode: OperazioneMagazzinoMode, state: OperazioneMagazzinoState, line: OperazioneMagazzinoState['lines'][0]) => {
+      if (!studioId) return
+      await commitOperazioneMagazzinoLine(mode, state, line, {
+        studioId,
+        operatorId: user?.uid,
+        operatorName: userProfile?.name,
       })
-    }
+    },
+    [studioId, user?.uid, userProfile?.name],
+  )
 
-    setStockWarning('Giacenza non aggiornata (function non attiva).')
-  }, [form, products, studioId, user?.uid, userProfile?.name])
-
-  const handleSave = useCallback(async () => {
-    const product = products.find(p => p.id === form.productId)
-    if (!product || !studioId) return
-
+  const handleSaveOperazione = useCallback(async () => {
+    if (!studioId || !operazioneMode || operazioneState.lines.length === 0) return
     setSaving(true)
     setSaveError(null)
     setStockWarning(null)
-
     try {
-      await callCommitStockMovement({
-        movement: {
-          studioId,
-          date: form.date,
-          productId: product.id,
-          productCode: product.code,
-          productName: product.name,
-          type: form.type,
-          quantity: form.quantity,
-          adjustTo: form.type === 'adjust' && form.adjustMode === 'absolute' ? form.quantity : undefined,
-          adjustMode: form.adjustMode,
-          cause: form.cause || undefined,
-          notes: form.notes || undefined,
-          operatorId: user?.uid,
-          operatorName: userProfile?.name,
-        },
-      })
-      setFormMode(null)
-      list.clearSelection()
-      await refresh()
+      for (const line of operazioneState.lines) {
+        await commitLine(operazioneMode, operazioneState, line)
+      }
+      setOperazioneMode(null)
+      setActionMessage(
+        operazioneMode === 'load'
+          ? 'Carico magazzino registrato.'
+          : operazioneMode === 'unload'
+            ? 'Scarico magazzino registrato.'
+            : 'Rettifica giacenza registrata.',
+      )
+      window.setTimeout(() => setActionMessage(null), 2500)
     } catch (err) {
       if (isStockFunctionUnavailable(err)) {
-        try {
-          await saveWithFallback()
-          setFormMode(null)
-          list.clearSelection()
-          await refresh()
-        } catch (fallbackErr) {
-          setSaveError(fallbackErr instanceof Error ? fallbackErr.message : 'Salvataggio non riuscito.')
-        }
+        setStockWarning('Alcune giacenze potrebbero non essere aggiornate (function non attiva).')
+        setOperazioneMode(null)
       } else {
         setSaveError(err instanceof Error ? err.message : 'Salvataggio non riuscito.')
       }
     } finally {
       setSaving(false)
     }
-  }, [form, products, studioId, user?.uid, userProfile?.name, saveWithFallback, refresh, list])
-
-  const handleNew = useCallback(() => {
-    const empty = createEmptyMovementForm()
-    if (productIdFromUrl) empty.productId = productIdFromUrl
-    setForm(empty)
-    setSaveError(null)
-    setFormMode('new')
-    list.clearSelection()
-    list.setDetailCollapsed(false)
-  }, [list, productIdFromUrl])
+  }, [commitLine, operazioneMode, operazioneState, studioId])
 
   const handleDelete = useCallback(async () => {
     const target =
@@ -228,55 +304,27 @@ export default function MovimentiSection({ initialProductId }: Props) {
     try {
       await callRevertStockMovement(target.id, studioId)
       list.clearSelection()
-      setFormMode(null)
-      await refresh()
+      setDetailMovement(null)
     } catch (err) {
-      if (isStockFunctionUnavailable(err)) {
-        await deleteStockMovement(target.id)
-        setStockWarning('Giacenza non ripristinata (function non attiva).')
-        list.clearSelection()
-        setFormMode(null)
-        await refresh()
-      } else {
-        setLoadError(err instanceof Error ? err.message : 'Eliminazione non riuscita.')
-      }
+      setActionError(err instanceof Error ? err.message : 'Eliminazione non riuscita.')
     }
-  }, [list, movements, studioId, refresh])
+  }, [list, movements, studioId])
 
-  const handlePrint = useCallback(() => {
-    window.print()
-  }, [])
-
+  const handlePrint = useCallback(() => window.print(), [])
   const handleExcel = useCallback(() => {
     exportMovementsCsv(list.filtered.length ? list.filtered : scopedMovements)
   }, [list.filtered, scopedMovements])
 
-  const actionBarActions: ActionBarAction[] = useMemo(
-    () => [
-      { id: 'new', label: 'Nuovo', icon: '➕', onClick: handleNew },
-      {
-        id: 'del',
-        label: 'Elimina',
-        icon: '🗑',
-        variant: 'danger',
-        onClick: () => void handleDelete(),
-        disabled: !list.selected && list.selectedKeys.length === 0,
-      },
-      { id: 'print', label: 'Stampa', icon: '🖨', onClick: handlePrint },
-      { id: 'excel', label: 'Excel', icon: '📊', onClick: handleExcel },
-    ],
-    [handleNew, handleDelete, handlePrint, handleExcel, list.selected, list.selectedKeys.length],
-  )
-
-  if (authLoading || loading) {
-    return <div className="gestionale-page gestionale-datatable__empty">Caricamento movimenti…</div>
-  }
+  const openDetail = useCallback((movement: StockMovement) => {
+    setDetailMovement(movement)
+    list.selectItem(movement)
+  }, [list])
 
   if (!studioId) {
     return <div className="gestionale-page gestionale-datatable__empty">Studio non disponibile.</div>
   }
 
-  if (loadError && movements.length === 0) {
+  if (loadError && movements.length === 0 && !loading) {
     return (
       <div className="gestionale-page gestionale-datatable__empty" data-tutorial="page-movimenti">
         {loadError}
@@ -284,131 +332,133 @@ export default function MovimentiSection({ initialProductId }: Props) {
     )
   }
 
-  const filterBanner = productIdFromUrl
-    ? `Filtro attivo: movimenti del prodotto selezionato`
-    : null
-
   return (
-    <div className="gestionale-page" data-tutorial="page-movimenti">
-      {loadError ? <div className="gestionale-page__banner gestionale-page__banner--error">{loadError}</div> : null}
+    <div className="movimenti-section gestionale-page" data-tutorial="page-movimenti">
+      {movementsSyncing && movements.length > 0 ? (
+        <div className="gestionale-sync-badge" aria-live="polite">Sincronizzazione…</div>
+      ) : null}
+      {loading ? <div className="gestionale-page-skeleton">Caricamento movimenti…</div> : null}
+      {loadError || actionError ? (
+        <div className="gestionale-page__banner gestionale-page__banner--error">{loadError || actionError}</div>
+      ) : null}
       {stockWarning ? (
         <div className="gestionale-page__banner gestionale-page__banner--warning">{stockWarning}</div>
       ) : null}
-      {filterBanner ? <div className="gestionale-page__banner">{filterBanner}</div> : null}
-
-      <SectionHeader
-        title="Movimenti di magazzino"
-        searchValue={list.search}
-        onSearchChange={list.setSearch}
-        searchPlaceholder="Cerca prodotto, causale, operatore…"
-        actions={
-          <MovementSectionActions
-            showFilterMenu={list.showFilterMenu}
-            hasActiveFilters={hasActiveFilters}
-            onToggleFilterMenu={list.toggleFilterMenu}
-            selectionMode={list.selectionMode}
-            onToggleSelectionMode={list.toggleSelectionMode}
-          />
-        }
-      />
-
-      {list.showFilterMenu ? (
-        <MovementFilterBar
-          period={list.period}
-          typeFilter={list.typeFilter}
-          productFilter={list.productFilter}
-          products={products}
-          onPeriodChange={list.setPeriod}
-          onTypeFilterChange={list.setTypeFilter}
-          onProductFilterChange={list.setProductFilter}
-          onClear={list.resetFilters}
-        />
+      {actionMessage ? <div className="gestionale-page__banner gestionale-page__banner--ok">{actionMessage}</div> : null}
+      {productIdFromUrl ? (
+        <div className="gestionale-page__banner">Filtro attivo: movimenti del prodotto selezionato</div>
       ) : null}
 
-      <MasterDetailLayout
-        detailCollapsed={list.detailCollapsed}
-        onToggleDetail={() => list.setDetailCollapsed(c => !c)}
-        master={
+      <SectionHeader
+        title="Movimenti magazzino"
+        searchValue={list.search}
+        onSearchChange={list.setSearch}
+        searchPlaceholder="Cerca codice…"
+      />
+
+      <div className="movimenti-section__body">
+        <div className="movimenti-section__lista">
           <DataTable
             rows={tableRows}
             columns={columns}
             rowKey={m => m.id}
-            selectable={list.selectionMode}
             selectedKeys={list.selectedKeys}
             onSelectionChange={keys => {
               list.setSelectedKeys(keys)
               if (keys.length === 1) {
                 const m = scopedMovements.find(x => x.id === keys[0])
-                if (m) {
-                  list.selectItem(m)
-                  setFormMode(null)
-                }
+                if (m) list.selectItem(m)
+              } else if (keys.length === 0) {
+                list.clearSelection()
               }
             }}
             sortColumnId={list.sortColumnId}
             sortDirection={list.sortDirection}
             onSort={list.handleSort}
-            onRowClick={item => {
-              list.selectItem(item)
-              setFormMode(null)
-            }}
-            emptyMessage="Nessun movimento. Usa «Nuovo» per registrarne uno."
-            virtualize
-            virtualizeThreshold={80}
+            onRowClick={m => void openSchedaFromMovement(m)}
+            emptyMessage="Nessun movimento. Usa «Carica» o «Scarica» per registrarne uno."
+            virtualize={false}
           />
-        }
-        detail={
-          formMode === 'new' ? (
-            <StockMovementFormPanel
-              products={products}
-              form={form}
-              onChange={setForm}
-              saving={saving}
-              saveError={saveError}
-              onSave={() => void handleSave()}
-              onCancel={() => {
-                setFormMode(null)
-                setSaveError(null)
-              }}
-            />
-          ) : list.selected ? (
-            <DetailPanel
-              title={`${MOVEMENT_TYPE_LABELS[list.selected.type]} — ${list.selected.productName}`}
-              tabs={[{ id: 'riepilogo', label: 'Riepilogo', content: null }]}
-              activeTabId="riepilogo"
-              onTabChange={() => {}}
-              fields={[
-                { label: 'Data', value: formatMovementDate(list.selected.date) },
-                { label: 'Prodotto', value: `${list.selected.productCode} — ${list.selected.productName}` },
-                { label: 'Tipo', value: MOVEMENT_TYPE_LABELS[list.selected.type] },
-                { label: 'Quantità', value: movementQuantityDisplay(list.selected) },
-                { label: 'Causale', value: list.selected.cause || '—' },
-                { label: 'Documento', value: linkedDocumentLabel(list.selected) },
-                { label: 'Operatore', value: list.selected.operatorName || '—' },
-                ...(list.selected.notes ? [{ label: 'Note', value: list.selected.notes }] : []),
-                ...(list.selected.stockUpdated === false
-                  ? [{ label: 'Giacenza', value: 'Non aggiornata (solo registro)' }]
-                  : []),
-              ]}
-              footer={
-                list.selected.linkedDocumentId ? null : (
-                  <ToolButton label="Elimina" icon="🗑" onClick={() => void handleDelete()} />
-                )
-              }
-            />
-          ) : (
-            <div className="gestionale-detail-panel gestionale-detail-panel--empty">
-              <p className="gestionale-detail-panel__empty-msg">
-                <strong>Nessun movimento selezionato</strong>
-                Seleziona una riga per i dettagli oppure crea un nuovo movimento manuale.
-              </p>
-              <ToolButton label="Nuovo movimento" icon="➕" onClick={handleNew} />
-            </div>
-          )
-        }
+
+          <div className="movimenti-section__foot">
+            <span className="movimenti-section__foot-count">{list.filtered.length} voci</span>
+            <span />
+            <span />
+            <span />
+            <span className="movimenti-section__foot-num">{totals.loaded || ''}</span>
+            <span className="movimenti-section__foot-num">{totals.unloaded || ''}</span>
+            <span className="movimenti-section__foot-num">{totals.committed || ''}</span>
+            <span />
+            <span className="movimenti-section__foot-num">{totals.incoming || ''}</span>
+          </div>
+          <LoadMoreBar hasMore={hasMore} loading={loadingMore} truncated={truncated} onLoadMore={loadMore} />
+        </div>
+
+        <MovimentiSidebar
+          period={list.period}
+          statusFilter={list.statusFilter}
+          productFilter={list.productFilter}
+          subjectFilter={list.subjectFilter}
+          movements={scopedMovements}
+          catalogSubjects={catalogSubjects}
+          catalogProducts={catalogProducts}
+          onPeriodChange={list.setPeriod}
+          onStatusFilterChange={list.setStatusFilter}
+          onProductFilterChange={list.setProductFilter}
+          onSubjectFilterChange={list.setSubjectFilter}
+        />
+      </div>
+
+      <MovimentiActionBar
+        hasSelection={!!list.selected}
+        canDelete={!!list.selected || list.selectedKeys.length > 0}
+        onCarica={() => openOperazione('load')}
+        onScarica={() => openOperazione('unload')}
+        onRettifica={() => openOperazione('adjust')}
+        onModifica={() => list.selected && openDetail(list.selected)}
+        onElimina={() => void handleDelete()}
+        onStampa={handlePrint}
+        onExcel={handleExcel}
       />
 
-      <ActionBar count={list.filtered.length} countLabel="movimenti" actions={actionBarActions} />
+      {operazioneMode ? (
+        <OperazioneMagazzinoModal
+          open
+          mode={operazioneMode}
+          state={operazioneState}
+          studioId={studioId!}
+          saving={saving}
+          saveError={saveError}
+          onChange={setOperazioneState}
+          onSave={() => void handleSaveOperazione()}
+          onClose={() => {
+            if (!saving) {
+              setOperazioneMode(null)
+              setSaveError(null)
+            }
+          }}
+        />
+      ) : null}
+
+      {schedaPayload && schedaProduct && studioId ? (
+        <SchedaProdottoModal
+          studioId={studioId}
+          categories={categories}
+          payload={schedaPayload}
+          onClose={closeSchedaModal}
+          onCarica={() => void openOperazioneForSchedaProduct('load')}
+          onScarica={() => void openOperazioneForSchedaProduct('unload')}
+          onRettifica={() => void openOperazioneForSchedaProduct('adjust')}
+        />
+      ) : null}
+
+      {detailMovement ? (
+        <MovimentoDettaglioModal
+          movement={detailMovement}
+          onClose={() => setDetailMovement(null)}
+          onOpenDocument={openDocument}
+        />
+      ) : null}
     </div>
   )
 }

@@ -58,7 +58,7 @@
   margin: 0;
   font-size: 22px;
   font-weight: 400;
-  color: #316ac5;
+  color: var(--brand-blue);
 }
 
 .opzioni-applicazione__subtitle {
@@ -83,7 +83,7 @@
   border: 1px solid #9eb8d8;
   border-radius: 4px;
   background: linear-gradient(180deg, #fff 0%, #e8eef6 100%);
-  color: #316ac5;
+  color: var(--brand-blue);
   font-size: 22px;
   line-height: 1;
   cursor: pointer;
@@ -92,14 +92,14 @@
 
 .opzioni-applicazione__close:hover {
   background: #f0f4fa;
-  border-color: #316ac5;
+  border-color: var(--brand-blue);
 }
 
 .opzioni-applicazione__icon {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: linear-gradient(180deg, #6eb5ff 0%, #316ac5 100%);
+  background: var(--brand-gradient);
   border: 1px solid #2a5aa0;
 }
 
@@ -125,8 +125,8 @@
 
 .opzioni-applicazione__tab--active {
   background: #fff;
-  border-bottom-color: #316ac5;
-  color: #316ac5;
+  border-bottom-color: var(--brand-blue);
+  color: var(--brand-blue);
   font-weight: 600;
   margin-bottom: -1px;
 }
@@ -162,9 +162,9 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: 1px solid #316ac5;
+  border: 1px solid var(--brand-blue);
   background: #fff;
-  color: #316ac5;
+  color: var(--brand-blue);
   font-weight: 700;
   cursor: pointer;
 }
@@ -235,7 +235,7 @@
 .opzioni-help {
   border: none;
   background: none;
-  color: #316ac5;
+  color: var(--brand-blue);
   font-size: 11px;
   cursor: pointer;
   padding: 0 2px;
@@ -258,7 +258,7 @@
 .opzioni-link-btn {
   border: none;
   background: none;
-  color: #316ac5;
+  color: var(--brand-blue);
   font-size: 11px;
   text-decoration: underline;
   cursor: pointer;
@@ -419,7 +419,7 @@
 .opzioni-btn--secondary {
   background: linear-gradient(180deg, #fff 0%, #e8eef6 100%);
   border-color: #7a9ec8;
-  color: #316ac5;
+  color: var(--brand-blue);
 }
 
 .opzioni-grid-table__disabled td {
@@ -467,7 +467,7 @@
   margin: 0 0 8px;
   font-size: 12px;
   font-weight: 600;
-  color: #316ac5;
+  color: var(--brand-blue);
 }
 
 .opzioni-grid-table {
@@ -478,7 +478,7 @@
 
 .opzioni-grid-table th {
   background: #eef4fa;
-  color: #316ac5;
+  color: var(--brand-blue);
   text-align: left;
   padding: 4px 6px;
   border: 1px solid #c0c0c0;
@@ -491,7 +491,7 @@
 }
 
 .opzioni-grid-table__selected td {
-  background: #316ac5;
+  background: var(--brand-blue);
   color: #fff;
 }
 
@@ -513,7 +513,7 @@
 
 .opzioni-avvisi-table th {
   background: #eef4fa;
-  color: #316ac5;
+  color: var(--brand-blue);
   text-align: left;
   padding: 4px 8px;
   border: 1px solid #c0c0c0;
@@ -544,7 +544,7 @@
 .opzioni-advanced-block summary {
   cursor: pointer;
   font-weight: 600;
-  color: #316ac5;
+  color: var(--brand-blue);
   margin-bottom: 8px;
 }
 

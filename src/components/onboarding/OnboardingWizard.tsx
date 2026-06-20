@@ -7,6 +7,7 @@ import {
   studioDocToOnboardingForm,
   type StudioOnboardingSnapshot,
 } from '../../lib/studioOnboarding'
+import { featuresToFirestoreFields } from '../../lib/studioFeatures'
 import { uploadStudioLogoFile } from '../../lib/studioLogo'
 import { WIZARD_STEPS } from './constants'
 import StepStudio from './StepStudio'
@@ -86,7 +87,10 @@ export default function OnboardingWizard({
     setSaving(true)
     setSaveError('')
     try {
-      const patch = onboardingFormToFirestorePatch(form, true)
+      const patch = {
+        ...onboardingFormToFirestorePatch(form, true),
+        ...featuresToFirestoreFields(form.features, studioData),
+      }
       await updateDoc(doc(db, 'studios', studioId), patch)
       onComplete()
       navigate('/')

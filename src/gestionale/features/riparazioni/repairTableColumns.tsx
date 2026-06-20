@@ -3,7 +3,11 @@ import type { Repair } from '../../../types'
 import { REPAIR_PRIORITIES } from './constants'
 import { formatRepairDate, repairStatusLabel } from './utils'
 
-export function createRepairTableColumns(): DataTableColumn<Repair>[] {
+type RepairTableHandlers = {
+  onTicketClick?: (repair: Repair) => void
+}
+
+export function createRepairTableColumns(handlers?: RepairTableHandlers): DataTableColumn<Repair>[] {
   return [
     {
       id: 'ticket',
@@ -11,7 +15,25 @@ export function createRepairTableColumns(): DataTableColumn<Repair>[] {
       width: 88,
       sortable: true,
       accessor: r => r.ticketNumber || r.id.slice(0, 6),
-      render: r => <span className="gestionale-datatable__link">{r.ticketNumber || '—'}</span>,
+      render: r => {
+        const label = r.ticketNumber || '—'
+        if (!handlers?.onTicketClick) {
+          return <span className="gestionale-datatable__link">{label}</span>
+        }
+        return (
+          <button
+            type="button"
+            className="gestionale-datatable__link gestionale-link-btn"
+            onClick={e => {
+              e.stopPropagation()
+              handlers.onTicketClick!(r)
+            }}
+            title="Apri ordine cliente collegato"
+          >
+            {label}
+          </button>
+        )
+      },
     },
     {
       id: 'status',
@@ -26,13 +48,16 @@ export function createRepairTableColumns(): DataTableColumn<Repair>[] {
       header: 'Cliente',
       minWidth: 140,
       sortable: true,
-      accessor: r => r.clientName,
-      render: r => (
-        <div>
-          <div>{r.clientName || '—'}</div>
-          {r.clientPhone ? <div style={{ fontSize: 11, color: 'var(--gestionale-text-muted, #666)' }}>{r.clientPhone}</div> : null}
-        </div>
-      ),
+      accessor: r => `${r.clientName} ${r.clientPhone || ''}`.trim(),
+      render: r => {
+        const phone = r.clientPhone?.trim()
+        const label = phone ? `${r.clientName || '—'} · ${phone}` : r.clientName || '—'
+        return (
+          <span title={label} className="gestionale-datatable__cell-text">
+            {label}
+          </span>
+        )
+      },
     },
     {
       id: 'device',

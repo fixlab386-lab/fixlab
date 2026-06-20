@@ -8,6 +8,8 @@ import type {
   RegolaListino,
 } from './types'
 import { calcDisponibile } from './types'
+import { matchesProductCategoryTree } from '../../lib/categoryUtils'
+import type { Category } from '../../../types'
 
 export type GroupedRow =
   | { kind: 'group'; key: string; label: string; count: number }
@@ -20,7 +22,7 @@ export function getGroupValue(p: Prodotto, criterio: RaggruppaCriterio): string 
     case 'Categoria':
       return p.categoria || '(Senza categoria)'
     case 'CategoriaSottocategoria':
-      return p.sottocategoria ? `${p.categoria} / ${p.sottocategoria}` : p.categoria || '(Senza categoria)'
+      return p.categoryPath || (p.sottocategoria ? `${p.categoria} » ${p.sottocategoria}` : p.categoria) || '(Senza categoria)'
     case 'Um':
       return p.um || '(Vuoto)'
     case 'Fornitore':
@@ -82,7 +84,7 @@ export function buildGroupedList(
 export function getColumnValue(p: Prodotto, col: ColonnaId): string {
   switch (col) {
     case 'categoria':
-      return p.categoria
+      return p.categoryPath || p.categoria
     case 'cod':
       return p.codProdotto
     case 'descrizione':
@@ -114,11 +116,22 @@ export function uniqueColumnValues(prodotti: Prodotto[], col: ColonnaId): string
 export function applyColumnFilters(
   prodotti: Prodotto[],
   filtri: Partial<Record<ColonnaId, ColumnFilter>>,
+  categories: Category[] = [],
 ): Prodotto[] {
   return prodotti.filter(p => {
     for (const [col, filter] of Object.entries(filtri) as [ColonnaId, ColumnFilter][]) {
       const val = getColumnValue(p, col)
-      if (filter.kind === 'text') {
+      if (filter.kind === 'categoryTree') {
+        if (
+          !matchesProductCategoryTree(
+            { categoryId: p.categoryId, subcategoryId: p.subcategoryId },
+            filter.categoryId,
+            categories,
+          )
+        ) {
+          return false
+        }
+      } else if (filter.kind === 'text') {
         const q = filter.search.trim().toLowerCase()
         if (q && !val.toLowerCase().includes(q)) return false
       } else if (filter.kind === 'produttore') {

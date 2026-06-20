@@ -1,21 +1,30 @@
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../../../firebase'
-import { getClients, getDocuments, getPayments, getProducts, getRepairs } from '../../../lib/firestore'
-import type { Client, DocRecord, Payment, Product, Repair } from '../../../types'
+import { loadDashboardAggregates, invalidateDashboardAggregatesCache, type DashboardAggregates } from '../../../lib/dashboardAggregates'
+import {
+  fetchDocumentsPage,
+  fetchPaymentsPage,
+  fetchProductsPage,
+  fetchRepairsPage,
+} from '../../../lib/firestorePagination'
+import type { DocRecord, Payment, Product, Repair } from '../../../types'
 
 const CACHE_TTL_MS = 2 * 60 * 1000
+/** Slice leggera per analytics UI (non KPI, quelli sono in aggregates). */
+const ACTIVITY_SLICE = 50
 
 export type DashboardSnapshot = {
   repairs: Repair[]
   products: Product[]
-  clients: Client[]
+  clients: never[]
   payments: Payment[]
   documents: DocRecord[]
   studioName: string
+  aggregates: DashboardAggregates
 }
 
 function cacheKey(studioId: string): string {
-  return `fixlab-dashboard-v2-${studioId}`
+  return `fixlab-dashboard-v4-${studioId}`
 }
 
 function readCache(studioId: string): DashboardSnapshot | null {
@@ -44,29 +53,33 @@ export function invalidateDashboardCache(studioId: string): void {
   } catch {
     /* ignore */
   }
+  invalidateDashboardAggregatesCache(studioId)
 }
 
 export async function loadDashboardSnapshot(studioId: string): Promise<DashboardSnapshot> {
   const cached = readCache(studioId)
   if (cached) return cached
 
-  const [repairs, products, clients, payments, documents, studioSnap] = await Promise.all([
-    getRepairs(studioId),
-    getProducts(studioId),
-    getClients(studioId),
-    getPayments(studioId),
-    getDocuments(studioId),
+  const [repairsRes, productsRes, paymentsRes, documentsRes, studioSnap, aggregates] = await Promise.all([
+    fetchRepairsPage(studioId, null, ACTIVITY_SLICE),
+    fetchProductsPage(studioId, null, ACTIVITY_SLICE),
+    fetchPaymentsPage(studioId, null, ACTIVITY_SLICE),
+    fetchDocumentsPage(studioId, null, ACTIVITY_SLICE),
     getDoc(doc(db, 'studios', studioId)),
+    loadDashboardAggregates(studioId),
   ])
 
   const data: DashboardSnapshot = {
-    repairs,
-    products,
-    clients,
-    payments,
-    documents,
-    studioName: (studioSnap.data()?.name as string) || '',
+    repairs: repairsRes.items,
+    products: productsRes.items,
+    clients: [],
+    payments: paymentsRes.items,
+    documents: documentsRes.items,
+    studioName: studioSnap.exists() ? String(studioSnap.data()?.name || '') : '',
+    aggregates,
   }
   writeCache(studioId, data)
   return data
 }
+
+export type { DashboardAggregates }

@@ -3,7 +3,7 @@ type Props = {
   hasActiveFilters: boolean
   onToggleFilterMenu: () => void
   activeCount: number
-  onCassa: () => void
+  onCassa?: () => void
 }
 
 export default function RepairSectionActions({
@@ -23,9 +23,11 @@ export default function RepairSectionActions({
       >
         Filtra{hasActiveFilters ? ' (attivo)' : ''}
       </button>
-      <button type="button" className="gestionale-section-header__action-btn" onClick={onCassa}>
-        Cassa
-      </button>
+      {onCassa ? (
+        <button type="button" className="gestionale-section-header__action-btn" onClick={onCassa}>
+          Cassa
+        </button>
+      ) : null}
     </>
   )
 }

@@ -2,22 +2,27 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useActiveStudio } from '../hooks/useActiveStudio'
+import { useRequireStudioFeature } from '../hooks/useRequireStudioFeature'
+import { useStudioFeatures } from '../hooks/useStudioFeatures'
+import { useStudioLiveQuery } from '../hooks/useStudioLiveQuery'
 import { useCart } from '../contexts/CartContext'
 import {
-  getClients,
   addClient,
   getNextClientCode,
   addDocument,
   getNextDocumentNumber,
   addPayment,
-  getProducts,
-  getRepairs,
+  listenProducts,
+  listenReadyRepairs,
+  listenPaymentResources,
   updateClient,
   ensureDefaultPaymentResources,
 } from '../lib/firestore'
+import { searchClients } from '../lib/firestorePagination'
+import { loadRecentClients } from '../lib/loadStudioCatalog'
 import { callCommitDocument, isCommitFunctionUnavailable } from '../lib/commitDocument'
 import { getDefaultResource, resourceTypeToLegacy } from '../lib/paymentResources'
-import { sendFiscalReceiptToRt } from '../lib/rtPrinter'
+import { sendFiscalReceiptToRt, normalizeRtPaymentLabel } from '../lib/rtPrinter'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import type { Client, DocRecord, Payment, PaymentResource, Product, Repair } from '../types'
@@ -34,6 +39,8 @@ import {
 import { SectionHeader, ToolButton } from '../components/ui'
 
 export default function Cassa() {
+  const { loading: featureLoading } = useRequireStudioFeature('pos')
+  const { isEnabled: rtEnabled } = useStudioFeatures()
   const { userProfile } = useAuth()
   const { studioId } = useActiveStudio()
   const navigate = useNavigate()
@@ -41,10 +48,23 @@ export default function Cassa() {
   const { cart, addToCart, changeQty, removeFromCart, cartCount, cartTotal, clearCart } = useCart()
 
   const [studioData, setStudioData] = useState<Record<string, unknown> | null>(null)
-  const [products, setProducts] = useState<Product[]>([])
-  const [paymentResources, setPaymentResources] = useState<PaymentResource[]>([])
-  const [clients, setClients] = useState<Client[]>([])
+  const { data: products } = useStudioLiveQuery(studioId, listenProducts, Boolean(studioId), 60)
+  const { data: readyRepairs } = useStudioLiveQuery(studioId, listenReadyRepairs, Boolean(studioId), 25)
+  const { data: paymentResources } = useStudioLiveQuery(studioId, listenPaymentResources, Boolean(studioId), 50)
+
+  useEffect(() => {
+    if (!studioId) return
+    void ensureDefaultPaymentResources(studioId)
+  }, [studioId])
+
+  useEffect(() => {
+    if (paymentResources.length === 0) return
+    const def = getDefaultResource(paymentResources)
+    if (def) setSelectedResourceId(prev => prev || def.id)
+  }, [paymentResources])
+
   const [clientSearch, setClientSearch] = useState('')
+  const [clientResults, setClientResults] = useState<Client[]>([])
   const [showClientDropdown, setShowClientDropdown] = useState(false)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [showNewClient, setShowNewClient] = useState(false)
@@ -64,46 +84,55 @@ export default function Cassa() {
   const [saleCompleted, setSaleCompleted] = useState(false)
   const [completedTotal, setCompletedTotal] = useState(0)
 
-  const [readyRepairs, setReadyRepairs] = useState<Repair[]>([])
-  const [importingRepair, setImportingRepair] = useState(false)
   const [importRepairMessage, setImportRepairMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!studioId) return
+    let cancelled = false
+    const term = clientSearch.trim()
+    const timer = window.setTimeout(
+      () => {
+        const load = term ? searchClients(studioId, term) : loadRecentClients(studioId, 40)
+        void load.then(data => {
+          if (!cancelled) setClientResults(data)
+        })
+      },
+      term ? 250 : 0,
+    )
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [studioId, clientSearch])
+
+  useEffect(() => {
+    if (!selectedClient) return
+    setClientResults(prev =>
+      prev.some(x => x.id === selectedClient.id) ? prev : [selectedClient, ...prev],
+    )
+  }, [selectedClient])
+
+  useEffect(() => {
+    if (!studioId) return
+    getDoc(doc(db, 'studios', studioId)).then(snap => {
+      if (snap.exists()) setStudioData(snap.data())
+    })
+  }, [studioId])
+
+  const [importingRepair, setImportingRepair] = useState(false)
 
   const selectedResource = useMemo(
     () => paymentResources.find(r => r.id === selectedResourceId),
     [paymentResources, selectedResourceId],
   )
 
-  const loadReadyRepairs = useCallback(() => {
-    if (!studioId) return
-    getRepairs(studioId).then(all => {
-      setReadyRepairs(all.filter(r => r.status === 'ready').slice(0, 25))
-    })
-  }, [studioId])
-
-  useEffect(() => {
-    if (!studioId) return
-    Promise.all([
-      getClients(studioId),
-      getProducts(studioId),
-      ensureDefaultPaymentResources(studioId),
-    ]).then(([cl, prods, resources]) => {
-      setClients(cl)
-      setProducts(prods)
-      setPaymentResources(resources)
-      const def = getDefaultResource(resources)
-      if (def) setSelectedResourceId(def.id)
-    })
-    getDoc(doc(db, 'studios', studioId)).then(snap => {
-      if (snap.exists()) setStudioData(snap.data())
-    })
-    loadReadyRepairs()
-  }, [studioId, loadReadyRepairs])
-
   const repairIdFromUrl = searchParams.get('repairId')
   const addToCartRef = useRef(addToCart)
   const changeQtyRef = useRef(changeQty)
+  const productsRef = useRef(products)
   addToCartRef.current = addToCart
   changeQtyRef.current = changeQty
+  productsRef.current = products
 
   useEffect(() => {
     if (!repairIdFromUrl || !studioId) return
@@ -127,10 +156,8 @@ export default function Cassa() {
           setImportingRepair(false)
           return
         }
-        const [prods, cl] = await Promise.all([getProducts(studioId), getClients(studioId)])
+        const prods = productsRef.current
         if (cancelled) return
-        setClients(cl)
-        setProducts(prods)
         for (const line of r.products || []) {
           const p = prods.find(x => x.id === line.productId)
           if (!p) continue
@@ -147,15 +174,17 @@ export default function Cassa() {
           if (q > 1) changeQtyRef.current(p.id, q)
         }
         if (r.clientId) {
-          const c = cl.find(x => x.id === r.clientId)
-          if (c) {
+          const cSnap = await getDoc(doc(db, 'clients', r.clientId))
+          if (!cancelled && cSnap.exists()) {
+            const c = { id: cSnap.id, ...cSnap.data() } as Client
             setSelectedClient(c)
             setClientSearch(c.name)
           }
         } else if (r.clientPhone) {
+          const found = await searchClients(studioId, r.clientPhone, 5)
           const norm = (r.clientPhone || '').replace(/\D/g, '')
-          const c = cl.find(x => (x.phone || '').replace(/\D/g, '') === norm)
-          if (c) {
+          const c = found.find(x => (x.phone || '').replace(/\D/g, '') === norm)
+          if (!cancelled && c) {
             setSelectedClient(c)
             setClientSearch(c.name)
           }
@@ -176,11 +205,7 @@ export default function Cassa() {
     }
   }, [repairIdFromUrl, studioId, setSearchParams])
 
-  const filteredClients = clients.filter(c =>
-    (c.name + (c.phone || '') + (c.email || '') + (c.vatNumber || ''))
-      .toLowerCase()
-      .includes(clientSearch.toLowerCase()),
-  )
+  const filteredClients = clientResults
 
   const selectClient = (c: Client) => {
     setSelectedClient(c)
@@ -220,7 +245,6 @@ export default function Cassa() {
         repairsCount: 0,
         createdAt: new Date(),
       } as Client
-      setClients(prev => [newClient, ...prev])
       setSelectedClient(newClient)
       setClientSearch(newClient.name)
       setShowNewClient(false)
@@ -316,7 +340,8 @@ export default function Cassa() {
     [studioId, selectedResource, selectedClient, total, cardPaid, notes],
   )
 
-  const sendRtReceipt = useCallback(async () => {
+  const sendRtReceipt = useCallback(async (paymentLabel?: string) => {
+    if (!rtEnabled('rtPrinter')) return { ok: false, skipped: true as const }
     const result = await sendFiscalReceiptToRt(
       cart.map(item => ({
         description: `${item.name} ${item.model}`.trim(),
@@ -329,7 +354,7 @@ export default function Cassa() {
       {
         rtIp: studioData?.rtIp as string | undefined,
         rtModel: studioData?.rtModel as string | undefined,
-        paymentLabel: selectedResource?.name || 'CONTANTI',
+        paymentLabel: normalizeRtPaymentLabel(paymentLabel || selectedResource?.name || 'CONTANTI'),
       },
     )
     setReceiptResult({ ok: result.ok, msg: result.msg })
@@ -382,12 +407,16 @@ export default function Cassa() {
       await addPayment(buildPaymentPayload(documentId, docNumber, fullNumber))
 
       if (selectedResource.type === 'cash') {
-        await sendRtReceipt()
+        await sendRtReceipt('CONTANTI')
       } else if (selectedResource.type === 'card') {
-        setReceiptResult({
-          ok: true,
-          msg: cardPaid ? 'Pagamento carta confermato e registrato.' : 'Vendita registrata. Pagamento carta da confermare.',
-        })
+        if (cardPaid) {
+          await sendRtReceipt('BANCOMAT')
+        } else {
+          setReceiptResult({
+            ok: true,
+            msg: 'Vendita registrata. Conferma il pagamento bancomat per emettere lo scontrino RT.',
+          })
+        }
       } else {
         setReceiptResult({ ok: true, msg: 'Vendita registrata con successo.' })
       }
@@ -400,7 +429,6 @@ export default function Cassa() {
 
       setCompletedTotal(total)
       setSaleCompleted(true)
-      loadReadyRepairs()
     } catch (err) {
       setReceiptResult({ ok: false, msg: 'Errore durante la vendita: ' + err })
     }
@@ -421,6 +449,10 @@ export default function Cassa() {
     setStockWarning(null)
     setSaleCompleted(false)
     setCompletedTotal(0)
+  }
+
+  if (featureLoading) {
+    return <div className="gestionale-page gestionale-datatable__empty">Caricamento…</div>
   }
 
   if (!studioId) {
@@ -463,7 +495,7 @@ export default function Cassa() {
       ) : (
         <div className={`gestionale-cassa-layout${cart.length === 0 ? ' gestionale-cassa-layout--empty' : ''}`}>
           <aside className="gestionale-cassa-layout__catalog">
-            <CassaProductCatalog products={products} onAdd={addToCart} />
+            <CassaProductCatalog studioId={studioId!} products={products} onAdd={addToCart} />
             <CassaReadyRepairsPanel
               repairs={readyRepairs}
               onImport={id => navigate(`/cassa?repairId=${id}`)}

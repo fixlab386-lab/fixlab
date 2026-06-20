@@ -1,0 +1,390 @@
+/**
+ * Danea Easyfatt Enterprise — stile anagrafica (Clienti / Fornitori).
+ * Layout master-detail, griglia scura, scheda laterale, action bar sotto elenco.
+ */
+
+/* ── Token Danea ── */
+.clienti-section,
+.fornitori-section {
+  --win-bg: #f0f0f0;
+  --win-panel-bg: #ffffff;
+  --win-focus-blue: #0078d7;
+  --win-col-header-bg: #3c3c3c;
+  --win-group-bg: #ededed;
+  --win-text-main: #000000;
+  --win-text-muted: #222222;
+  --win-border: #cccccc;
+  --win-cell-border: #d3d3d3;
+  --win-link: #0056b3;
+  --danea-header-bg: #3a3a3a;
+  --danea-footer-count-bg: #dce9f5;
+  --danea-footer-count-fg: #1a3a5c;
+  --danea-tab-accent: #d2691e;
+}
+
+/* ── Master-detail 75 / 25 ── */
+.clienti-section .clienti-section__body,
+.fornitori-section .clienti-section__body {
+  grid-template-columns: minmax(0, 75fr) minmax(280px, 25fr);
+}
+
+.danea-section__lista-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border-right: 1px solid var(--win-border);
+}
+
+.danea-section__lista-col > .clienti-section__lista {
+  border-right: none;
+  flex: 1;
+}
+
+.danea-section__lista-col > .clienti-actionbar {
+  border-top: 1px solid var(--win-border);
+  border-right: none;
+}
+
+/* ── Intestazione sezione (barra scura Danea) ── */
+.clienti-section .gestionale-section-header,
+.fornitori-section .gestionale-section-header {
+  background: var(--danea-header-bg);
+  border-bottom: 1px solid #2a2a2a;
+  min-height: 28px;
+  padding: 0 6px;
+}
+
+.clienti-section .gestionale-section-header__title,
+.fornitori-section .gestionale-section-header__title {
+  font-size: 13px;
+  font-weight: 700;
+  min-width: 72px;
+}
+
+.clienti-section .gestionale-section-header__search,
+.fornitori-section .gestionale-section-header__search {
+  max-width: 280px;
+  margin: 0;
+  margin-left: auto;
+  height: 20px;
+  border-radius: 0;
+  border-color: #888;
+}
+
+.clienti-section .gestionale-section-header__actions,
+.fornitori-section .gestionale-section-header__actions {
+  margin-left: 8px;
+}
+
+/* ── Griglia: intestazione scura, righe alternate, selezione blu ── */
+.clienti-section .clienti-grid th,
+.fornitori-section .clienti-grid th {
+  background: var(--win-col-header-bg);
+  color: #fff;
+  border-color: #2a2a2a;
+  font-weight: 600;
+  height: 22px;
+  padding: 2px 6px;
+}
+
+.clienti-section .clienti-grid th .clienti-grid__filter,
+.fornitori-section .clienti-grid th .clienti-grid__filter {
+  color: #ddd;
+}
+
+.clienti-section .clienti-grid th.clienti-grid__th--filtered,
+.clienti-section .clienti-grid th.clienti-grid__th--sorted,
+.fornitori-section .clienti-grid th.clienti-grid__th--filtered,
+.fornitori-section .clienti-grid th.clienti-grid__th--sorted {
+  background: #4a4a4a;
+}
+
+.clienti-section .clienti-grid tbody tr:nth-child(even):not(.clienti-grid__group):not(.clienti-grid__row--selected) td,
+.fornitori-section .clienti-grid tbody tr:nth-child(even):not(.clienti-grid__group):not(.clienti-grid__row--selected) td {
+  background: #f7f7f7;
+}
+
+.clienti-section .clienti-grid tr.clienti-grid__row--selected td,
+.fornitori-section .clienti-grid tr.clienti-grid__row--selected td {
+  background: var(--win-focus-blue) !important;
+  color: #fff;
+}
+
+.clienti-section .clienti-grid td,
+.fornitori-section .clienti-grid td {
+  border-color: var(--win-cell-border);
+  height: 22px;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+
+/* Footer conteggio voci — fascia azzurra Danea */
+.clienti-section .clienti-lista-footer,
+.fornitori-section .clienti-lista-footer {
+  background: var(--danea-footer-count-bg);
+  color: var(--danea-footer-count-fg);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-top: 1px solid #b8cfe0;
+}
+
+/* ── Scheda laterale ── */
+.clienti-section .clienti-section__scheda,
+.fornitori-section .clienti-section__scheda {
+  font-size: 12px;
+}
+
+/* Header scheda compatto (Codice, CF, checkbox, P.IVA inline) */
+.danea-scheda-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--win-border);
+  background: var(--win-bg);
+  flex-shrink: 0;
+}
+
+.danea-scheda-header__field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.danea-scheda-header__label {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--win-text-main);
+  white-space: nowrap;
+}
+
+.danea-scheda-header__field .clienti-input {
+  width: auto;
+  min-width: 0;
+}
+
+.danea-scheda-header__field--cod .clienti-input {
+  width: 52px;
+}
+
+.danea-scheda-header__field--cf {
+  flex: 1;
+  min-width: 80px;
+}
+
+.danea-scheda-header__field--cf .clienti-input {
+  flex: 1;
+  min-width: 60px;
+}
+
+.danea-scheda-header__field--piva .clienti-input {
+  width: 100px;
+}
+
+.danea-scheda-header__actions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Tab stile Danea */
+.clienti-section .clienti-scheda__tabs,
+.fornitori-section .clienti-scheda__tabs {
+  background: var(--win-bg);
+  padding: 0;
+  gap: 0;
+}
+
+.clienti-section .clienti-scheda__tab,
+.fornitori-section .clienti-scheda__tab {
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #e1e1e1;
+  border: 1px solid var(--win-border);
+  border-bottom: none;
+  margin-right: -1px;
+  border-radius: 0;
+  color: #333;
+}
+
+.clienti-section .clienti-scheda__tab--active,
+.fornitori-section .clienti-scheda__tab--active {
+  background: var(--win-panel-bg);
+  border-top: 2px solid var(--danea-tab-accent);
+  color: var(--win-text-main);
+  margin-bottom: -1px;
+  z-index: 1;
+}
+
+.clienti-section .clienti-scheda__body,
+.fornitori-section .clienti-scheda__body {
+  padding: 6px 8px;
+}
+
+/* ── Form orizzontale Danea (label a sinistra) ── */
+.danea-form {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.danea-form__group-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--win-link);
+  margin: 6px 0 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.danea-form__group-title:first-child {
+  margin-top: 0;
+}
+
+.danea-form__row {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+}
+
+.danea-form__row--wide-label {
+  grid-template-columns: 100px minmax(0, 1fr);
+}
+
+.danea-form__label {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--win-text-main);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.danea-form__control {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.danea-form__control .clienti-input,
+.danea-form__control .clienti-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.danea-form__row--3 {
+  display: grid;
+  grid-template-columns: 88px 72px 1fr 40px;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+}
+
+.danea-form__row--3 .danea-form__label--sub {
+  display: none;
+}
+
+.danea-form__row--3 .danea-form__sublabel {
+  font-size: 12px;
+  color: var(--win-text-main);
+}
+
+.danea-form__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 2px 0 4px 94px;
+}
+
+.danea-form__edit-btn {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--win-border);
+  background: linear-gradient(180deg, #fefefe 0%, #e8e8e8 100%);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  color: #333;
+}
+
+.danea-form__edit-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.danea-form__note {
+  margin-top: 6px;
+}
+
+.danea-form__note .clienti-textarea {
+  min-height: 72px;
+}
+
+/* Action bar sotto elenco */
+.clienti-section .clienti-actionbar,
+.fornitori-section .clienti-actionbar {
+  background: var(--win-bg);
+  padding: 4px 6px;
+  min-height: 32px;
+}
+
+.clienti-section .clienti-actionbar__btn,
+.fornitori-section .clienti-actionbar__btn {
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 0;
+}
+
+/* Footer scheda (Allegati, Nuovo Doc, Documenti…) */
+.clienti-section .clienti-scheda-footer,
+.fornitori-section .clienti-scheda-footer {
+  background: var(--win-bg);
+  padding: 3px 4px;
+  border-top: 1px solid var(--win-border);
+}
+
+.clienti-section .clienti-scheda-footer__btn,
+.fornitori-section .clienti-scheda-footer__btn {
+  padding: 2px 6px;
+  font-size: 11px;
+  border-radius: 0;
+}
+
+/* CAP/Città/Prov in form Danea */
+.danea-form .clienti-row--3 {
+  display: grid;
+  grid-template-columns: 88px 72px 1fr 40px;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 3px;
+}
+
+.danea-form .clienti-row--3 .clienti-field {
+  display: contents;
+}
+
+.danea-form .clienti-row--3 .clienti-field__label {
+  font-size: 12px;
+  font-weight: 400;
+  text-align: left;
+}
+
+.danea-form .clienti-row--3 .clienti-field:first-child .clienti-field__label::before {
+  content: '';
+}
+
+.danea-section .clienti-grid tr.clienti-grid__row--selected td input[type='checkbox'] {
+  accent-color: #fff;
+}

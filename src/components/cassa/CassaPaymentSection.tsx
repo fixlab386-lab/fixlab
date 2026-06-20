@@ -31,7 +31,7 @@ const RESOURCE_ICONS: Record<PaymentResourceType, string> = {
 function completeLabel(type: PaymentResourceType, processing: boolean): string {
   if (processing) return '⏳ Elaborazione…'
   if (type === 'cash') return '🧾 Incassa e stampa scontrino'
-  if (type === 'card') return '💳 Conferma vendita'
+  if (type === 'card') return '💳 Incassa con bancomat'
   return '✅ Registra vendita'
 }
 
@@ -103,8 +103,12 @@ export default function CassaPaymentSection({
         <div className="gestionale-cassa-payment__extra">
           <label className="gestionale-cassa-payment__check">
             <input type="checkbox" checked={cardPaid} onChange={e => onCardPaidChange(e.target.checked)} />
-            {cardPaid ? '✅ Pagamento avvenuto' : 'Conferma pagamento carta'}
+            {cardPaid ? '✅ Pagamento bancomat avvenuto' : 'Conferma pagamento bancomat'}
           </label>
+          <p className="gestionale-cassa-payment__hint">
+            🧾 Scontrino RT{rtIp ? ` (${rtIp})` : ' — configura IP in Impostazioni → Registratore telematico'}
+            {cardPaid ? ' — verrà emesso al completamento vendita' : ''}
+          </p>
         </div>
       ) : null}
 

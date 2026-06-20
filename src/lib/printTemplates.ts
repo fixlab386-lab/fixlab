@@ -9,6 +9,7 @@ import {
 import type { DocRecord } from '../types'
 import {
   DEFAULT_CONFERMA_ORDINE_DISCLAIMER,
+  CONFERMA_ORDINE_PRINT_CSS,
   type ConfermaOrdineStudio,
   type ConfermaOrdineViewModel,
   buildConfermaOrdineHtml,
@@ -16,6 +17,12 @@ import {
   printConfermaOrdineHtml,
   resolveDisclaimer,
 } from './confermaOrdineTemplate'
+import {
+  buildCanvasPrintHtml,
+  resolveCanvasElements,
+  TEMPLATE_CANVAS_PRINT_CSS,
+} from './templateCanvas'
+import { printHtmlInIframe } from './printDocument'
 import { DEFAULT_DISCLAIMER } from './studioSettings'
 
 export type { PrintLayoutId } from './applicationOptions'
@@ -148,14 +155,42 @@ export function buildDocRecordPrintViewModel(
         ]
 
   const isRepair = doc.type === 'conferma_ordine' || doc.type === 'rapporto_intervento'
+  const deviceLabels = 'IMEI e S/N: \nCodice Blocco: \nAccount e Password: \nNote: '
 
-  return applyTemplateToModel(
+  const imei = doc.deviceImei?.trim() ?? ''
+  const lockCode = doc.deviceLockCode?.trim() ?? ''
+  const account = doc.deviceAccount?.trim() ?? ''
+  const deviceNotes = doc.deviceNotes?.trim() ?? ''
+  const hasDeviceCore = Boolean(imei || lockCode || account)
+
+  // Secondo riquadro adattivo:
+  // - con dati dispositivo -> "Informazioni dispositivo" (4 righe)
+  // - senza dispositivo ma con note -> "Note" (solo testo, es. vendita accessorio)
+  // - tutto vuoto -> nascosto (salvo placeholder per documenti di riparazione)
+  let secondBoxBody: string
+  let secondBoxTitleOverride: string | undefined
+  if (hasDeviceCore) {
+    secondBoxBody = [
+      `IMEI e S/N: ${imei}`,
+      `Codice Blocco: ${lockCode}`,
+      `Account e Password: ${account}`,
+      `Note: ${deviceNotes}`,
+    ].join('\n')
+    secondBoxTitleOverride = 'Informazioni dispositivo'
+  } else if (deviceNotes) {
+    secondBoxBody = deviceNotes
+    secondBoxTitleOverride = 'Note'
+  } else {
+    secondBoxBody = noteBody || (isRepair ? deviceLabels : '')
+  }
+
+  const model = applyTemplateToModel(
     {
       orderNumber: doc.fullNumber || '0001',
       orderDate: formatDateIt(doc.date) || new Date().toLocaleDateString('it-IT'),
       studio: studio ?? { name: 'FIXLab' },
       clientBody: subjectLines || 'Cliente di esempio\nVia Roma 1\n00100 Roma (RM)',
-      deviceBody: noteBody || (isRepair ? 'IMEI e S/N: —\nCodice Blocco: —\nNote: —' : ''),
+      deviceBody: secondBoxBody,
       lines: sampleLines,
       deposit: 0,
       total: doc.totalDocument ?? sampleLines.reduce((s, l) => s + l.importo, 0),
@@ -163,6 +198,13 @@ export function buildDocRecordPrintViewModel(
     },
     printOptions,
   )
+
+  const hasSecondBoxContent = secondBoxBody.trim().length > 0
+  return {
+    ...model,
+    rightBoxTitle: secondBoxTitleOverride ?? model.rightBoxTitle,
+    showRightBox: (model.showRightBox || hasDeviceCore || Boolean(deviceNotes)) && hasSecondBoxContent,
+  }
 }
 
 export function buildTemplatePreviewModel(
@@ -207,6 +249,10 @@ export function printDocRecordWithTemplate(
   studioData?: Record<string, unknown>,
 ): void {
   const printOptions = getDocumentTypePrintOptions(studioData, doc.type)
+  if (printOptions.template.canvasElements?.length) {
+    printDocRecordWithCanvasIfConfigured(doc, studio, studioData)
+    return
+  }
   if (printOptions.layoutTemplate === 'layout_conferma_ordine') {
     const model = buildDocRecordPrintViewModel(doc, studio, printOptions)
     printConfermaOrdineHtml(model)
@@ -234,12 +280,43 @@ export function studioDataToConfermaStudio(data: Record<string, unknown> | undef
   }
 }
 
+export function buildDocumentPrintOutput(
+  typeId: string,
+  model: ConfermaOrdineViewModel,
+  printOptions: DocumentTypePrintOptions,
+): { html: string; css: string } {
+  if (printOptions.template.canvasElements?.length) {
+    const elements = resolveCanvasElements(typeId, printOptions.template)
+    return { html: buildCanvasPrintHtml(elements, model), css: TEMPLATE_CANVAS_PRINT_CSS }
+  }
+  return { html: buildConfermaOrdineHtml(model), css: CONFERMA_ORDINE_PRINT_CSS }
+}
+
 export function buildTemplatePreviewHtml(
   typeId: string,
   studio: ConfermaOrdineStudio,
   printOptions: DocumentTypePrintOptions,
 ): string {
-  return buildConfermaOrdineHtml(buildTemplatePreviewModel(typeId, studio, printOptions))
+  const model = buildTemplatePreviewModel(typeId, studio, printOptions)
+  return buildDocumentPrintOutput(typeId, model, printOptions).html
+}
+
+export function getTemplatePrintCss(printOptions: DocumentTypePrintOptions): string {
+  if (printOptions.template.canvasElements?.length) return TEMPLATE_CANVAS_PRINT_CSS
+  return CONFERMA_ORDINE_PRINT_CSS
+}
+
+export function printDocRecordWithCanvasIfConfigured(
+  doc: DocRecord,
+  studio: ConfermaOrdineStudio | undefined,
+  studioData?: Record<string, unknown>,
+): boolean {
+  const printOptions = getDocumentTypePrintOptions(studioData, doc.type)
+  if (!printOptions.template.canvasElements?.length) return false
+  const model = buildDocRecordPrintViewModel(doc, studio, printOptions)
+  const elements = resolveCanvasElements(doc.type, printOptions.template)
+  printHtmlInIframe(buildCanvasPrintHtml(elements, model), `${doc.fullNumber}`, TEMPLATE_CANVAS_PRINT_CSS)
+  return true
 }
 
 /** @deprecated Usare buildDocRecordPrintViewModel */

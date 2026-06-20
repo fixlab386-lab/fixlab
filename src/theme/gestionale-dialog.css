@@ -8,7 +8,7 @@
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: linear-gradient(135deg, rgba(78, 166, 214, 0.35) 0%, rgba(58, 155, 208, 0.2) 40%, rgba(200, 208, 218, 0.45) 100%);
+  background: var(--brand-overlay);
   backdrop-filter: blur(2px);
 }
 
@@ -29,7 +29,7 @@
 .gestionale-dialog-card__header {
   flex-shrink: 0;
   padding: 14px 18px;
-  background: linear-gradient(180deg, #4ea6d6 0%, #3a9bd0 100%);
+  background: var(--brand-gradient-header);
   color: #ffffff;
 }
 
@@ -54,7 +54,7 @@
   justify-content: flex-end;
   gap: 8px;
   padding: 10px 16px;
-  background: linear-gradient(180deg, #4ea6d6 0%, #3a9bd0 100%);
+  background: var(--brand-gradient-header);
 }
 
 .gestionale-dialog-card__footer::before {
@@ -83,7 +83,7 @@
   padding: 5px 12px;
   font-size: 12px;
   font-weight: 600;
-  color: #1a5fb4;
+  color: var(--brand-link);
   background: #ffffff;
   border: 1px solid #c8d0da;
   border-radius: 3px;
@@ -137,7 +137,7 @@
 }
 
 .gestionale-dialog-results__item:hover {
-  background: #eaf2fb;
+  background: var(--brand-surface-hover);
 }
 
 .gestionale-dialog-results__item:last-child {
@@ -166,7 +166,7 @@
 
 .gestionale-dialog-comune-list__item:hover,
 .gestionale-dialog-comune-list__item--active {
-  background: #eaf2fb;
+  background: var(--brand-surface-hover);
 }
 
 .gestionale-field-with-action {
@@ -187,15 +187,15 @@
   padding: 0;
   font-size: 13px;
   line-height: 1;
-  color: #1a5fb4;
+  color: var(--brand-link);
   background: #f0f7fc;
-  border: 1px solid #c5ddf0;
+  border: 1px solid var(--brand-border-soft);
   border-radius: 3px;
   cursor: pointer;
 }
 
 .gestionale-field-action-btn:hover {
-  background: #dcebf7;
+  background: var(--brand-gradient-toolbar);
 }
 
 .gestionale-cap-picker {
@@ -225,12 +225,25 @@
 }
 
 .gestionale-cap-picker__item:hover {
-  background: #eaf2fb;
+  background: var(--brand-surface-hover);
 }
 
 .gestionale-field-error {
   font-size: 11px;
   color: #b3261e;
+  margin-top: 2px;
+}
+
+.gestionale-field-ok {
+  font-size: 11px;
+  color: #1a7f37;
+  margin-top: 2px;
+  font-weight: 600;
+}
+
+.gestionale-field-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
   margin-top: 2px;
 }
 

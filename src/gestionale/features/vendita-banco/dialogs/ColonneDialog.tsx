@@ -16,11 +16,12 @@ const COLONNE_LABELS: Record<ColonnaRigheId, string> = {
 
 type Props = {
   visible: Record<ColonnaRigheId, boolean>
+  labels?: Partial<Record<ColonnaRigheId, string>>
   onChange: (next: Record<ColonnaRigheId, boolean>) => void
   onClose: () => void
 }
 
-export default function ColonneDialog({ visible, onChange, onClose }: Props) {
+export default function ColonneDialog({ visible, labels, onChange, onClose }: Props) {
   const toggle = (id: ColonnaRigheId) => {
     onChange({ ...visible, [id]: !visible[id] })
   }
@@ -40,7 +41,7 @@ export default function ColonneDialog({ visible, onChange, onClose }: Props) {
             {(Object.keys(COLONNE_LABELS) as ColonnaRigheId[]).map(id => (
               <label key={id}>
                 <input type="checkbox" checked={visible[id]} onChange={() => toggle(id)} />
-                {COLONNE_LABELS[id]}
+                {labels?.[id] ?? COLONNE_LABELS[id]}
               </label>
             ))}
           </div>

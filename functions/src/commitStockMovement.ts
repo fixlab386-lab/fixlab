@@ -105,7 +105,7 @@ export const commitStockMovement = onCall({ region: 'europe-west1' }, async requ
       subjectName: m.subjectName || null,
       type: m.type,
       ...buildMovementFields(quantities),
-      previousStock: result.changed ? previousStock : undefined,
+      ...(result.changed ? { previousStock } : {}),
       cause: m.cause || null,
       notes: m.notes || null,
       linkedDocumentId: m.linkedDocumentId || null,

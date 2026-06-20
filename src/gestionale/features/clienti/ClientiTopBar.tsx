@@ -13,7 +13,7 @@ type Props = {
 }
 
 function actionBtnClass(active?: boolean) {
-  return `gestionale-section-header__action-btn${active ? ' gestionale-section-header__action-btn--active' : ''}`
+  return `clienti-section-header__action-btn${active ? ' clienti-section-header__action-btn--active' : ''}`
 }
 
 export default function ClientiTopBar({

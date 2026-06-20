@@ -69,7 +69,7 @@ exports.commitStockMovement = (0, https_1.onCall)({ region: 'europe-west1' }, as
             subjectName: m.subjectName || null,
             type: m.type,
             ...(0, stock_1.buildMovementFields)(quantities),
-            previousStock: result.changed ? previousStock : undefined,
+            ...(result.changed ? { previousStock } : {}),
             cause: m.cause || null,
             notes: m.notes || null,
             linkedDocumentId: m.linkedDocumentId || null,

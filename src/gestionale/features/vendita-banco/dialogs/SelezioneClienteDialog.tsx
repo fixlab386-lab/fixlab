@@ -5,6 +5,7 @@ import { GENERIC_CLIENT_LABEL } from '../../../../lib/clientSearch'
 import { WinButton } from '../WinControls'
 
 type Props = {
+  studioId: string
   clients: Client[]
   currentMode: 'none' | 'existing' | 'new'
   onSelectExisting: (client: Client) => void
@@ -14,6 +15,7 @@ type Props = {
 }
 
 export default function SelezioneClienteDialog({
+  studioId,
   clients,
   currentMode,
   onSelectExisting,
@@ -27,6 +29,7 @@ export default function SelezioneClienteDialog({
   if (showSearch) {
     return (
       <ClientSearchDialog
+        studioId={studioId}
         clients={clients}
         onSelect={c => {
           onSelectExisting(c)

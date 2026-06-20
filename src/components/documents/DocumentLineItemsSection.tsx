@@ -3,6 +3,8 @@ import type { Category, DocumentRow, Product } from '../../types'
 import ProductSearchDialog from '../products/ProductSearchDialog'
 import { DataTable, type DataTableColumn } from '../ui'
 import { calcDocumentRow, emptyDocumentRow } from './documentLineUtils'
+import { useStudioTables } from '../../contexts/StudioTablesContext'
+import { aliquotaValues } from '../../lib/studioTables'
 
 type Props = {
   products: Product[]
@@ -45,6 +47,8 @@ export default function DocumentLineItemsSection({
   variant = 'default',
 }: Props) {
   const isVenditaBanco = variant === 'vendita_banco'
+  const { tables } = useStudioTables()
+  const ivaOptions = useMemo(() => aliquotaValues(tables.aliquoteIva), [tables.aliquoteIva])
   const [search, setSearch] = useState('')
   const [showPicker, setShowPicker] = useState(false)
   const [showProductSearch, setShowProductSearch] = useState(false)
@@ -193,14 +197,18 @@ export default function DocumentLineItemsSection({
       header: 'IVA%',
       width: 52,
       render: row => (
-        <input
-          type="number"
-          min={0}
+        <select
           className="gestionale-form-field__input gestionale-repair-line-input"
           value={row.vatRate}
           onChange={e => updateRow(row._index, { vatRate: parseFloat(e.target.value) || 0 })}
           onClick={e => e.stopPropagation()}
-        />
+        >
+          {(ivaOptions.includes(row.vatRate) ? ivaOptions : [...ivaOptions, row.vatRate].sort((a, b) => a - b)).map(v => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
       ),
     },
     {
@@ -334,14 +342,18 @@ export default function DocumentLineItemsSection({
       header: 'Iva',
       width: 48,
       render: row => (
-        <input
-          type="number"
-          min={0}
+        <select
           className="gestionale-form-field__input gestionale-repair-line-input"
           value={row.vatRate}
           onChange={e => updateRow(row._index, { vatRate: parseFloat(e.target.value) || 0 })}
           onClick={e => e.stopPropagation()}
-        />
+        >
+          {(ivaOptions.includes(row.vatRate) ? ivaOptions : [...ivaOptions, row.vatRate].sort((a, b) => a - b)).map(v => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
       ),
     },
     {

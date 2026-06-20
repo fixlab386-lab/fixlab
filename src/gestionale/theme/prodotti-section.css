@@ -123,6 +123,13 @@
   flex-shrink: 0;
 }
 
+.prodotti-lista-search__icon {
+  flex-shrink: 0;
+  font-size: 13px;
+  opacity: 0.75;
+  padding-left: 2px;
+}
+
 .prodotti-lista-search__field {
   position: relative;
   flex-shrink: 0;
@@ -149,6 +156,20 @@
   border-top: 1px solid var(--win-border);
   background: var(--win-bg);
   flex-shrink: 0;
+}
+
+.prodotti-filter-popover--tree {
+  min-width: 240px;
+  max-height: 360px;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.prodotti-filter-popover__tree {
+  border: none;
+  max-height: 280px;
 }
 
 .prodotti-filter-popover--search {
@@ -436,7 +457,7 @@
 
 .prodotti-cat-tree { list-style: none; margin: 0; padding: 0; }
 .prodotti-cat-tree ul { list-style: none; margin: 0; padding-left: 18px; }
-.prodotti-cat-tree__item { padding: 2px 4px; cursor: pointer; }
+.prodotti-cat-tree__item { padding: 2px 4px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
 .prodotti-cat-tree__item--selected { background: var(--win-focus-blue); color: #fff; }
 
 .prodotti-magazzino-stato {

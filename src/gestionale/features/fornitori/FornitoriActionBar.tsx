@@ -1,4 +1,4 @@
-import { COMUNICAZIONI_ITEMS, STAMPA_ITEMS, UTILITA_ITEMS } from './constants'
+import { STAMPA_ITEMS, UTILITA_ITEMS } from './constants'
 import ActionBarDropdown from '../../components/ActionBarDropdown'
 
 type Props = {
@@ -7,7 +7,6 @@ type Props = {
   onNuovo: () => void
   onDuplica: () => void
   onElimina: () => void
-  onComunicazione: (tipo: string) => void
   onStampa: (tipo: string) => void
   onEtichette: () => void
   onExcel: () => void
@@ -21,7 +20,6 @@ export default function FornitoriActionBar({
   onNuovo,
   onDuplica,
   onElimina,
-  onComunicazione,
   onStampa,
   onEtichette,
   onExcel,
@@ -49,12 +47,9 @@ export default function FornitoriActionBar({
         <button type="button" className="clienti-actionbar__btn" onClick={onExcel}>
           📊 Excel
         </button>
-        <ActionBarDropdown
-          label="💬 Comunicaz."
-          items={COMUNICAZIONI_ITEMS}
-          onPick={onComunicazione}
-          disabled={!hasSelection}
-        />
+        <button type="button" className="clienti-actionbar__btn" disabled={!hasSelection}>
+          ✉ Comunicaz.
+        </button>
         <button type="button" className="clienti-actionbar__btn" disabled={!hasMultiSelection} onClick={onModificaSelez}>
           ✏ Modifica selez.
         </button>

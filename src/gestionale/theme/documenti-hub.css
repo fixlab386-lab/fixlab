@@ -52,7 +52,7 @@
   margin: 0 0 8px;
   font-size: 13px;
   font-weight: 700;
-  color: #1a5fb4;
+  color: var(--brand-link);
 }
 
 .documenti-hub__tiles {
@@ -100,8 +100,8 @@
   padding: 10px 12px;
   height: 100%;
   overflow: auto;
-  background: #f0f0f0;
-  border-left: 1px solid #c8c8c8;
+  background: #111;
+  border-left: 1px solid #333;
 }
 
 .documenti-list-sidebar__section {

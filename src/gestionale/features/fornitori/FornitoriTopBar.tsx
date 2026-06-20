@@ -13,7 +13,7 @@ type Props = {
 }
 
 function actionBtnClass(active?: boolean) {
-  return `gestionale-section-header__action-btn${active ? ' gestionale-section-header__action-btn--active' : ''}`
+  return `clienti-section-header__action-btn${active ? ' clienti-section-header__action-btn--active' : ''}`
 }
 
 export default function FornitoriTopBar({
@@ -45,7 +45,7 @@ export default function FornitoriTopBar({
           className={actionBtnClass(raggruppa !== 'Nessuno')}
           onClick={() => setShowRaggruppa(v => !v)}
         >
-          Raggruppa ▼
+          Raggruppa
         </button>
         {showRaggruppa ? (
           <div className="clienti-dropdown__menu clienti-dropdown__menu--down">

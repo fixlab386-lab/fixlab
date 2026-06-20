@@ -44,7 +44,7 @@ async function collectVerifiedStudioIds(uid) {
     }
     return Array.from(studioIds).sort();
 }
-/** Scrive { studioIds } nei custom claims dell'utente. */
+/** Scrive { studioIds } nei custom claims dell'utente, preservando claim esistenti (es. superAdmin). */
 async function applyStudioClaimsForUser(uid) {
     const studioIds = await collectVerifiedStudioIds(uid);
     const bytes = estimateClaimsPayloadBytes(studioIds);
@@ -53,7 +53,9 @@ async function applyStudioClaimsForUser(uid) {
             `Limite sicuro ~${CLAIM_SAFE_BYTES} byte (max Firebase ${CLAIM_MAX_BYTES}). ` +
             'Contatta il supporto FIXLab.');
     }
-    await (0, auth_1.getAuth)().setCustomUserClaims(uid, { studioIds });
+    const userRecord = await (0, auth_1.getAuth)().getUser(uid);
+    const existing = (userRecord.customClaims ?? {});
+    await (0, auth_1.getAuth)().setCustomUserClaims(uid, { ...existing, studioIds });
     return { studioIds };
 }
 /** Callable: sincronizza i claims dell'utente autenticato (mai di un altro uid). */

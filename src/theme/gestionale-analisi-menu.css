@@ -1,0 +1,41 @@
+/* Menu a tendina «Analisi» (hover) nella toolbar. */
+
+.gestionale-toolbar-analisi {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+.gestionale-toolbar-analisi__trigger {
+  height: 100%;
+}
+
+.gestionale-toolbar-analisi__menu {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 150px;
+}
+
+.gestionale-toolbar-analisi__icon {
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.gestionale-toolbar-analisi__icon--vendite {
+  color: #2faa3f;
+}
+
+.gestionale-toolbar-analisi__icon--acquisti {
+  color: #d23a3a;
+  transform: scaleX(-1);
+}
+
+.gestionale-toolbar-analisi__icon--flussi {
+  color: #e6a800;
+}

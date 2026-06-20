@@ -3,7 +3,6 @@ import type { Studio, StudioFeatures, StudioRepairType } from '../types'
 export const DEFAULT_STUDIO_FEATURES: StudioFeatures = {
   warehouse: true,
   pos: true,
-  devices: true,
   whatsapp: false,
   rtPrinter: false,
 }

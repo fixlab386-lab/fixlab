@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useActiveStudio } from '../../../hooks/useActiveStudio'
 import { loadDashboardSnapshot, invalidateDashboardCache } from './dashboardCache'
-import { computeDashboardAlerts, computeDashboardKpis } from './dashboardMetrics'
+import {
+  computeDashboardAlerts,
+  computeDashboardAlertsFromAggregates,
+} from './dashboardMetrics'
 import StartActivityPanel from './components/StartActivityPanel'
-import StartAnalyticsSection from './components/StartAnalyticsSection'
-import StartKpiCards from './components/StartKpiCards'
-import StartQuickLinks from './components/StartQuickLinks'
+import StartSidebar from './components/StartSidebar'
 import { buildActivityLinks } from './components/activityLinks'
 import '../../theme/gestionale-tokens.css'
 
@@ -17,24 +18,27 @@ export default function StartSection() {
   const [studioName, setStudioName] = useState('')
   const [repairs, setRepairs] = useState<Awaited<ReturnType<typeof loadDashboardSnapshot>>['repairs']>([])
   const [products, setProducts] = useState<Awaited<ReturnType<typeof loadDashboardSnapshot>>['products']>([])
-  const [clients, setClients] = useState<Awaited<ReturnType<typeof loadDashboardSnapshot>>['clients']>([])
+  const [aggregates, setAggregates] = useState<Awaited<ReturnType<typeof loadDashboardSnapshot>>['aggregates'] | null>(null)
   const [payments, setPayments] = useState<Awaited<ReturnType<typeof loadDashboardSnapshot>>['payments']>([])
   const [documents, setDocuments] = useState<Awaited<ReturnType<typeof loadDashboardSnapshot>>['documents']>([])
-  const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
-    if (!studioId) return
+    if (!studioId) {
+      setSyncing(false)
+      return
+    }
     let cancelled = false
-    setLoading(true)
+    setSyncing(true)
     setLoadError(null)
     loadDashboardSnapshot(studioId)
       .then(data => {
         if (cancelled) return
         setRepairs(data.repairs)
         setProducts(data.products)
-        setClients(data.clients)
+        setAggregates(data.aggregates)
         setPayments(data.payments)
         setDocuments(data.documents)
         setStudioName(data.studioName)
@@ -43,7 +47,7 @@ export default function StartSection() {
         if (!cancelled) setLoadError('Impossibile caricare la Start.')
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setSyncing(false)
       })
     return () => {
       cancelled = true
@@ -57,14 +61,13 @@ export default function StartSection() {
   }
 
   const alerts = useMemo(
-    () => computeDashboardAlerts(repairs, products, payments, documents),
-    [repairs, products, payments, documents],
+    () =>
+      aggregates
+        ? computeDashboardAlertsFromAggregates(aggregates)
+        : computeDashboardAlerts(repairs, products, payments, documents),
+    [aggregates, repairs, products, payments, documents],
   )
   const activityLinks = useMemo(() => buildActivityLinks(alerts), [alerts])
-  const kpis = useMemo(
-    () => computeDashboardKpis(repairs, products, clients.length, documents, payments),
-    [repairs, products, clients.length, documents, payments],
-  )
 
   const todayLabel = new Date().toLocaleDateString('it-IT', {
     weekday: 'long',
@@ -81,42 +84,35 @@ export default function StartSection() {
     return <div className="gestionale-page gestionale-datatable__empty">Studio non disponibile.</div>
   }
 
-  if (loading) {
-    return <div className="gestionale-page gestionale-datatable__empty">Caricamento Start…</div>
-  }
-
-  if (loadError) {
-    return <div className="gestionale-page gestionale-datatable__empty">{loadError}</div>
-  }
-
   const displayName = studioName || userProfile?.name || 'FIXLab'
 
   return (
     <div className="gestionale-page gestionale-start-page" data-tutorial="page-dashboard">
-      <header className="gestionale-start-header">
+      {syncing && repairs.length > 0 ? <div className="gestionale-sync-badge" aria-live="polite">Sincronizzazione…</div> : null}
+      {syncing && repairs.length === 0 ? <div className="gestionale-page-skeleton">Caricamento Start…</div> : null}
+      {loadError ? <div className="gestionale-page__banner gestionale-page__banner--error">{loadError}</div> : null}
+
+      <header className="gestionale-start-header gestionale-start-header--centered">
         <div className="gestionale-start-header__intro">
           <h1 className="gestionale-start-header__title">{displayName}</h1>
-          <p className="gestionale-start-header__subtitle">Panoramica commerciale — vendite, scadenze, magazzino e officina</p>
+          <p className="gestionale-start-header__subtitle">Panoramica attività e accessi rapidi</p>
         </div>
         <div className="gestionale-start-header__meta">
-          <time className="gestionale-start-header__date" dateTime={new Date().toISOString().slice(0, 10)}>
-            {todayLabel}
-          </time>
-          <button type="button" className="gestionale-start-header__refresh" onClick={handleRefresh} title="Aggiorna dati">
-            ↻ Aggiorna
+          <span className="gestionale-start-header__date">{todayLabel}</span>
+          <button type="button" className="gestionale-start-header__refresh" onClick={handleRefresh}>
+            Aggiorna
           </button>
         </div>
       </header>
 
-      <div className="gestionale-start-body">
-        <StartActivityPanel links={activityLinks} />
-        <StartKpiCards kpis={kpis} />
-        <StartAnalyticsSection repairs={repairs} products={products} />
-      </div>
-
-      <footer className="gestionale-start-footer">
-        <StartQuickLinks />
-      </footer>
+      {!loadError ? (
+        <div className="gestionale-start-layout">
+          <div className="gestionale-start-layout__main">
+            <StartActivityPanel links={activityLinks} />
+          </div>
+          <StartSidebar />
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useStudioTables } from '../../../../contexts/StudioTablesContext'
+import { aliquotaValues } from '../../../../lib/studioTables'
 import type { Product } from '../../../../types'
 import type { Category } from '../../../../types'
 import { addCustomCampoFE, addCustomNotaTemplate, addCustomCalcolataTemplate, getCustomCalcolataTemplates, getCustomCampiFE, getCustomNotaTemplates } from '../../../../lib/userPrefs'
@@ -27,12 +29,17 @@ import {
 } from '../righeUtilita'
 import {
   COLONNE_RIGHE_DEFAULT,
+  COLONNE_RIGHE_ORDER,
+  COLONNE_RIGHE_WIDTH_DEFAULT,
   type ColonnaRigheId,
   type DocumentoVenditaBanco,
   type RigaDocumento,
   type SortableColonnaRigheId,
 } from '../types'
-import { calcRiga, documentTotalsFromRighe, emptyRiga, formatEuro, notaDescrizioneClass, productListGrossPrice, buildNotaRiga } from '../utils'
+import { useRigheColumnWidths } from '../useRigheColumnWidths'
+import { calcRiga, documentTotalsFromRighe, emptyRiga, formatEuro, grossFromNet, netFromGross, notaDescrizioneClass, parseScontoExpr, productListGrossPrice, buildNotaRiga } from '../utils'
+
+const round2 = (n: number) => Math.round(n * 100) / 100
 
 type Props = {
   doc: DocumentoVenditaBanco
@@ -40,6 +47,8 @@ type Props = {
   categories: Category[]
   studioId?: string
   protetto: boolean
+  prezziIvati?: boolean
+  onPrezziModeChange?: (ivati: boolean) => void
   onChange: (patch: Partial<DocumentoVenditaBanco>) => void
   onProductsChange?: () => void
   onToast?: (msg: string) => void
@@ -52,20 +61,26 @@ export default function TabRigheDocumento({
   categories,
   studioId,
   protetto,
+  prezziIvati = true,
+  onPrezziModeChange,
   onChange,
   onProductsChange,
   onToast,
   onIncludiDoc,
 }: Props) {
+  const { tables } = useStudioTables()
+  const ivaOptions = useMemo(() => aliquotaValues(tables.aliquoteIva), [tables.aliquoteIva])
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [showGruppi, setShowGruppi] = useState(false)
   const [showColonne, setShowColonne] = useState(false)
+  const [showPrezziDialog, setShowPrezziDialog] = useState(false)
   const [showSelezione, setShowSelezione] = useState(false)
   const [showBarcodePanel, setShowBarcodePanel] = useState(false)
   const [barcode, setBarcode] = useState('')
   const [barcodeHelpOpen, setBarcodeHelpOpen] = useState(false)
   const [lastScanMsg, setLastScanMsg] = useState<string | null>(null)
   const [colonne, setColonne] = useState(COLONNE_RIGHE_DEFAULT)
+  const { widths: colWidths, startResize } = useRigheColumnWidths(COLONNE_RIGHE_WIDTH_DEFAULT)
   const [sortCol, setSortCol] = useState<SortableColonnaRigheId | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [prefsVersion, setPrefsVersion] = useState(0)
@@ -79,10 +94,16 @@ export default function TabRigheDocumento({
 
   const righe = doc.righe
   const disabled = protetto
+  // Prezzi memorizzati come ivati (canonico). In modalità "netti" la griglia mostra/edita i netti.
+  const showNetti = !!onPrezziModeChange && !prezziIvati
+  const dispPrezzo = (r: RigaDocumento) => (showNetti ? round2(netFromGross(r.prezzoIvato, r.iva)) : r.prezzoIvato)
+  const dispImporto = (r: RigaDocumento) => (showNetti ? round2(netFromGross(r.importoIvato, r.iva)) : r.importoIvato)
+  const prezzoHeaderLabel = onPrezziModeChange ? (prezziIvati ? 'Prezzo ivato' : 'Prezzo netto') : 'Prezzo ivato'
+  const importoHeaderLabel = onPrezziModeChange ? (prezziIvati ? 'Importo ivato' : 'Importo') : 'Importo ivato'
   const vociCount = righe.filter(r => r.descrizione.trim() && r.tipoRiga !== 'nota').length
   const righeImportoTotale = righe
     .filter(r => r.descrizione.trim() && r.tipoRiga !== 'nota')
-    .reduce((acc, r) => acc + calcRiga(r).importoIvato, 0)
+    .reduce((acc, r) => acc + dispImporto(calcRiga(r)), 0)
 
   const visibleColCount = (Object.keys(colonne) as ColonnaRigheId[]).filter(id => colonne[id]).length
 
@@ -197,11 +218,35 @@ export default function TabRigheDocumento({
     updateRighe(sortRighe(righe, column, 'asc'))
   }
 
+  const visibleColumnIds = COLONNE_RIGHE_ORDER.filter(id => colonne[id])
+
+  const colResizeHandle = (id: ColonnaRigheId) =>
+    disabled ? null : (
+      <span
+        className="vb-righe__col-resizer"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={`Ridimensiona colonna ${id}`}
+        onMouseDown={e => {
+          e.preventDefault()
+          e.stopPropagation()
+          startResize(id, e.clientX)
+        }}
+        onClick={e => e.stopPropagation()}
+      />
+    )
+
+  const thStyle = (id: ColonnaRigheId): CSSProperties => ({
+    width: colWidths[id],
+    minWidth: colWidths[id],
+    maxWidth: colWidths[id],
+  })
+
   const sortHeader = (id: SortableColonnaRigheId, label: string) => {
     if (!colonne[id]) return null
     const active = sortCol === id
     return (
-      <th key={id}>
+      <th key={id} className="vb-righe__th" style={thStyle(id)}>
         <button
           type="button"
           className={`vb-righe__sort-header${active ? ' vb-righe__sort-header--active' : ''}`}
@@ -209,18 +254,44 @@ export default function TabRigheDocumento({
         >
           {label} {active ? (sortDir === 'asc' ? '▲' : '▼') : '▼'}
         </button>
+        {colResizeHandle(id)}
       </th>
     )
   }
 
   const col = (id: ColonnaRigheId, header: string) => {
     if (!colonne[id]) return null
-    return <th key={id}>{header}</th>
+    return (
+      <th key={id} className="vb-righe__th" style={thStyle(id)}>
+        <span className="vb-righe__th-label">{header}</span>
+        {colResizeHandle(id)}
+      </th>
+    )
   }
 
   const cellWrap = (id: ColonnaRigheId, content: ReactNode) => {
     if (!colonne[id]) return null
     return <td key={id}>{content}</td>
+  }
+
+  /** Header colonna prezzo: cliccabile per scegliere prezzi netti/ivati (stile Danea). */
+  const prezzoHeader = () => {
+    const colId: ColonnaRigheId = 'prezzoIvato'
+    if (!colonne[colId]) return null
+    if (!onPrezziModeChange) return sortHeader('prezzoIvato', 'Prezzo ivato')
+    return (
+      <th key={colId} className="vb-righe__th" style={thStyle(colId)}>
+        <button
+          type="button"
+          className="vb-righe__sort-header oc-righe__prezzo-header"
+          title="Scegli tra prezzi netti o ivati"
+          onClick={() => setShowPrezziDialog(true)}
+        >
+          {prezzoHeaderLabel} ⥥
+        </button>
+        {colResizeHandle(colId)}
+      </th>
+    )
   }
 
   const addNotaRiga = (label: string) => {
@@ -390,15 +461,6 @@ export default function TabRigheDocumento({
         appendRows([buildNotaRiga()])
         return
       }
-      if (e.ctrlKey && (e.key === 's' || e.key === 'S')) {
-        e.preventDefault()
-        applyUtilita('sconto-su-totale')
-        return
-      }
-      if (e.shiftKey && e.key === 'F5') {
-        e.preventDefault()
-        applyUtilita('terminale')
-      }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
@@ -416,7 +478,12 @@ export default function TabRigheDocumento({
   return (
     <div className="vb-righe">
       <div className="vb-righe__grid-wrap">
-        <table className="vb-righe__table">
+        <table className="vb-righe__table vb-righe__table--resizable">
+          <colgroup>
+            {visibleColumnIds.map(id => (
+              <col key={id} style={{ width: colWidths[id] }} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
               {col('cod', 'Cod.')}
@@ -424,11 +491,11 @@ export default function TabRigheDocumento({
               {col('tagliaColore', 'Taglia/Colore')}
               {col('qta', 'Q.tà')}
               {col('um', 'U.m.')}
-              {sortHeader('prezzoIvato', 'Prezzo ivato')}
+              {prezzoHeader()}
               {sortHeader('sconto', 'Sconti')}
               {sortHeader('iva', 'Iva')}
               {sortHeader('scaricaMag', 'Scarica mag')}
-              {col('importoIvato', 'Importo ivato')}
+              {col('importoIvato', importoHeaderLabel)}
             </tr>
           </thead>
           <tbody>
@@ -506,33 +573,40 @@ export default function TabRigheDocumento({
                       min={0}
                       step={0.01}
                       className="vb-input--flat vb-input--right"
-                      value={r.prezzoIvato}
+                      value={dispPrezzo(r)}
                       disabled={disabled}
-                      onChange={e => updateRow(i, { prezzoIvato: parseFloat(e.target.value) || 0 })}
+                      onChange={e => {
+                        const typed = parseFloat(e.target.value) || 0
+                        const stored = showNetti ? round2(grossFromNet(typed, r.iva)) : typed
+                        updateRow(i, { prezzoIvato: stored })
+                      }}
                     />,
                   )}
                   {cellWrap(
                     'sconto',
                     <WinInput
-                      type="number"
-                      min={0}
-                      max={100}
                       className="vb-input--flat vb-input--right"
-                      value={r.sconto}
+                      value={r.scontoExpr ?? (r.sconto ? String(r.sconto) : '')}
                       disabled={disabled}
-                      onChange={e => updateRow(i, { sconto: parseFloat(e.target.value) || 0 })}
+                      placeholder="es. 2+1"
+                      title="Sconto in percentuale, anche a cascata (es. 2+1)"
+                      onChange={e => updateRow(i, { scontoExpr: e.target.value, sconto: parseScontoExpr(e.target.value) })}
                     />,
                   )}
                   {cellWrap(
                     'iva',
-                    <WinInput
-                      type="number"
-                      min={0}
-                      className="vb-input--flat vb-input--right"
+                    <select
+                      className="vb-input vb-input--flat vb-input--right"
                       value={r.iva}
                       disabled={disabled}
                       onChange={e => updateRow(i, { iva: parseFloat(e.target.value) || 0 })}
-                    />,
+                    >
+                      {(ivaOptions.includes(r.iva) ? ivaOptions : [...ivaOptions, r.iva].sort((a, b) => a - b)).map(v => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>,
                   )}
                   {cellWrap(
                     'scaricaMag',
@@ -545,7 +619,7 @@ export default function TabRigheDocumento({
                       />
                     </div>,
                   )}
-                  {cellWrap('importoIvato', <div className="vb-righe__amount">{formatEuro(r.importoIvato)}</div>)}
+                  {cellWrap('importoIvato', <div className="vb-righe__amount">{formatEuro(dispImporto(r))}</div>)}
                 </tr>
               )
             })}
@@ -561,16 +635,6 @@ export default function TabRigheDocumento({
             </tr>
           </tfoot>
         </table>
-      </div>
-
-      <div className="vb-righe__nav">
-        <WinIconBtn title="Sposta riga su" disabled={disabled} onClick={() => moveSelected(-1)}>
-          ▲
-        </WinIconBtn>
-        <WinIconBtn title="Sposta riga giù" disabled={disabled} onClick={() => moveSelected(1)}>
-          ▼
-        </WinIconBtn>
-        <span className="vb-righe__voci">{vociCount} voci</span>
       </div>
 
       {showBarcodePanel ? (
@@ -643,6 +707,12 @@ export default function TabRigheDocumento({
       />
 
       <div className="vb-righe__toolbar">
+        <WinIconBtn title="Sposta riga su" disabled={disabled} onClick={() => moveSelected(-1)}>
+          ▲
+        </WinIconBtn>
+        <WinIconBtn title="Sposta riga giù" disabled={disabled} onClick={() => moveSelected(1)}>
+          ▼
+        </WinIconBtn>
         <span className="vb-righe__toolbar-label">Aggiungi riga:</span>
         <WinButton disabled={disabled} onClick={() => updateRighe([...righe.filter(r => r.descrizione.trim()), calcRiga(emptyRiga())])}>
           ✏ Manuale
@@ -656,63 +726,6 @@ export default function TabRigheDocumento({
           onClick={() => toggleBarcodeMode()}
         >
           Cod. barre
-        </WinButton>
-        <WinDropdownMenu
-          disabled={disabled}
-          label="🧮 Calcolata"
-          items={[
-            ...CALCOLATA_MENU_ITEMS.slice(0, -1).map(label => ({
-              id: label,
-              label,
-              onClick: () => applyCalcolataItem(label),
-            })),
-            ...customCalcolata.map(entry => ({
-              id: `custom-${entry.label}`,
-              label: entry.label,
-              onClick: () => applyCustomCalcolata(entry),
-            })),
-            { id: 'sep-calcolata', separator: true },
-            {
-              id: 'Personalizza…',
-              label: 'Personalizza…',
-              onClick: () => personalizzaCalcolata(),
-            },
-          ]}
-        />
-
-        <WinDropdownMenu
-          disabled={disabled}
-          className="vb-dropdown--nota"
-          label="📝 Nota"
-          items={[
-            {
-              id: 'riga-vuota',
-              label: 'Riga vuota',
-              shortcut: 'Ctrl+F9',
-              onClick: () => addRigaVuotaNota(),
-            },
-            { id: 'sep-nota-1', separator: true },
-            ...NOTA_MENU_PREDEFINED.map(label => ({
-              id: label,
-              label,
-              onClick: () => addNotaRiga(label),
-            })),
-            ...customNota.map(label => ({
-              id: `custom-nota-${label}`,
-              label,
-              onClick: () => addNotaRiga(label),
-            })),
-            { id: 'sep-nota-2', separator: true },
-            {
-              id: 'Personalizza…',
-              label: 'Personalizza…',
-              onClick: () => personalizzaNota(),
-            },
-          ]}
-        />
-
-        <WinButton disabled={disabled || !studioId} onClick={() => setShowGruppi(true)}>
-          📁 Gruppi
         </WinButton>
 
         <WinButton
@@ -729,62 +742,6 @@ export default function TabRigheDocumento({
           🗑 Elimina
         </WinButton>
 
-        <WinDropdownMenu
-          disabled={disabled}
-          label="Campi fatt. elettr."
-          items={campiFeItems.map(code => ({
-            id: code,
-            label: code,
-            onClick: () => (code === 'Personalizza…' ? personalizzaCampoFe() : applyCampoFe(code)),
-          }))}
-        />
-
-        <WinDropdownMenu
-          disabled={disabled}
-          className="vb-dropdown--utilita"
-          label="⚡ Utilità"
-          items={[
-            {
-              id: 'sconto-su-totale',
-              label: 'Sconto su totale',
-              shortcut: 'Ctrl+S',
-              onClick: () => applyUtilita('sconto-su-totale'),
-            },
-            {
-              id: 'porta-totale',
-              label: 'Porta totale a… (Calcolo fattura inversa)',
-              onClick: () => applyUtilita('porta-totale'),
-            },
-            {
-              id: 'confronta-prezzi',
-              label: 'Confronta con ultimi prezzi applicati',
-              onClick: () => applyUtilita('confronta-prezzi'),
-            },
-            {
-              id: 'copia-righe',
-              label: 'Copia righe da altro documento',
-              onClick: () => applyUtilita('copia-righe'),
-            },
-            {
-              id: 'terminale',
-              label: 'Importa da terminale portatile',
-              shortcut: 'Shift+F5',
-              onClick: () => applyUtilita('terminale'),
-            },
-            { id: 'sep-utilita', separator: true },
-            {
-              id: 'export-excel',
-              label: 'Esporta con Excel/OpenOffice/LibreOffice',
-              onClick: () => applyUtilita('export-excel'),
-            },
-            {
-              id: 'import-excel',
-              label: 'Importa con Excel/OpenOffice/LibreOffice',
-              onClick: () => applyUtilita('import-excel'),
-            },
-          ]}
-        />
-
         <div className="vb-righe__toolbar-spacer" />
 
         <button type="button" className="vb-link vb-righe__colonne-link" onClick={() => setShowColonne(true)}>
@@ -794,6 +751,39 @@ export default function TabRigheDocumento({
 
       {showColonne ? (
         <ColonneDialog visible={colonne} onChange={setColonne} onClose={() => setShowColonne(false)} />
+      ) : null}
+
+      {showPrezziDialog && onPrezziModeChange ? (
+        <div className="vb-dialog-overlay" style={{ zIndex: 22500 }} onClick={() => setShowPrezziDialog(false)}>
+          <div className="vb-dialog vb-dialog--sm" onClick={e => e.stopPropagation()}>
+            <div className="vb-dialog__titlebar">
+              <span>Prezzi documento</span>
+            </div>
+            <div className="vb-dialog__body" style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 16 }}>
+              <WinButton
+                className={!prezziIvati ? 'vb-btn--active' : undefined}
+                onClick={() => {
+                  onPrezziModeChange(false)
+                  setShowPrezziDialog(false)
+                }}
+              >
+                Usa prezzi netti
+              </WinButton>
+              <WinButton
+                className={prezziIvati ? 'vb-btn--active' : undefined}
+                onClick={() => {
+                  onPrezziModeChange(true)
+                  setShowPrezziDialog(false)
+                }}
+              >
+                Usa prezzi ivati
+              </WinButton>
+            </div>
+            <div className="vb-dialog__footer">
+              <WinButton onClick={() => setShowPrezziDialog(false)}>Chiudi</WinButton>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {showSelezione && studioId ? (
@@ -808,16 +798,6 @@ export default function TabRigheDocumento({
         />
       ) : null}
 
-      {showGruppi && studioId ? (
-        <GruppiProdottiDialog
-          studioId={studioId}
-          products={products}
-          categories={categories}
-          listino={doc.listino}
-          onInsert={insertGruppoRighe}
-          onClose={() => setShowGruppi(false)}
-        />
-      ) : null}
     </div>
   )
 }

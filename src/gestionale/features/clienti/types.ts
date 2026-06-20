@@ -82,7 +82,7 @@ export interface Cliente {
   isDraft?: boolean
 }
 
-export type SchedaTabId = 'anagrafica' | 'rapporti' | 'varie'
+export type SchedaTabId = 'anagrafica' | 'rapporti' | 'riparazioni' | 'varie'
 
 export type RaggruppaCriterio =
   | 'Nessuno'

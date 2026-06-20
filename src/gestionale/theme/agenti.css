@@ -1,0 +1,250 @@
+/* Elenco agenti — stile Danea Easyfatt */
+
+.agenti-elenco-overlay {
+  z-index: 25000;
+}
+
+.agenti-elenco {
+  width: min(720px, 96vw);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.agenti-elenco__titlebar {
+  flex-shrink: 0;
+}
+
+.agenti-elenco__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 12px;
+  background: #f5f5f5;
+}
+
+.agenti-elenco__error {
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  background: #fdecea;
+  border: 1px solid #f5c2c0;
+  color: #a94442;
+  font-size: 12px;
+}
+
+.agenti-elenco__layout {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 12px;
+  min-height: 320px;
+}
+
+.agenti-elenco__list-panel {
+  background: #fff;
+  border: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.agenti-elenco__list-title {
+  padding: 6px 8px;
+  font-weight: 700;
+  font-size: 11px;
+  background: #e8e8e8;
+  border-bottom: 1px solid #ccc;
+}
+
+.agenti-elenco__list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  overflow: auto;
+  flex: 1;
+}
+
+.agenti-elenco__list-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 5px 10px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.agenti-elenco__list-item:hover {
+  background: #eef4fa;
+}
+
+.agenti-elenco__list-item--active {
+  background: var(--brand-blue, #316ac5);
+  color: #fff;
+}
+
+.agenti-elenco__list-item--hidden {
+  opacity: 0.55;
+  font-style: italic;
+}
+
+.agenti-elenco__list-hint {
+  margin: 0;
+  padding: 4px 8px;
+  font-size: 10px;
+  color: #666;
+  border-top: 1px solid #e0e0e0;
+}
+
+.agenti-elenco__loading {
+  padding: 12px;
+  font-size: 12px;
+  color: #666;
+}
+
+.agenti-elenco__detail {
+  background: #fff;
+  border: 1px solid #ccc;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.agenti-elenco__hide {
+  margin: 0;
+}
+
+.agenti-elenco__prov-section {
+  margin-top: 4px;
+}
+
+.agenti-elenco__prov-title {
+  font-weight: 700;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.agenti-elenco__prov-hint {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: #555;
+  line-height: 1.4;
+}
+
+.agenti-elenco__matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.agenti-elenco__matrix th,
+.agenti-elenco__matrix td {
+  border: 1px solid #ccc;
+  padding: 4px 6px;
+  text-align: center;
+}
+
+.agenti-elenco__matrix thead th {
+  background: #e8f2fc;
+  font-weight: 600;
+}
+
+.agenti-elenco__matrix tbody th {
+  text-align: left;
+  background: #f8f8f8;
+  font-weight: 600;
+}
+
+.agenti-elenco__pct {
+  width: 52px;
+  text-align: right;
+  display: inline-block;
+}
+
+.agenti-elenco__pct-suffix {
+  margin-left: 2px;
+  font-size: 11px;
+}
+
+.agenti-elenco__empty {
+  margin: auto;
+  color: #666;
+  font-size: 12px;
+}
+
+.agenti-elenco__footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.agenti-elenco__footer-spacer {
+  flex: 1;
+}
+
+/* Tab provvigioni documento */
+.vb-tab-provvigioni {
+  padding: 10px 4px;
+  max-width: 480px;
+}
+
+.vb-tab-provvigioni__intro {
+  margin: 0 0 12px;
+  font-size: 11px;
+  color: #444;
+  line-height: 1.45;
+}
+
+.vb-tab-provvigioni__hint {
+  margin: 0 0 12px;
+  font-size: 11px;
+  color: #888;
+}
+
+.vb-tab-provvigioni__agent {
+  margin-bottom: 14px;
+  font-size: 12px;
+}
+
+.vb-tab-provvigioni__muted {
+  color: #888;
+  font-style: italic;
+}
+
+.vb-tab-provvigioni__grid {
+  border: 1px solid #ccc;
+  background: #fff;
+}
+
+.vb-tab-provvigioni__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #e8e8e8;
+  font-size: 12px;
+}
+
+.vb-tab-provvigioni__row:last-child {
+  border-bottom: none;
+}
+
+.vb-tab-provvigioni__row--total {
+  background: #f0f7ff;
+}
+
+.vb-tab-provvigioni__label {
+  color: #333;
+}
+
+.vb-tab-provvigioni__value--muted {
+  color: #666;
+}
+
+.vb-tab-provvigioni__value--accent {
+  color: var(--brand-blue-dark, #1a4f8f);
+  font-size: 14px;
+}

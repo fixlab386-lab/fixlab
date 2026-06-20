@@ -22,7 +22,7 @@ export default function ClientiColonneMenu({ visible, onChange }: Props) {
 
   return (
     <div className="clienti-dropdown" ref={ref}>
-      <button type="button" className="gestionale-section-header__action-btn" onClick={() => setOpen(v => !v)}>
+      <button type="button" className="clienti-section-header__action-btn" onClick={() => setOpen(v => !v)}>
         Colonne ▼
       </button>
       {open ? (

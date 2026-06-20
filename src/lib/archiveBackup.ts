@@ -1,14 +1,6 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  Timestamp,
-  where,
-  DocumentReference,
-} from 'firebase/firestore'
+import { doc, getDoc, Timestamp, DocumentReference } from 'firebase/firestore'
 import { db } from '../firebase'
+import { fetchStudioCollectionForExport } from './firestorePagination'
 
 const BACKUP_COLLECTIONS = [
   'categories',
@@ -42,18 +34,25 @@ function serializeForExport(value: unknown): unknown {
   return value
 }
 
-export async function exportArchiveBackupJson(studioId: string, userId: string): Promise<void> {
+export async function exportArchiveBackupJson(
+  studioId: string,
+  userId: string,
+  onProgress?: (msg: string) => void,
+): Promise<void> {
   const [userSnap, studioSnap] = await Promise.all([
     getDoc(doc(db, 'users', userId)),
     getDoc(doc(db, 'studios', studioId)),
   ])
   const collections: Record<string, Array<{ id: string } & Record<string, unknown>>> = {}
   for (const name of BACKUP_COLLECTIONS) {
-    const snap = await getDocs(query(collection(db, name), where('studioId', '==', studioId)))
-    collections[name] = snap.docs.map(d => ({
-      id: d.id,
-      ...(serializeForExport(d.data()) as Record<string, unknown>),
-    }))
+    onProgress?.(`Esportazione ${name}…`)
+    const rows = await fetchStudioCollectionForExport(name, studioId, loaded => {
+      onProgress?.(`${name}: ${loaded} record…`)
+    })
+    collections[name] = rows.map(r => {
+      const { id, ...data } = r
+      return { id, ...(serializeForExport(data) as Record<string, unknown>) }
+    })
   }
   const payload = {
     meta: {

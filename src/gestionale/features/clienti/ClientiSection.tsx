@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useActiveStudio } from '../../../hooks/useActiveStudio'
-import { useAppWindows } from '../../../contexts/AppWindowsContext'
-import { addClient, deleteClient, getClients, getNextClientCode, updateClient } from '../../../lib/firestore'
+import { useStudioPagedLiveQuery } from '../../../hooks/useStudioPagedLiveQuery'
+import { addClient, deleteClient, getNextClientCode, listenClients, updateClient } from '../../../lib/firestore'
+import { fetchClientsPage } from '../../../lib/firestorePagination'
+import LoadMoreBar from '../../../components/ui/LoadMoreBar'
+import PaginatedFilterHint from '../../../components/ui/PaginatedFilterHint'
 import { buildClientiPrintHtml } from '../../../lib/clientiPrint'
 import { printHtmlInIframe } from '../../../lib/printDocument'
 import type { Client } from '../../../types'
@@ -14,23 +17,21 @@ import ClientiColonneMenu from './ClientiColonneMenu'
 import ClientiLista from './ClientiLista'
 import ClientiScheda from './ClientiScheda'
 import ClientiTopBar from './ClientiTopBar'
-import { DEFAULT_COLONNE, ETICHETTE_MODELLO, COLONNE_DEF } from './constants'
+import { DEFAULT_COLONNE, COLONNE_DEF } from './constants'
 import ClientiAnteprimaStampaDialog from './dialogs/ClientiAnteprimaStampaDialog'
 import ClientiStampaDialog from './dialogs/ClientiStampaDialog'
 import {
-  AllegatiClientiDialog,
   ConfermaEliminaDialog,
-  EtichetteIndirizzoDialog,
-  EtichetteQualeIndirizzoDialog,
   ImpegniDialog,
   InviaPagamentoDialog,
-  MancaCellulareDialog,
   ModificaSelezioneDialog,
-  RicercaCapCittaDialog,
-  RicercaSoggettiNazionaleDialog,
   ValidazioneDenominazioneDialog,
-  WhatsAppNumeriDialog,
 } from './dialogs/ClientiDialogs'
+import RicercaSoggettiNazionaleDialog from '../shared/RicercaSoggettiNazionaleDialog'
+import SubjectDocumentsDialog from '../shared/SubjectDocumentsDialog'
+import { useSubjectDocumentActions } from '../../lib/useSubjectDocumentActions'
+import { applySoggettoRicerca } from '../shared/applySoggettoRicerca'
+import type { SoggettoRicercaRecord } from '../../lib/ricercaSoggetto'
 import {
   ContattiExtraDialog,
   FiltroPersonalizzatoDialog,
@@ -50,15 +51,34 @@ import {
 } from './types'
 import { applyColumnFilters, duplicateCliente } from './utils'
 import '../../theme/clienti-section.css'
+import '../../theme/danea-anagrafica.css'
 import '../../theme/gestionale-tokens.css'
 
 export default function ClientiSection() {
   const { studioId, activeArchive } = useActiveStudio()
-  const { openVenditaBanco } = useAppWindows()
   const navigate = useNavigate()
+  const { openNuovoDocFromLabel, openSubjectDocuments, closeSubjectDocuments, documentsDialog } =
+    useSubjectDocumentActions()
 
-  const [clienti, setClienti] = useState<Cliente[]>([])
-  const [loading, setLoading] = useState(true)
+  const {
+    data: liveClients,
+    syncing,
+    loadingMore,
+    hasMore,
+    truncated,
+    error: loadError,
+    loadMore,
+    showInitialSpinner,
+  } = useStudioPagedLiveQuery(studioId, listenClients, fetchClientsPage, Boolean(studioId))
+  const [draftClienti, setDraftClienti] = useState<Cliente[]>([])
+  const [patchedClienti, setPatchedClienti] = useState<Record<string, Cliente>>({})
+  const clienti = useMemo(() => {
+    const live = liveClients.map(clientToCliente)
+    const liveIds = new Set(live.map(c => c.id))
+    const drafts = draftClienti.filter(d => d.isDraft || !liveIds.has(d.id))
+    const draftIds = new Set(drafts.map(d => d.id))
+    return [...drafts, ...live.filter(c => !draftIds.has(c.id))].map(c => patchedClienti[c.id] ?? c)
+  }, [liveClients, draftClienti, patchedClienti])
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -81,14 +101,8 @@ export default function ClientiSection() {
   const [showElimina, setShowElimina] = useState(false)
   const [showValidazione, setShowValidazione] = useState(false)
   const [showInvia, setShowInvia] = useState(false)
-  const [showAllegati, setShowAllegati] = useState(false)
   const [showImpegni, setShowImpegni] = useState(false)
   const [showRicercaNaz, setShowRicercaNaz] = useState(false)
-  const [showRicercaCap, setShowRicercaCap] = useState(false)
-  const [showWhatsApp, setShowWhatsApp] = useState(false)
-  const [showMancaCell, setShowMancaCell] = useState(false)
-  const [showEtichetteAddr, setShowEtichetteAddr] = useState(false)
-  const [showEtichetteQuale, setShowEtichetteQuale] = useState(false)
   const [showModificaSelez, setShowModificaSelez] = useState(false)
   const [stampaModello, setStampaModello] = useState<string | null>(null)
   const [anteprimaHtml, setAnteprimaHtml] = useState<{ html: string; title: string; filename: string } | null>(null)
@@ -98,38 +112,43 @@ export default function ClientiSection() {
   const [showContattiExtra, setShowContattiExtra] = useState(false)
   const [showProprieta, setShowProprieta] = useState(false)
   const [filtroPersCol, setFiltroPersCol] = useState<ColonnaId | null>(null)
-  const [allegatiFiles, setAllegatiFiles] = useState<{ name: string; url?: string }[]>([])
 
   const previousIdRef = useRef<string | null>(null)
-
-  const refresh = useCallback(async () => {
-    if (!studioId) return
-    try {
-      const data = await getClients(studioId)
-      setClienti(data.map(clientToCliente))
-      setError(null)
-    } catch {
-      setError('Impossibile caricare i clienti.')
-    }
-  }, [studioId])
+  const lastLoadedIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!studioId) return
-    setLoading(true)
-    void refresh().finally(() => setLoading(false))
-  }, [studioId, refresh])
+    if (!selectedId) {
+      setEditing(null)
+      setSnapshot(null)
+      lastLoadedIdRef.current = null
+      return
+    }
+    const record = clienti.find(c => c.id === selectedId)
+    if (!record) return
+    if (lastLoadedIdRef.current !== selectedId) {
+      lastLoadedIdRef.current = selectedId
+      setEditing(structuredClone(record))
+      setSnapshot(structuredClone(record))
+    }
+  }, [selectedId, clienti])
 
   const selected = useMemo(() => clienti.find(c => c.id === selectedId) || null, [clienti, selectedId])
 
-  useEffect(() => {
-    if (selected) {
-      setEditing(structuredClone(selected))
-      setSnapshot(structuredClone(selected))
-    } else {
-      setEditing(null)
-      setSnapshot(null)
-    }
-  }, [selected])
+  const studioSoggettiRecords = useMemo<SoggettoRicercaRecord[]>(
+    () =>
+      clienti
+        .filter(c => !c.isDraft)
+        .map(c => ({
+          denominazione: c.sedeOperativa.denominazione,
+          indirizzo: c.sedeOperativa.indirizzo,
+          cap: c.sedeOperativa.cap,
+          citta: c.sedeOperativa.citta,
+          prov: c.sedeOperativa.prov,
+          cf: c.codFiscale,
+          piva: c.partitaIva,
+        })),
+    [clienti],
+  )
 
   const isDirty = useMemo(() => {
     if (!editing || !snapshot) return editing?.isDraft ?? false
@@ -149,6 +168,11 @@ export default function ClientiSection() {
     }
     return list
   }, [clienti, searchPiva])
+
+  const hasScopedFilters = useMemo(
+    () => truncated && (Boolean(searchPiva.trim()) || Object.keys(filtriColonna).length > 0 || filtraAttivo),
+    [truncated, searchPiva, filtriColonna, filtraAttivo],
+  )
 
   const visibleColIds = useMemo(
     () => (Object.entries(colonneVisibili).filter(([, v]) => v).map(([k]) => k) as ColonnaId[]),
@@ -176,7 +200,7 @@ export default function ClientiSection() {
     previousIdRef.current = selectedId
     const code = await getNextClientCode(studioId)
     const draft = emptyCliente(code)
-    setClienti(prev => [draft, ...prev])
+    setDraftClienti(prev => [draft, ...prev])
     setSelectedId(draft.id)
     setEditing(structuredClone(draft))
     setSnapshot(null)
@@ -185,7 +209,7 @@ export default function ClientiSection() {
 
   const handleAnnulla = useCallback(() => {
     if (editing?.isDraft) {
-      setClienti(prev => prev.filter(c => c.id !== editing.id))
+      setDraftClienti(prev => prev.filter(c => c.id !== editing.id))
       setSelectedId(previousIdRef.current)
       return
     }
@@ -195,7 +219,7 @@ export default function ClientiSection() {
   const handleCloseScheda = useCallback(() => {
     if (isDirty && !window.confirm('Modifiche non salvate. Chiudere la scheda?')) return
     if (editing?.isDraft) {
-      setClienti(prev => prev.filter(c => c.id !== editing.id))
+      setDraftClienti(prev => prev.filter(c => c.id !== editing.id))
     }
     setSelectedId(null)
     setEditing(null)
@@ -213,15 +237,12 @@ export default function ClientiSection() {
       const payload = clienteToClientPayload(editing, studioId)
       if (editing.isDraft) {
         const ref = await addClient(payload)
-        const saved: Cliente = { ...editing, id: ref.id, isDraft: false }
-        setClienti(prev => prev.map(c => (c.id === editing.id ? saved : c)))
-        setSelectedId(saved.id)
-        setEditing(structuredClone(saved))
-        setSnapshot(structuredClone(saved))
+        setDraftClienti(prev => prev.filter(c => c.id !== editing.id))
+        lastLoadedIdRef.current = ref.id
+        setSelectedId(ref.id)
       } else {
         await updateClient(editing.id, payload)
         const saved = { ...editing, isDraft: false }
-        setClienti(prev => prev.map(c => (c.id === editing.id ? saved : c)))
         setEditing(structuredClone(saved))
         setSnapshot(structuredClone(saved))
       }
@@ -238,7 +259,7 @@ export default function ClientiSection() {
     const code = await getNextClientCode(studioId)
     const dup = duplicateCliente(selected, code)
     previousIdRef.current = selectedId
-    setClienti(prev => [dup, ...prev])
+    setDraftClienti(prev => [dup, ...prev])
     setSelectedId(dup.id)
     setEditing(structuredClone(dup))
     setSnapshot(null)
@@ -251,14 +272,14 @@ export default function ClientiSection() {
       return
     }
     if (selected.isDraft) {
-      setClienti(prev => prev.filter(c => c.id !== selected.id))
+      setDraftClienti(prev => prev.filter(c => c.id !== selected.id))
       setSelectedId(previousIdRef.current)
       setShowElimina(false)
       return
     }
     try {
       await deleteClient(selected.id)
-      setClienti(prev => prev.filter(c => c.id !== selected.id))
+      setDraftClienti(prev => prev.filter(c => c.id !== selected.id))
       setSelectedId(null)
       setShowElimina(false)
     } catch {
@@ -268,21 +289,32 @@ export default function ClientiSection() {
 
   const handleNuovoDoc = useCallback(
     (tipo: string) => {
-      if (tipo === 'Vendita al banco') {
-        openVenditaBanco()
+      const active = editing ?? selected
+      const clientId =
+        active?.id && !active.isDraft && !active.id.startsWith('draft-') ? active.id : undefined
+      if (!clientId) {
+        setError('Salva il cliente prima di creare un documento collegato.')
         return
       }
-      const routes: Record<string, string> = {
-        Preventivo: '/nuovo-documento?type=preventivo',
-        'Ordine cliente': '/nuovo-documento?type=ordine_cliente',
-        Fattura: '/nuovo-documento?type=fattura',
-        Ddt: '/nuovo-documento?type=ddt',
-      }
-      const clientParam = editing?.id ? `&clientId=${editing.id}` : ''
-      navigate((routes[tipo] || '/documenti') + clientParam)
+      setError(null)
+      const ok = openNuovoDocFromLabel(tipo, { clientId })
+      if (!ok) setError(`Tipo documento «${tipo}» non ancora disponibile.`)
     },
-    [navigate, openVenditaBanco, editing?.id],
+    [editing, selected, openNuovoDocFromLabel],
   )
+
+  const handleDocumenti = useCallback(() => {
+    if (!editing?.id || editing.isDraft || editing.id.startsWith('draft-')) {
+      setError('Salva il cliente prima di aprire i documenti collegati.')
+      return
+    }
+    setError(null)
+    openSubjectDocuments({
+      subjectId: editing.id,
+      subjectName: editing.sedeOperativa.denominazione,
+      subjectType: 'client',
+    })
+  }, [editing, openSubjectDocuments])
 
   const handleExcel = useCallback(() => {
     const archiveName = activeArchive?.name ?? studioId ?? 'archivio'
@@ -330,21 +362,24 @@ export default function ClientiSection() {
 
   const handleModificaSelez = useCallback(
     (campo: string, valore: string) => {
-      setClienti(prev =>
-        prev.map(c => {
-          if (!selectedIds.has(c.id)) return c
-          const next = structuredClone(c)
-          if (campo === 'Pagamento') next.rapportiCommerciali.pagamento = valore
-          else if (campo === 'Agente') next.rapportiCommerciali.agente = valore
-          else if (campo === 'Listino') next.rapportiCommerciali.listino = valore
-          else if (campo === 'Sconto') next.rapportiCommerciali.sconto = valore
-          else if (campo === 'Nazione') next.sedeOperativa.nazione = valore
-          if (c.id === selectedId) setEditing(next)
-          return next
-        }),
-      )
+      setPatchedClienti(prev => {
+        const next = { ...prev }
+        for (const id of selectedIds) {
+          const base = clienti.find(c => c.id === id)
+          if (!base) continue
+          const item = structuredClone(prev[id] ?? base)
+          if (campo === 'Pagamento') item.rapportiCommerciali.pagamento = valore
+          else if (campo === 'Agente') item.rapportiCommerciali.agente = valore
+          else if (campo === 'Listino') item.rapportiCommerciali.listino = valore
+          else if (campo === 'Sconto') item.rapportiCommerciali.sconto = valore
+          else if (campo === 'Nazione') item.sedeOperativa.nazione = valore
+          next[id] = item
+          if (id === selectedId) setEditing(item)
+        }
+        return next
+      })
     },
-    [selectedIds, selectedId],
+    [selectedIds, selectedId, clienti],
   )
 
   const toggleGroup = useCallback((key: string) => {
@@ -357,17 +392,18 @@ export default function ClientiSection() {
   }, [])
 
   if (!studioId) return <div className="clienti-empty">Caricamento archivio…</div>
-  if (loading) return <div className="clienti-empty">Caricamento clienti…</div>
 
   return (
-    <div className={`gestionale-page clienti-section${editing ? ' clienti-section--scheda-open' : ''}`} data-tutorial="page-clienti">
-      {error ? <div className="clienti-section__banner">{error}</div> : null}
+    <div className={`gestionale-page clienti-section danea-section${editing ? ' clienti-section--scheda-open' : ''}`} data-tutorial="page-clienti">
+      {syncing && clienti.length > 0 ? <div className="gestionale-sync-badge" aria-live="polite">Sincronizzazione…</div> : null}
+      {showInitialSpinner ? <div className="gestionale-page-skeleton">Caricamento clienti…</div> : null}
+      {error || loadError ? <div className="clienti-section__banner">{error || loadError}</div> : null}
 
       <SectionHeader
         title="Clienti"
         searchValue={searchPiva}
         onSearchChange={setSearchPiva}
-        searchPlaceholder="Cerca partita iva, nome, città…"
+        searchPlaceholder="Cerca denominazione"
         actions={
           <ClientiTopBar
             raggruppa={criterioRaggruppamento}
@@ -388,40 +424,78 @@ export default function ClientiSection() {
       />
 
       <div className="clienti-section__body">
-        <ClientiLista
-          clienti={displayClienti}
-          selectedId={selectedId}
-          selectionMode={selectionMode}
-          selectedIds={selectedIds}
-          colonneVisibili={colonneVisibili}
-          criterioRaggruppamento={criterioRaggruppamento}
-          filtriColonna={filtriColonna}
-          collapsedGroups={collapsedGroups}
-          sortColumn={sortColumn}
-          sortDirection={sortDirection}
-          filtraAttivo={filtraAttivo}
-          onSelect={handleSelect}
-          onToggleGroup={toggleGroup}
-          onToggleSelect={id => {
-            setSelectedIds(prev => {
-              const next = new Set(prev)
-              if (next.has(id)) next.delete(id)
-              else next.add(id)
-              return next
-            })
-          }}
-          onFilterChange={(col, f) => {
-            setFiltriColonna(prev => {
-              const next = { ...prev }
-              if (f) next[col] = f
-              else delete next[col]
-              return next
-            })
-          }}
-          onSort={handleSort}
-          onOpenFilter={() => setFiltraAttivo(true)}
-          onFilterPersonalizzato={col => setFiltroPersCol(col)}
-        />
+        <div className="danea-section__lista-col">
+          <ClientiLista
+            clienti={displayClienti}
+            selectedId={selectedId}
+            selectionMode={selectionMode}
+            selectedIds={selectedIds}
+            colonneVisibili={colonneVisibili}
+            criterioRaggruppamento={criterioRaggruppamento}
+            filtriColonna={filtriColonna}
+            collapsedGroups={collapsedGroups}
+            sortColumn={sortColumn}
+            sortDirection={sortDirection}
+            filtraAttivo={filtraAttivo}
+            onSelect={handleSelect}
+            onToggleGroup={toggleGroup}
+            onToggleSelect={id => {
+              setSelectedIds(prev => {
+                const next = new Set(prev)
+                if (next.has(id)) next.delete(id)
+                else next.add(id)
+                return next
+              })
+            }}
+            onFilterChange={(col, f) => {
+              setFiltriColonna(prev => {
+                const next = { ...prev }
+                if (f) next[col] = f
+                else delete next[col]
+                return next
+              })
+            }}
+            onSort={handleSort}
+            onOpenFilter={() => setFiltraAttivo(true)}
+            onFilterPersonalizzato={col => setFiltroPersCol(col)}
+          />
+          <PaginatedFilterHint visible={hasScopedFilters} loading={loadingMore} onLoadMore={loadMore} />
+          <LoadMoreBar hasMore={hasMore} loading={loadingMore} truncated={truncated} onLoadMore={loadMore} />
+
+          <ClientiActionBar
+            hasSelection={Boolean(selected)}
+            hasMultiSelection={selectedIds.size > 1}
+            onNuovo={() => void handleNuovo()}
+            onDuplica={() => void handleDuplica()}
+            onElimina={() => setShowElimina(true)}
+            onStampa={tipo => openStampaFlow(tipo)}
+            onExcel={handleExcel}
+            onModificaSelez={() => setShowModificaSelez(true)}
+            onUtilita={tipo => {
+              if (tipo.startsWith('Esporta')) handleExcel()
+              else {
+                const input = document.createElement('input')
+                input.type = 'file'
+                input.accept = '.xlsx,.xls,.csv'
+                input.onchange = async () => {
+                  const file = input.files?.[0]
+                  if (!file || !studioId) return
+                  try {
+                    const text = await file.text()
+                    const result = await importClientsFromCsv(text, studioId, () => getNextClientCode(studioId))
+                    if (result.error) setError(result.error)
+                    else {
+                      setError(`Importati ${result.imported} clienti${result.skipped ? ` (${result.skipped} righe saltate)` : ''}.`)
+                    }
+                  } catch {
+                    setError('Importazione non riuscita.')
+                  }
+                }
+                input.click()
+              }
+            }}
+          />
+        </div>
 
         <ClientiScheda
           cliente={editing}
@@ -434,7 +508,6 @@ export default function ClientiSection() {
           onAnnulla={handleAnnulla}
           onCloseScheda={handleCloseScheda}
           onRicercaNazionale={() => setShowRicercaNaz(true)}
-          onRicercaCap={() => setShowRicercaCap(true)}
           onProprietaComplete={() => setShowProprieta(true)}
           onSedeLegale={() => setShowSedeLegale(true)}
           onSediAmmin={() => setShowSediAmmin(true)}
@@ -442,188 +515,25 @@ export default function ClientiSection() {
           onAggiungiIndirizzo={() => setShowSediExtra(true)}
           onContattiExtra={() => setShowContattiExtra(true)}
           onAggiungiContatto={() => setShowContattiExtra(true)}
-          onAllegati={() => setShowAllegati(true)}
           onNuovoDoc={handleNuovoDoc}
-          onDocumenti={() => navigate(editing?.id ? `/documenti?clientId=${editing.id}` : '/documenti')}
+          onDocumenti={handleDocumenti}
           onPagamenti={() => navigate(editing?.id ? `/pagamenti?clientId=${editing.id}` : '/pagamenti')}
           onImpegni={() => setShowImpegni(true)}
         />
       </div>
-
-      <ClientiActionBar
-        hasSelection={Boolean(selected)}
-        hasMultiSelection={selectedIds.size > 1}
-        onNuovo={() => void handleNuovo()}
-        onDuplica={() => void handleDuplica()}
-        onElimina={() => setShowElimina(true)}
-        onComunicazione={tipo => {
-          if (tipo.includes('WhatsApp')) {
-            if (!editing?.contatti.cellulare?.trim()) setShowMancaCell(true)
-            else setShowWhatsApp(true)
-            return
-          }
-          if (tipo.includes('coordinate bancarie') && editing) {
-            const body = encodeURIComponent(`Coordinate bancarie per ${editing.sedeOperativa.denominazione}`)
-            const mail = editing.contatti.email || ''
-            window.location.href = `mailto:${mail}?subject=Coordinate%20bancarie&body=${body}`
-            return
-          }
-          if (tipo.includes('informativa dati personali') && editing) {
-            const body = encodeURIComponent(
-              `Gentile ${editing.sedeOperativa.denominazione},\n\nIn allegato l'informativa sul trattamento dei dati personali.\n\nCordiali saluti.`,
-            )
-            window.location.href = `mailto:${editing.contatti.email || ''}?subject=Informativa%20dati%20personali&body=${body}`
-            return
-          }
-          if (tipo.includes('ricevuta fattura') && editing) {
-            const body = encodeURIComponent(
-              `Gentile ${editing.sedeOperativa.denominazione},\n\nLa preghiamo di inviarci i dati per la ricevuta/fattura elettronica.\n\nCordiali saluti.`,
-            )
-            window.location.href = `mailto:${editing.contatti.email || ''}?subject=Richiesta%20dati%20fattura%20elettronica&body=${body}`
-            return
-          }
-          if (editing?.contatti.email) {
-            const body = encodeURIComponent(`Comunicazione: ${tipo}\n\nGentile ${editing.sedeOperativa.denominazione},`)
-            window.location.href = `mailto:${editing.contatti.email}?subject=${encodeURIComponent(tipo)}&body=${body}`
-            return
-          }
-          alert(`Compila l'e-mail del cliente per inviare: ${tipo}`)
-        }}
-        onStampa={tipo => openStampaFlow(tipo)}
-        onEtichette={() => {
-          if (!editing?.sedeOperativa.indirizzo?.trim()) setShowEtichetteAddr(true)
-          else openStampaFlow(ETICHETTE_MODELLO)
-        }}
-        onExcel={handleExcel}
-        onModificaSelez={() => setShowModificaSelez(true)}
-        onUtilita={tipo => {
-          if (tipo.startsWith('Esporta')) handleExcel()
-          else {
-            const input = document.createElement('input')
-            input.type = 'file'
-            input.accept = '.xlsx,.xls,.csv'
-            input.onchange = async () => {
-              const file = input.files?.[0]
-              if (!file || !studioId) return
-              try {
-                const text = await file.text()
-                const result = await importClientsFromCsv(text, studioId, () => getNextClientCode(studioId))
-                if (result.error) setError(result.error)
-                else {
-                  setError(`Importati ${result.imported} clienti${result.skipped ? ` (${result.skipped} righe saltate)` : ''}.`)
-                  await refresh()
-                }
-              } catch {
-                setError('Importazione non riuscita.')
-              }
-            }
-            input.click()
-          }
-        }}
-      />
 
       {showElimina && selected ? (
         <ConfermaEliminaDialog nome={selected.sedeOperativa.denominazione} onYes={() => void handleEliminaConfirm()} onNo={() => setShowElimina(false)} />
       ) : null}
       {showValidazione ? <ValidazioneDenominazioneDialog onClose={() => setShowValidazione(false)} /> : null}
       {showInvia ? <InviaPagamentoDialog onClose={() => setShowInvia(false)} /> : null}
-      {showAllegati ? (
-        <AllegatiClientiDialog
-          files={allegatiFiles}
-          onSmartphone={() => {
-            if (!editing) return
-            const subject = encodeURIComponent(`Allegati — ${editing.sedeOperativa.denominazione}`)
-            const body = encodeURIComponent('Invia una risposta con gli allegati da associare al cliente.')
-            window.location.href = `mailto:${editing.contatti.email || ''}?subject=${subject}&body=${body}`
-          }}
-          onScan={() => alert('Nessuno scanner rilevato. Usa Importa.')}
-          onImport={() => {
-            const input = document.createElement('input')
-            input.type = 'file'
-            input.multiple = true
-            input.onchange = () => {
-              const names = Array.from(input.files || []).map(f => f.name)
-              if (names.length) setAllegatiFiles(prev => [...prev, ...names.map(name => ({ name }))])
-            }
-            input.click()
-          }}
-          onExport={() => {
-            if (allegatiFiles.length === 0) {
-              alert('Nessun allegato da esportare.')
-              return
-            }
-            const blob = new Blob([allegatiFiles.map(f => f.name).join('\n')], { type: 'text/plain' })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `allegati-${editing?.codice || 'cliente'}.txt`
-            a.click()
-            URL.revokeObjectURL(url)
-          }}
-          onRename={() => {
-            if (!allegatiFiles.length) return
-            const name = window.prompt('Nuovo nome allegato', allegatiFiles[allegatiFiles.length - 1].name)
-            if (!name?.trim()) return
-            setAllegatiFiles(prev => [...prev.slice(0, -1), { ...prev[prev.length - 1], name: name.trim() }])
-          }}
-          onDelete={() => setAllegatiFiles(prev => prev.slice(0, -1))}
-          onPrint={() => {
-            if (!allegatiFiles.length) return
-            const html = `<html><body><h3>Allegati cliente</h3><ul>${allegatiFiles.map(f => `<li>${f.name}</li>`).join('')}</ul></body></html>`
-            printHtmlInIframe(html, 'Allegati cliente')
-          }}
-          onClose={() => setShowAllegati(false)}
-        />
-      ) : null}
       {showImpegni && editing ? <ImpegniDialog nomeCliente={editing.sedeOperativa.denominazione} onClose={() => setShowImpegni(false)} /> : null}
-      {showRicercaNaz ? (
-        <RicercaSoggettiNazionaleDialog codFiscale={editing?.codFiscale || ''} onClose={() => setShowRicercaNaz(false)} onOk={() => setShowRicercaNaz(false)} />
-      ) : null}
-      {showRicercaCap ? (
-        <RicercaCapCittaDialog
-          onSelect={(cap, citta, prov) => {
-            if (editing) setEditing({ ...editing, sedeOperativa: { ...editing.sedeOperativa, cap, citta, prov } })
-            setShowRicercaCap(false)
-          }}
-          onClose={() => setShowRicercaCap(false)}
-        />
-      ) : null}
-      {showWhatsApp && editing ? (
-        <WhatsAppNumeriDialog
-          cliente={editing}
-          onVoceCorrente={() => {
-            const text = encodeURIComponent(`Comunicazione per ${editing.sedeOperativa.denominazione}`)
-            window.open(`https://wa.me/${editing.contatti.cellulare.replace(/\D/g, '')}?text=${text}`, '_blank')
-            setShowWhatsApp(false)
-          }}
-          onVediAssociati={() => {
-            const nums = [editing.contatti.telefono, editing.contatti.cellulare].filter(Boolean)
-            setError(nums.length ? `Numeri associati: ${nums.join(', ')}` : 'Nessun numero associato.')
-            setShowWhatsApp(false)
-          }}
-          onClose={() => setShowWhatsApp(false)}
-        />
-      ) : null}
-      {showMancaCell ? <MancaCellulareDialog onClose={() => setShowMancaCell(false)} /> : null}
-      {showEtichetteAddr ? (
-        <EtichetteIndirizzoDialog
-          onSi={() => {
-            setShowEtichetteAddr(false)
-            setShowEtichetteQuale(true)
-          }}
-          onNo={() => {
-            setShowEtichetteAddr(false)
-            openStampaFlow(ETICHETTE_MODELLO)
-          }}
-        />
-      ) : null}
-      {showEtichetteQuale ? (
-        <EtichetteQualeIndirizzoDialog
-          onOk={() => {
-            setShowEtichetteQuale(false)
-            openStampaFlow(ETICHETTE_MODELLO)
-          }}
-          onCancel={() => setShowEtichetteQuale(false)}
+      {showRicercaNaz && editing ? (
+        <RicercaSoggettiNazionaleDialog
+          initialQuery={editing.codFiscale || editing.partitaIva || editing.sedeOperativa.denominazione}
+          studioRecords={studioSoggettiRecords}
+          onClose={() => setShowRicercaNaz(false)}
+          onSelect={result => setEditing(applySoggettoRicerca(editing, result))}
         />
       ) : null}
       {showModificaSelez ? (
@@ -699,6 +609,9 @@ export default function ClientiSection() {
           }}
           onClose={() => setFiltroPersCol(null)}
         />
+      ) : null}
+      {documentsDialog ? (
+        <SubjectDocumentsDialog target={documentsDialog} onClose={closeSubjectDocuments} />
       ) : null}
     </div>
   )

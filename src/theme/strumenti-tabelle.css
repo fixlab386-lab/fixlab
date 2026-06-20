@@ -1,0 +1,294 @@
+/* Strumenti → Tabelle (Aliquote IVA, Tipi pagamento, Conti d'acquisto) — stile Danea */
+
+.strum-overlay {
+  z-index: 16000;
+}
+
+.strum-modal {
+  width: min(860px, 96vw);
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #888;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.strum-modal--wide {
+  width: min(960px, 96vw);
+}
+
+.strum-modal__header {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: start;
+  padding: 12px 14px 10px;
+  background: linear-gradient(180deg, #fff 0%, #ece9d8 100%);
+  border-bottom: 1px solid #a0a0a0;
+}
+
+.strum-modal__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 400;
+  color: #1a5fb4;
+}
+
+.strum-modal__subtitle {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: #555;
+}
+
+.strum-modal__emoji {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.strum-modal__close-x {
+  border: none;
+  background: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: #666;
+}
+
+.strum-modal__body {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.6fr) minmax(260px, 1fr);
+  gap: 0;
+  flex: 1;
+  min-height: 320px;
+  overflow: hidden;
+}
+
+.strum-modal__master {
+  border-right: 1px solid #c0c0c0;
+  overflow: auto;
+  background: #fff;
+}
+
+.strum-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.strum-table th {
+  background: #ece9d8;
+  border-bottom: 1px solid #c0c0c0;
+  padding: 4px 8px;
+  text-align: left;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.strum-table td {
+  padding: 3px 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.strum-table__col-predef {
+  width: 64px;
+  text-align: center;
+}
+
+.strum-table__group-row td {
+  background: #f4f4f4;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.strum-table__group-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.strum-table__row {
+  cursor: pointer;
+}
+
+.strum-table__row--child td:first-child {
+  padding-left: 20px;
+}
+
+.strum-table__row--selected td {
+  background: #316ac5 !important;
+  color: #fff;
+}
+
+.strum-table__row--selected .strum-badge {
+  color: #fff;
+}
+
+.strum-badge {
+  color: #1a5fb4;
+  font-weight: 700;
+}
+
+.strum-modal__detail {
+  padding: 12px 14px;
+  overflow-y: auto;
+  background: #fafafa;
+}
+
+.strum-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+
+.strum-field__label {
+  font-size: 11px;
+  color: #333;
+}
+
+.strum-input,
+.strum-select,
+.strum-textarea {
+  font-size: 12px;
+  padding: 4px 6px;
+  border: 1px solid #a8a8a8;
+  min-height: 24px;
+  background: #fff;
+}
+
+.strum-textarea {
+  resize: vertical;
+}
+
+.strum-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.strum-row > .strum-field {
+  flex: 1;
+  margin-bottom: 10px;
+}
+
+.strum-fieldset {
+  border: 1px solid #c0c0c0;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.strum-fieldset legend {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0 4px;
+}
+
+.strum-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.strum-radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+
+.strum-radio input[type='number'] {
+  width: 56px;
+}
+
+.strum-modal__empty {
+  margin: 0;
+  color: #666;
+  font-size: 12px;
+}
+
+.strum-modal__error {
+  margin: 8px 0 0;
+  color: #b00020;
+  font-size: 12px;
+}
+
+.strum-modal__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, #f8f8f8 0%, #e4e4e4 100%);
+  border-top: 1px solid #a0a0a0;
+  flex-wrap: wrap;
+}
+
+.strum-modal__footer-left,
+.strum-modal__footer-right {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.strum-modal__count {
+  font-size: 11px;
+  color: #555;
+  margin-right: 8px;
+}
+
+.strum-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 3px 10px;
+  border: 1px solid #888;
+  background: linear-gradient(180deg, #fff 0%, #e8e8e8 100%);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.strum-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.strum-btn--primary {
+  font-weight: 600;
+}
+
+.strum-btn__icon--new {
+  color: #2e7d32;
+  font-weight: 700;
+}
+
+.strum-btn__icon--danger {
+  color: #c62828;
+}
+
+@media (max-width: 700px) {
+  .strum-modal__body {
+    grid-template-columns: 1fr;
+  }
+
+  .strum-modal__master {
+    border-right: none;
+    border-bottom: 1px solid #c0c0c0;
+    max-height: 240px;
+  }
+}

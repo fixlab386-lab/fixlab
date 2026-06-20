@@ -5,6 +5,13 @@
   flex: 1;
 }
 
+.gestionale-magazzino-tabs__panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .gestionale-magazzino-tabs {
   display: flex;
   gap: 0;

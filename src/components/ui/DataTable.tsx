@@ -25,6 +25,7 @@ export type DataTableProps<T> = {
   sortDirection?: DataTableSortDirection
   onSort?: (columnId: string) => void
   onRowClick?: (row: T) => void
+  onRowDoubleClick?: (row: T) => void
   rowHeight?: number
   virtualize?: boolean
   virtualizeThreshold?: number
@@ -57,6 +58,7 @@ export default function DataTable<T>({
   sortDirection = 'asc',
   onSort,
   onRowClick,
+  onRowDoubleClick,
   rowHeight = DEFAULT_ROW_HEIGHT,
   virtualize = true,
   virtualizeThreshold = DEFAULT_VIRTUAL_THRESHOLD,
@@ -123,7 +125,12 @@ export default function DataTable<T>({
     ro.observe(el)
     setViewportHeight(el.clientHeight)
     return () => ro.disconnect()
-  }, [])
+  }, [sortedRows.length, useVirtual])
+
+  const bottomSpacerHeight = useMemo(() => {
+    if (!useVirtual) return 0
+    return Math.max(0, totalHeight - offsetTop - visibleRows.length * rowHeight)
+  }, [useVirtual, totalHeight, offsetTop, visibleRows.length, rowHeight])
 
   const toggleAll = () => {
     if (!onSelectionChange) return
@@ -153,6 +160,7 @@ export default function DataTable<T>({
         key={key}
         className={`gestionale-datatable__row${selected ? ' gestionale-datatable__row--selected' : ''}${extra ? ` ${extra}` : ''}`}
         onClick={() => onRowClick?.(row)}
+        onDoubleClick={() => onRowDoubleClick?.(row)}
       >
         {selectable ? (
           <td className="gestionale-datatable__td gestionale-datatable__td--checkbox" onClick={e => e.stopPropagation()}>
@@ -242,12 +250,12 @@ export default function DataTable<T>({
                   </tr>
                 ) : null}
                 {visibleRows.map((row, i) => renderRow(row, startIndex + i))}
-                {totalHeight - offsetTop - visibleRows.length * rowHeight > 0 ? (
+                {bottomSpacerHeight > 0 ? (
                   <tr className="gestionale-datatable__virtual-spacer" aria-hidden="true">
                     <td
                       colSpan={columns.length + (selectable ? 1 : 0)}
                       style={{
-                        height: totalHeight - offsetTop - visibleRows.length * rowHeight,
+                        height: bottomSpacerHeight,
                         padding: 0,
                         border: 'none',
                       }}

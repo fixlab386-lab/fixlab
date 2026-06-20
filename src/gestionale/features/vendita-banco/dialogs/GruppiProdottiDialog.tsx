@@ -386,6 +386,7 @@ export default function GruppiProdottiDialog({
 
       {showProductSearch ? (
         <RicercaProdottiDialog
+          studioId={studioId}
           products={products}
           categories={categories}
           listino={listino}

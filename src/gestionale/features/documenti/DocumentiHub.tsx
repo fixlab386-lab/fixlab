@@ -4,10 +4,8 @@ import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../../../firebase'
 import { useAuth } from '../../../hooks/useAuth'
 import { useActiveStudio } from '../../../hooks/useActiveStudio'
-import { useAppWindows } from '../../../contexts/AppWindowsContext'
-import { getDocuments } from '../../../lib/firestore'
+import { countDocumentsByType, countStudioDocuments } from '../../../lib/firestorePagination'
 import { filterEnabledDocumentTypes } from '../../../lib/printTemplates'
-import type { DocRecord } from '../../../types'
 import {
   ACTIVE_DOCUMENT_LABELS,
   ACTIVE_DOCUMENT_TYPES,
@@ -15,55 +13,51 @@ import {
   type ActiveDocumentType,
 } from './constants'
 
-function countByType(documents: DocRecord[]): Record<ActiveDocumentType, number> {
-  const counts = Object.fromEntries(ACTIVE_DOCUMENT_TYPES.map(t => [t, 0])) as Record<ActiveDocumentType, number>
-  for (const doc of documents) {
-    if (doc.type in counts) counts[doc.type as ActiveDocumentType] += 1
-  }
-  return counts
-}
-
 type Props = {
   embedded?: boolean
 }
 
-export default function DocumentiHub({ embedded = false }: Props) {
+export default function DocumentiHub({ embedded: _embedded = false }: Props) {
   const { loading: authLoading } = useAuth()
   const { studioId } = useActiveStudio()
   const navigate = useNavigate()
-  const { openDocumentiType } = useAppWindows()
-  const [documents, setDocuments] = useState<DocRecord[]>([])
+  const [counts, setCounts] = useState<Record<ActiveDocumentType, number>>(
+    () => Object.fromEntries(ACTIVE_DOCUMENT_TYPES.map(t => [t, 0])) as Record<ActiveDocumentType, number>,
+  )
+  const [total, setTotal] = useState(0)
   const [studioData, setStudioData] = useState<Record<string, unknown> | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (authLoading) return
     if (!studioId) {
-      setLoading(false)
+      setSyncing(false)
       return
     }
     let cancelled = false
-    setLoading(true)
-    Promise.all([getDocuments(studioId), getDoc(doc(db, 'studios', studioId))])
-      .then(([data, studioSnap]) => {
+    setSyncing(true)
+    Promise.all([
+      Promise.all(ACTIVE_DOCUMENT_TYPES.map(async type => [type, await countDocumentsByType(studioId, type)] as const)),
+      countStudioDocuments(studioId),
+      getDoc(doc(db, 'studios', studioId)),
+    ])
+      .then(([typePairs, docTotal, studioSnap]) => {
         if (cancelled) return
-        setDocuments(data)
+        setCounts(Object.fromEntries(typePairs) as Record<ActiveDocumentType, number>)
+        setTotal(docTotal)
         setStudioData(studioSnap.exists() ? studioSnap.data() : null)
       })
       .catch(() => {
         if (!cancelled) setError('Impossibile caricare i documenti.')
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setSyncing(false)
       })
     return () => {
       cancelled = true
     }
   }, [authLoading, studioId])
-
-  const counts = useMemo(() => countByType(documents), [documents])
-  const total = documents.length
 
   const hubGroups = useMemo(
     () =>
@@ -75,15 +69,11 @@ export default function DocumentiHub({ embedded = false }: Props) {
   )
 
   const handleSelect = (type: ActiveDocumentType) => {
-    if (embedded) {
-      openDocumentiType(type)
-      return
-    }
     navigate(`/documenti/tipo/${type}`)
   }
 
-  if (authLoading || loading) {
-    return <div className="documenti-hub__loading">Caricamento documenti…</div>
+  if (authLoading) {
+    return <div className="documenti-hub__loading">Caricamento profilo…</div>
   }
 
   if (!studioId) {
@@ -91,12 +81,15 @@ export default function DocumentiHub({ embedded = false }: Props) {
   }
 
   return (
-    <div className={`documenti-hub${embedded ? ' documenti-hub--embedded' : ''}`} data-tutorial="page-documenti">
+    <div className="documenti-hub gestionale-page" data-tutorial="page-documenti">
+      {syncing && total > 0 ? <div className="gestionale-sync-badge" aria-live="polite">Sincronizzazione…</div> : null}
+      {syncing && total === 0 ? <div className="documenti-hub__loading">Caricamento documenti…</div> : null}
       {error ? <div className="documenti-hub__error">{error}</div> : null}
 
       <div className="documenti-hub__intro">
         <p>
-          Scegli il tipo di documento da visualizzare. Totale archivio: <strong>{total}</strong> documenti.
+          Scegli il tipo di documento da visualizzare. Totale archivio:{' '}
+          <strong>{syncing && total === 0 ? '…' : total}</strong> documenti.
         </p>
       </div>
 
@@ -114,7 +107,9 @@ export default function DocumentiHub({ embedded = false }: Props) {
                 >
                   <span className="documenti-hub__tile-label">{ACTIVE_DOCUMENT_LABELS[type]}</span>
                   <span className="documenti-hub__tile-count">
-                    {counts[type]} {counts[type] === 1 ? 'documento' : 'documenti'}
+                    {syncing && counts[type] === 0 && total === 0
+                      ? '…'
+                      : `${counts[type]} ${counts[type] === 1 ? 'documento' : 'documenti'}`}
                   </span>
                 </button>
               ))}

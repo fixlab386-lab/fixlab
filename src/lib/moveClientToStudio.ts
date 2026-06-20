@@ -1,5 +1,5 @@
-import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
+import { callCallableWithAuth } from './cloudFunctions'
 
 export type MoveClientCounts = {
   repairs: number
@@ -53,17 +53,19 @@ export type MoveClientExecuteResult = {
 export async function previewMoveClientToStudio(
   params: Omit<MoveClientPreviewRequest, 'mode'>,
 ): Promise<MoveClientPreviewResult> {
-  const fn = httpsCallable<MoveClientPreviewRequest, MoveClientPreviewResult>(functions, 'moveClientToStudio')
-  const res = await fn({ ...params, mode: 'preview' })
-  return res.data
+  return callCallableWithAuth<MoveClientPreviewRequest, MoveClientPreviewResult>(functions, 'moveClientToStudio', {
+    ...params,
+    mode: 'preview',
+  })
 }
 
 export async function executeMoveClientToStudio(
   params: Omit<MoveClientExecuteRequest, 'mode'>,
 ): Promise<MoveClientExecuteResult> {
-  const fn = httpsCallable<MoveClientExecuteRequest, MoveClientExecuteResult>(functions, 'moveClientToStudio')
-  const res = await fn({ ...params, mode: 'execute' })
-  return res.data
+  return callCallableWithAuth<MoveClientExecuteRequest, MoveClientExecuteResult>(functions, 'moveClientToStudio', {
+    ...params,
+    mode: 'execute',
+  })
 }
 
 export const MOVE_CLIENT_CONFIRM_TEXT = 'SPOSTA CLIENTE'
