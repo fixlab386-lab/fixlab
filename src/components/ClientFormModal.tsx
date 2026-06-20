@@ -249,10 +249,10 @@ export default function ClientFormModal({ studioId, client, onSave, onClose }: P
         </div>
 
         <div className="vb-dialog__footer oc-selezione-cliente__footer">
-          <WinButton onClick={() => void handleSave()} disabled={saving || !form.name}>
+          <WinButton onClick={onClose}>Annulla</WinButton>
+          <WinButton className="vb-btn--ok" onClick={() => void handleSave()} disabled={saving || !form.name}>
             {saving ? 'Salvataggio…' : editing ? 'Aggiorna' : 'OK'}
           </WinButton>
-          <WinButton onClick={onClose}>Annulla</WinButton>
         </div>
       </div>
     </div>

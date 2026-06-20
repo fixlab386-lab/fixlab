@@ -41,18 +41,27 @@ export function isDesktopApp(): boolean {
   return window.fixlabDesktop?.isElectron === true
 }
 
-export async function getDesktopDownloadUrl(): Promise<{ url: string; version: string }> {
+const GITHUB_RELEASES = 'https://github.com/fixlab386-lab/fixlab/releases/download'
+
+export function desktopArtifactFilename(version: string, os: WelcomeOs): string {
+  return os === 'mac' ? `FixLab-${version}-mac.dmg` : `FixLab-Setup-${version}.exe`
+}
+
+export async function getDesktopDownloadUrl(os: WelcomeOs = 'windows'): Promise<{ url: string; version: string; filename: string }> {
   try {
     const res = await fetch('/version.json')
     const data = (await res.json()) as { version: string }
-    const version = data.version || '1.0.35'
+    const version = data.version || '1.0.73'
+    const filename = desktopArtifactFilename(version, os)
     return {
       version,
-      url: `https://github.com/fixlab386-lab/fixlab/releases/download/v${version}/FixLab-Setup-${version}.exe`,
+      filename,
+      url: `${GITHUB_RELEASES}/v${version}/${filename}`,
     }
   } catch {
     return {
       version: 'latest',
+      filename: os === 'mac' ? 'FixLab-mac.dmg' : 'FixLab-Setup.exe',
       url: 'https://github.com/fixlab386-lab/fixlab/releases/latest',
     }
   }

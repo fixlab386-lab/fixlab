@@ -1,7 +1,7 @@
 {
   "name": "fixlab",
   "private": true,
-  "version": "1.0.73",
+  "version": "1.0.75",
   "description": "FIXLab — gestionale desktop per laboratori di riparazione",
   "author": "FixLab",
   "repository": {
@@ -19,6 +19,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "pack:desktop": "npm run build:desktop && electron-builder --win",
+    "pack:desktop:mac": "npm run build:desktop && electron-builder --mac",
+    "publish:desktop:mac": "node scripts/publish-desktop-mac.mjs",
     "release:patch": "node scripts/release-desktop.mjs patch",
     "release:minor": "node scripts/release-desktop.mjs minor",
     "release:major": "node scripts/release-desktop.mjs major",
@@ -121,6 +123,26 @@
       "shortcutName": "FixLab",
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": true
+    },
+    "mac": {
+      "category": "public.app-category.business",
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "artifactName": "FixLab-${version}-mac.${ext}",
+      "identity": null,
+      "gatekeeperAssess": false,
+      "hardenedRuntime": false
+    },
+    "dmg": {
+      "title": "FixLab ${version}",
+      "writeUpdateInfo": false
     }
   }
 }

@@ -1,20 +1,12 @@
 /**
- * Rilascio desktop: verifica GH_TOKEN e avvia bump + build + publish.
- * Uso: node scripts/release-desktop.mjs patch|minor|major
- * GH_TOKEN: variabile d'ambiente, oppure riga GH_TOKEN=... in .env (non committare).
+ * Build e pubblica su GitHub la versione macOS (senza bump).
+ * Richiede macOS — in locale o via GitHub Actions (workflow desktop-mac.yml).
+ * Uso: node scripts/publish-desktop-mac.mjs
  */
 import { spawnSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-
-const bump = process.argv[2]
-const valid = new Set(['patch', 'minor', 'major'])
-
-if (!valid.has(bump)) {
-  console.error('Uso: node scripts/release-desktop.mjs patch|minor|major')
-  process.exit(1)
-}
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -37,29 +29,36 @@ function loadEnvFile() {
 
 loadEnvFile()
 
-if (!process.env.GH_TOKEN) {
-  console.error('Errore: imposta GH_TOKEN (env o .env) prima di pubblicare (vedi docs/RELEASE.md).')
+if (process.platform !== 'darwin') {
+  console.error('Errore: la build macOS va eseguita su macOS (o tramite GitHub Actions → Desktop Mac).')
   process.exit(1)
 }
-const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm'
-const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx'
+
+if (!process.env.GH_TOKEN) {
+  console.error('Errore: imposta GH_TOKEN (env o .env) prima di pubblicare.')
+  process.exit(1)
+}
+
+const npmCmd = 'npm'
+const npxCmd = 'npx'
 
 function run(command, args, label) {
   console.log(`\n→ ${label}`)
   const result = spawnSync(command, args, {
     cwd: root,
     stdio: 'inherit',
-    env: process.env,
-    shell: process.platform === 'win32',
+    env: {
+      ...process.env,
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false',
+    },
   })
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1)
-  }
+  if (result.status !== 0) process.exit(result.status ?? 1)
 }
 
-run(npmCmd, ['version', bump], `npm version ${bump}`)
-run(npmCmd, ['run', 'build:desktop'], 'build desktop')
-run(npxCmd, ['electron-builder', '--win', '--publish', 'always'], 'electron-builder publish win')
+const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version
+console.log(`Pubblicazione desktop macOS FixLab v${version} (non firmata)…`)
 
-console.log('\n✓ Release desktop Windows completata.')
-console.log('→ Per macOS: avvia GitHub Actions "Desktop Mac" (o npm run publish:desktop:mac su un Mac).')
+run(npmCmd, ['run', 'build:desktop'], 'build desktop')
+run(npxCmd, ['electron-builder', '--mac', '--publish', 'always'], 'electron-builder publish mac')
+
+console.log(`\n✓ Release macOS v${version} pubblicata.`)

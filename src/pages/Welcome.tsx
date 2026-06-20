@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import AuthShell, { AuthFormHeader } from '../components/auth/AuthShell'
+import MacInstallDialog from '../components/welcome/MacInstallDialog'
 import {
   getDesktopDownloadUrl,
   ramCompatibility,
@@ -20,13 +21,14 @@ export default function Welcome() {
   const [ram, setRam] = useState<WelcomeRam>(8)
   const [downloadUrl, setDownloadUrl] = useState('')
   const [appVersion, setAppVersion] = useState('')
+  const [macDialogOpen, setMacDialogOpen] = useState(false)
 
   useEffect(() => {
-    void getDesktopDownloadUrl().then(({ url, version }) => {
+    void getDesktopDownloadUrl(os).then(({ url, version }) => {
       setDownloadUrl(url)
       setAppVersion(version)
     })
-  }, [])
+  }, [os])
 
   const finishWeb = () => {
     saveWelcomeChoice({ mode: 'web' })
@@ -37,7 +39,22 @@ export default function Welcome() {
     saveWelcomeChoice({ mode: 'desktop', os, ramGb: ram })
   }
 
+  const openMacDownloadDialog = () => {
+    setMacDialogOpen(true)
+  }
+
   const ramStatus = ramCompatibility(ram)
+  const hasDownload = Boolean(downloadUrl)
+
+  const macDialog = (
+    <MacInstallDialog
+      open={macDialogOpen}
+      downloadUrl={downloadUrl}
+      version={appVersion}
+      onClose={() => setMacDialogOpen(false)}
+      onConfirmDownload={finishDesktop}
+    />
+  )
 
   if (step === 'choose') {
     return (
@@ -58,7 +75,7 @@ export default function Welcome() {
               </span>
               <span className="welcome-card__body">
                 <h3>Scarica l'app desktop</h3>
-                <p>Consigliata per uso quotidiano in negozio. Installazione su Windows con aggiornamenti automatici.</p>
+                <p>Consigliata per uso quotidiano in negozio. Disponibile per Windows e macOS con aggiornamenti automatici.</p>
               </span>
             </button>
             <button type="button" className="welcome-card" onClick={() => setStep('web')}>
@@ -139,7 +156,6 @@ export default function Welcome() {
               onClick={() => setOs('mac')}
             >
               macOS
-              <span className="welcome-badge">Presto</span>
             </button>
           </div>
         </div>
@@ -161,16 +177,21 @@ export default function Welcome() {
         </div>
 
         {os === 'mac' ? (
-          <div className="welcome-note welcome-note--info">
-            La versione macOS è in arrivo. Nel frattempo puoi usare FixLab dal browser web con lo stesso account.
-          </div>
+          <button type="button" className="welcome-mac-hint" onClick={openMacDownloadDialog}>
+            <span className="welcome-mac-hint__icon" aria-hidden="true">ℹ️</span>
+            <span className="welcome-mac-hint__text">
+              <strong>Su Mac serve un passaggio in più</strong>
+              <span>Apple non ha ancora verificato l&apos;app — ti spieghiamo come installarla in 30 secondi.</span>
+            </span>
+            <span className="welcome-mac-hint__link">Leggi guida →</span>
+          </button>
         ) : ramStatus === 'warn' ? (
           <div className="welcome-note welcome-note--warn">
             Con 4 GB FixLab può funzionare, ma consigliamo almeno <strong>8 GB di RAM</strong> per un uso fluido con magazzino e documenti aperti.
           </div>
         ) : ramStatus === 'ok' ? (
           <div className="welcome-note welcome-note--ok">
-            Ottimo: con 8 GB il tuo PC è adatto a FixLab desktop per l'uso quotidiano in laboratorio.
+            Ottimo: con 8 GB il tuo PC è adatto a FixLab desktop per l&apos;uso quotidiano in laboratorio.
           </div>
         ) : (
           <div className="welcome-note welcome-note--ok">
@@ -185,10 +206,22 @@ export default function Welcome() {
             <li>Connessione internet per login e sincronizzazione</li>
             {appVersion ? <li>Versione disponibile: {appVersion}</li> : null}
           </ul>
-        ) : null}
+        ) : (
+          <ul className="welcome-specs">
+            <li>macOS 11 Big Sur o successivo</li>
+            <li>Mac Intel o Apple Silicon (M1/M2/M3)</li>
+            <li>Spazio disco: circa 300 MB</li>
+            <li>Connessione internet per login e sincronizzazione</li>
+            {appVersion ? <li>Versione disponibile: {appVersion}</li> : null}
+          </ul>
+        )}
 
         <div className="welcome-actions">
-          {os === 'windows' && downloadUrl ? (
+          {hasDownload && os === 'mac' ? (
+            <button type="button" className="auth-btn" onClick={openMacDownloadDialog}>
+              Scarica FixLab per macOS
+            </button>
+          ) : hasDownload ? (
             <a
               href={downloadUrl}
               className="auth-btn"
@@ -204,23 +237,22 @@ export default function Welcome() {
               Usa FixLab dal browser
             </button>
           )}
-          {os === 'windows' ? (
-            <button
-              type="button"
-              className="auth-btn auth-btn--secondary"
-              onClick={() => {
-                finishDesktop()
-                navigate('/login', { replace: true })
-              }}
-            >
-              Ho già scaricato — vai al login web
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className="auth-btn auth-btn--secondary"
+            onClick={() => {
+              finishDesktop()
+              navigate('/login', { replace: true })
+            }}
+          >
+            Ho già scaricato — vai al login web
+          </button>
           <button type="button" className="welcome-back" onClick={() => setStep('choose')}>
             ← Torna indietro
           </button>
         </div>
       </div>
+      {macDialog}
     </AuthShell>
   )
 }

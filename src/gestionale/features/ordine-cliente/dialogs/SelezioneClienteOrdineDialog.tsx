@@ -319,7 +319,7 @@ export default function SelezioneClienteOrdineDialog({
 
       <div className="vb-dialog-overlay oc-selezione-overlay" role="dialog" aria-modal="true">
         <div className="vb-dialog vb-dialog--ordine-cliente">
-          <div className="vb-dialog__titlebar vb-dialog__titlebar--brand">
+          <div className="vb-dialog__titlebar">
             <span>Selezione cliente</span>
             <button type="button" className="vb-icon-btn vb-dialog__titlebar-close" onClick={onClose}>
               ✕
@@ -419,7 +419,7 @@ export default function SelezioneClienteOrdineDialog({
                       </div>
                       <button
                         type="button"
-                        className="vb-icon-btn vb-icon-btn--search oc-selezione-cliente__binoculars"
+                        className="vb-icon-btn vb-icon-btn--binocular oc-selezione-cliente__binoculars"
                         title="Ricerca avanzata clienti"
                         onClick={() => setShowSearch(true)}
                       >
@@ -648,10 +648,10 @@ export default function SelezioneClienteOrdineDialog({
             {error ? <p className="oc-selezione-cliente__error">{error}</p> : null}
           </div>
           <div className="vb-dialog__footer oc-selezione-cliente__footer">
-            <WinButton onClick={() => void handleOk()} disabled={saving}>
+            <WinButton onClick={onClose}>Annulla</WinButton>
+            <WinButton className="vb-btn--ok" onClick={() => void handleOk()} disabled={saving}>
               {saving ? 'Salvataggio…' : 'OK'}
             </WinButton>
-            <WinButton onClick={onClose}>Annulla</WinButton>
           </div>
         </div>
       </div>

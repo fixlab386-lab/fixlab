@@ -5,8 +5,7 @@ type Props = {
 
 /**
  * Intestazione in stile Danea Easyfatt usata nei dialog "Selezione cliente" /
- * "Selezione fornitore": titolo blu, sottotitolo grigio e icona circolare
- * (persona + lente) sulla destra. Identica per tutti i modal anagrafici.
+ * "Selezione fornitore": titolo blu, sottotitolo grigio e icona due persone sulla destra.
  */
 export default function DaneaSelectionHeader({ title, subtitle }: Props) {
   return (
@@ -16,31 +15,25 @@ export default function DaneaSelectionHeader({ title, subtitle }: Props) {
         <p className="danea-sel-header__subtitle">{subtitle}</p>
       </div>
       <span className="danea-sel-header__icon" aria-hidden="true">
-        <svg viewBox="0 0 48 48" width="46" height="46" role="img">
-          <defs>
-            <linearGradient id="daneaSelBadge" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#6ba3de" />
-              <stop offset="1" stopColor="#2f66a8" />
-            </linearGradient>
-          </defs>
-          <circle cx="24" cy="24" r="23" fill="url(#daneaSelBadge)" stroke="#24517f" strokeWidth="1" />
-          <g fill="#ffffff">
-            <circle cx="22" cy="17.5" r="6" />
-            <path d="M11 35.5c0-6.1 4.9-10.6 11-10.6s11 4.5 11 10.6V37H11z" />
-          </g>
-          <g>
-            <circle cx="32.5" cy="30.5" r="7.6" fill="#eaf3fb" stroke="#24517f" strokeWidth="2" />
-            <circle cx="32.5" cy="30.5" r="4" fill="none" stroke="#2f66a8" strokeWidth="2" />
-            <rect
-              x="37.4"
-              y="34.6"
-              width="7.4"
-              height="3.2"
-              rx="1.6"
-              transform="rotate(45 37.4 34.6)"
-              fill="#1f4670"
-            />
-          </g>
+        <svg viewBox="0 0 52 44" width="52" height="44" role="img">
+          {/* Persona 1 — giacca blu (Danea) */}
+          <circle cx="14" cy="10" r="7" fill="#f5c89a" stroke="#c4956a" strokeWidth="0.8" />
+          <path
+            d="M4 38c0-5.5 4.5-10 10-10s10 4.5 10 10v2H4z"
+            fill="#2f66a8"
+            stroke="#1f4670"
+            strokeWidth="0.8"
+          />
+          <path d="M8 28 L14 22 L20 28" fill="#2f66a8" stroke="#1f4670" strokeWidth="0.6" />
+          {/* Persona 2 — camicia arancione (Danea) */}
+          <circle cx="36" cy="12" r="7" fill="#f5c89a" stroke="#c4956a" strokeWidth="0.8" />
+          <path
+            d="M26 40c0-5.5 4.5-10 10-10s10 4.5 10 10v2H26z"
+            fill="#e07020"
+            stroke="#b85510"
+            strokeWidth="0.8"
+          />
+          <path d="M30 30 L36 24 L42 30" fill="#e07020" stroke="#b85510" strokeWidth="0.6" />
         </svg>
       </span>
     </div>

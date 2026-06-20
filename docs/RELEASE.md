@@ -123,10 +123,26 @@ Ogni comando esegue in sequenza (via `scripts/release-desktop.mjs`):
 
 `electron-builder` carica sulla GitHub Release:
 
+**Windows**
 - `FixLab-Setup-X.Y.Z.exe` — installer NSIS Windows
 - `latest.yml` — metadati usati da `electron-updater` per trovare e scaricare l'aggiornamento
 
-Senza `latest.yml` l'auto-update **non funziona**: non omettere la pubblicazione con `--publish always`.
+**macOS** (non firmato, senza account Apple Developer)
+- `FixLab-X.Y.Z-mac.dmg` — disco immagine universale (Intel + Apple Silicon)
+- `latest-mac.yml` — auto-update su Mac
+
+Senza `latest.yml` / `latest-mac.yml` l'auto-update **non funziona**: non omettere la pubblicazione con `--publish always`.
+
+### Release macOS
+
+La build Mac **non può essere fatta da Windows**. Dopo ogni release Windows:
+
+1. Su GitHub → **Actions** → workflow **Desktop Mac** → **Run workflow**
+2. Oppure, su un Mac locale: `npm run publish:desktop:mac` (con `GH_TOKEN` impostato)
+
+L'app non è verificata da Apple: al primo avvio l'utente deve fare **tasto destro → Apri** su FixLab.
+
+Imposta `GH_TOKEN` anche come secret del repository (`Settings → Secrets → Actions`) per la CI.
 
 ---
 

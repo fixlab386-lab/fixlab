@@ -1,10 +1,27 @@
 /* Ordine cliente — modal stile Danea (estende vendita al banco) */
 
 .vb-dialog--ordine-cliente {
-  width: min(960px, 98vw);
+  width: min(820px, 96vw);
   max-height: 92vh;
   display: flex;
   flex-direction: column;
+  border: 1px solid #888;
+  background: #ece9d8;
+  box-shadow: 2px 2px 14px rgba(0, 0, 0, 0.35);
+  font-family: "Segoe UI", Tahoma, sans-serif;
+}
+
+.vb-dialog--ordine-cliente .vb-dialog__titlebar {
+  height: 28px;
+  padding: 0 6px 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.vb-dialog--ordine-cliente .vb-dialog__body {
+  padding: 10px 14px 12px;
+  background: #fff;
 }
 
 .vb-dialog__titlebar--brand {
@@ -21,15 +38,15 @@
   z-index: 22000;
 }
 
-/* Intestazione stile Danea (titolo blu + sottotitolo + icona circolare) */
+/* Intestazione stile Danea (titolo blu + sottotitolo + icona due persone) */
 .danea-sel-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  padding: 2px 2px 10px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid #d9d6cb;
+  gap: 12px;
+  padding: 0 0 8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #d4d0c8;
 }
 
 .danea-sel-header__text {
@@ -38,16 +55,18 @@
 
 .danea-sel-header__title {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 400;
-  line-height: 1.2;
+  line-height: 1.15;
   color: #1a5fb4;
+  font-family: "Segoe UI", Tahoma, sans-serif;
 }
 
 .danea-sel-header__subtitle {
-  margin: 4px 0 0;
+  margin: 3px 0 0;
   font-size: 11px;
   color: #555;
+  line-height: 1.35;
 }
 
 .danea-sel-header__icon {
@@ -78,9 +97,42 @@
 .oc-selezione-cliente {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   overflow: auto;
   max-height: calc(92vh - 100px);
+  font-size: 12px;
+}
+
+.oc-selezione-cliente .vb-field {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 6px;
+  row-gap: 2px;
+  min-height: 24px;
+}
+
+.oc-selezione-cliente .vb-field__head {
+  grid-column: 1;
+  margin-bottom: 0;
+}
+
+.oc-selezione-cliente .vb-field__label {
+  font-size: 12px;
+  font-weight: 400;
+  color: #000;
+}
+
+.oc-selezione-cliente .vb-field > :not(.vb-field__head) {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.oc-selezione-cliente .vb-input,
+.oc-selezione-cliente .vb-select {
+  height: 22px;
+  border-color: #7f9db9;
+  font-size: 12px;
 }
 
 .oc-selezione-cliente__intro {
@@ -103,11 +155,14 @@
 }
 
 .oc-selezione-cliente__radio {
-  margin-left: 4px;
+  margin-left: 2px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: #000;
 }
 
 .oc-selezione-cliente__existing-panel {
-  margin: 0 0 10px 22px;
+  margin: 0 0 8px 20px;
 }
 
 .oc-selezione-cliente__existing-grid {
@@ -155,6 +210,18 @@
   border: none;
   background: none;
   cursor: pointer;
+  color: #0056b3;
+  text-decoration: underline;
+}
+
+.oc-selezione-cliente .vb-icon-btn--search,
+.oc-selezione-cliente .gestionale-field-action-btn--win {
+  color: #2e7d32;
+}
+
+.oc-selezione-cliente .gestionale-field-with-action__input {
+  flex: 1;
+  min-width: 0;
 }
 
 .oc-selezione-cliente__form--disabled {
@@ -163,8 +230,28 @@
 }
 
 .oc-selezione-cliente__footer {
-  justify-content: center;
+  justify-content: space-between;
   gap: 12px;
+  padding: 8px 12px;
+  background: #f0f0f0;
+  border-top: 1px solid #c0c0c0;
+}
+
+.oc-selezione-cliente__footer .vb-btn:last-child {
+  margin-left: 0;
+}
+
+.oc-selezione-cliente__footer .vb-btn--ok {
+  min-width: 86px;
+  justify-content: center;
+  border-color: #0078d7;
+  color: #1a5fb4;
+  font-weight: 600;
+}
+
+.oc-selezione-cliente__footer .vb-btn--ok:hover:not(:disabled) {
+  border-color: #005a9e;
+  color: #005a9e;
 }
 
 .oc-arretrati-overlay {
@@ -306,9 +393,9 @@
 .oc-selezione-cliente__form {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px 28px;
-  margin-left: 22px;
-  padding: 6px 2px 2px;
+  gap: 12px 24px;
+  margin-left: 20px;
+  padding: 4px 0 0;
   background: transparent;
   border: none;
 }
@@ -316,7 +403,7 @@
 .oc-selezione-cliente__col {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -362,10 +449,10 @@
 }
 
 .oc-selezione-cliente__col-title {
-  margin: 0 0 1px;
+  margin: 0 0 2px;
   font-weight: 700;
   font-size: 12px;
-  color: #333;
+  color: #0056b3;
 }
 
 .oc-selezione-cliente__row2 {
