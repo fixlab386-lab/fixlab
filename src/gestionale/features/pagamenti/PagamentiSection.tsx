@@ -9,14 +9,13 @@ import { usePaymentListState } from './hooks/usePaymentListState'
 import {
   listenPayments,
   listenPaymentResources,
-  listenClients,
-  listenSuppliers,
   addPayment,
   updatePayment,
   deletePayment,
   ensureDefaultPaymentResources,
 } from '../../../lib/firestore'
 import { fetchPaymentsPage } from '../../../lib/firestorePagination'
+import { loadRecentClients, loadRecentSuppliers } from '../../../lib/loadStudioCatalog'
 import LoadMoreBar from '../../../components/ui/LoadMoreBar'
 import {
   computePaymentSummary,
@@ -88,7 +87,6 @@ export default function PagamentiSection() {
     syncing,
     loadingMore,
     hasMore,
-    truncated,
     error: loadError,
     loadMore,
     showInitialSpinner,
@@ -99,8 +97,26 @@ export default function PagamentiSection() {
     liveEnabled,
     50,
   )
-  const { data: clients } = useStudioLiveQuery(studioId, listenClients, liveEnabled, 300)
-  const { data: suppliers } = useStudioLiveQuery(studioId, listenSuppliers, liveEnabled, 300)
+  const [clients, setClients] = useState<Client[]>([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+
+  useEffect(() => {
+    if (!studioId) {
+      setClients([])
+      setSuppliers([])
+      return
+    }
+    let cancelled = false
+    void Promise.all([loadRecentClients(studioId), loadRecentSuppliers(studioId)]).then(([c, s]) => {
+      if (!cancelled) {
+        setClients(c)
+        setSuppliers(s)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [studioId])
 
   const showInitialSpinnerCombined = showInitialSpinner || resourcesLoading
   const [actionError, setActionError] = useState<string | null>(null)
@@ -427,6 +443,7 @@ export default function PagamentiSection() {
             rows={tableRows}
             columns={columns}
             rowKey={p => p.id}
+            tableId="pagamenti"
             selectedKeys={list.selectedKeys}
             onSelectionChange={keys => {
               list.setSelectedKeys(keys)
@@ -445,7 +462,7 @@ export default function PagamentiSection() {
             virtualize
             virtualizeThreshold={80}
           />
-          <LoadMoreBar hasMore={hasMore} loading={loadingMore} truncated={truncated} onLoadMore={loadMore} />
+          <LoadMoreBar hasMore={hasMore} loading={loadingMore} onLoadMore={loadMore} />
 
           <div className="pagamenti-section__foot">
             <span className="pagamenti-section__foot-count">{list.filtered.length} voci</span>

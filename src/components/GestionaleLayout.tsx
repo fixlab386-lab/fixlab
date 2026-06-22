@@ -146,7 +146,7 @@ function GestionaleShell() {
                   {item.id === 'archivi' ? <ToolbarStrumentiMenu /> : null}
                   {renderNavButton(item)}
                   {item.id === 'magazzino' ? (
-                    <ToolbarAnalisiMenu active={location.pathname === '/analisi'} />
+                    <ToolbarAnalisiMenu active={location.pathname.startsWith('/analisi')} />
                   ) : null}
                 </Fragment>
               ))}

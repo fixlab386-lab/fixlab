@@ -15,12 +15,6 @@ const statusOptions = [
   { value: 'on_hold', label: 'In sospeso' },
 ]
 
-const priorityOptions = [
-  { value: 'normal', label: 'Normale' },
-  { value: 'urgent', label: 'Urgente' },
-  { value: 'express', label: 'Express' },
-]
-
 export default function TabRiparazione({ form, s }: Props) {
   return (
     <div className="gestionale-repair-form-stack">
@@ -53,20 +47,6 @@ export default function TabRiparazione({ form, s }: Props) {
             onChange={e => s('status', e.target.value)}
           >
             {statusOptions.map(o => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </FormField>
-        <FormField label="Priorità" htmlFor="repair-priority">
-          <select
-            id="repair-priority"
-            className="gestionale-form-field__input"
-            value={form.priority || 'normal'}
-            onChange={e => s('priority', e.target.value)}
-          >
-            {priorityOptions.map(o => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>

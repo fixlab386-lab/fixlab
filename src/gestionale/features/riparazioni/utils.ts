@@ -35,7 +35,6 @@ export function filterRepairs(
   repairs: Repair[],
   searchLower: string,
   statusFilter: string,
-  priorityFilter: string,
   staleDays: number | null,
   isStale: (r: Repair, days: number) => boolean,
 ): Repair[] {
@@ -43,7 +42,6 @@ export function filterRepairs(
     if (staleDays != null && !isStale(r, staleDays)) return false
     if (statusFilter === 'active' && r.status === 'completed') return false
     else if (statusFilter !== 'all' && statusFilter !== 'active' && r.status !== statusFilter) return false
-    if (priorityFilter !== 'all' && r.priority !== priorityFilter) return false
     if (searchLower && !repairSearchHaystack(r).includes(searchLower)) return false
     return true
   })

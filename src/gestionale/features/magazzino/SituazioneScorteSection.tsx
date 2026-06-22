@@ -38,7 +38,6 @@ export default function SituazioneScorteSection() {
     syncing: productsSyncing,
     loadingMore: productsLoadingMore,
     hasMore: productsHasMore,
-    truncated: productsTruncated,
     loadMore: loadMoreProducts,
     showInitialSpinner: productsInitial,
   } = useStudioPagedLiveQuery(studioId, listenProducts, fetchProductsPage, liveEnabled)
@@ -47,7 +46,6 @@ export default function SituazioneScorteSection() {
     syncing: movementsSyncing,
     loadingMore: movementsLoadingMore,
     hasMore: movementsHasMore,
-    truncated: movementsTruncated,
     error: loadError,
     loadMore: loadMoreMovements,
     showInitialSpinner: movementsInitial,
@@ -155,6 +153,7 @@ export default function SituazioneScorteSection() {
             rows={tableRows}
             columns={columns}
             rowKey={r => r.productId}
+            tableId="situazione-scorte"
             sortColumnId={sortColumnId}
             sortDirection={sortDirection}
             onSort={handleSort}
@@ -205,7 +204,6 @@ export default function SituazioneScorteSection() {
       <LoadMoreBar
         hasMore={productsHasMore || movementsHasMore}
         loading={productsLoadingMore || movementsLoadingMore}
-        truncated={productsTruncated || movementsTruncated}
         onLoadMore={() => {
           if (productsHasMore) void loadMoreProducts()
           else if (movementsHasMore) void loadMoreMovements()

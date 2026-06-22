@@ -94,6 +94,7 @@ export interface Prodotto {
     profondita: number
     volume: number
     umDim: string
+    umVol?: string
     peso: number
     pesoLordo: number
     umPeso: string

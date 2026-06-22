@@ -20,6 +20,7 @@ export interface FixLabDesktopApi {
   getUpdateStatus: () => Promise<FixLabUpdateStatus>
   onUpdateStatusChanged: (callback: (status: FixLabUpdateStatus) => void) => () => void
   installUpdate: () => Promise<void>
+  checkForUpdates: () => Promise<FixLabUpdateStatus>
 }
 
 declare global {

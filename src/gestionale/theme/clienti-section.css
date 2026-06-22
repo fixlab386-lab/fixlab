@@ -31,7 +31,7 @@
 
 .clienti-section__body {
   display: grid;
-  grid-template-columns: minmax(0, 68fr) minmax(300px, 32fr);
+  grid-template-columns: minmax(0, 68fr) minmax(320px, 32fr);
   flex: 1;
   min-height: 0;
   gap: 0;
@@ -126,6 +126,10 @@
   background: var(--win-panel-bg);
 }
 
+.clienti-grid--resizable {
+  table-layout: fixed;
+}
+
 .clienti-grid th {
   position: sticky;
   top: 0;
@@ -159,7 +163,22 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 220px;
+}
+
+.clienti-grid--resizable td {
+  max-width: none;
+}
+
+.clienti-grid__row--expanded {
+  height: auto;
+}
+
+.clienti-grid__td--expanded {
+  white-space: normal;
+  overflow: visible;
+  height: auto;
+  word-break: break-word;
+  vertical-align: top;
 }
 
 .clienti-grid tr.clienti-grid__row--selected td {
@@ -311,8 +330,23 @@
 
 .clienti-row--3 {
   display: grid;
-  grid-template-columns: 80px 1fr 40px;
-  gap: 6px;
+  grid-template-columns: minmax(88px, 100px) minmax(0, 1fr) 48px;
+  gap: 8px;
+  align-items: end;
+}
+
+.clienti-row--3 .clienti-field {
+  min-width: 0;
+}
+
+.clienti-row--3 .clienti-input {
+  width: 100%;
+  min-width: 0;
+}
+
+.clienti-row--3 .clienti-input--short,
+.clienti-row--3 .clienti-input--prov {
+  width: 100%;
 }
 
 .clienti-link {

@@ -26,10 +26,4 @@ export const REPAIR_STATUS_LABELS: Record<RepairStatus, string> = {
   on_hold: 'In sospeso',
 }
 
-export const REPAIR_PRIORITIES: Record<string, { label: string }> = {
-  normal: { label: 'Normale' },
-  urgent: { label: 'Urgente' },
-  express: { label: 'Express' },
-}
-
 export const REPAIR_STATUS_ORDER: RepairStatus[] = ['waiting', 'accepted', 'in_progress', 'ready', 'completed']

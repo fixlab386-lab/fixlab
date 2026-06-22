@@ -219,3 +219,9 @@ export function isSalesDocumentType(type: string): boolean {
 export function subjectLabelForType(type: string): string {
   return isPurchaseDocumentType(type) ? 'Fornitore' : 'Cliente'
 }
+
+export const DOCUMENTI_UTILITA_ITEMS = [
+  'Esporta con Excel/OpenOffice/LibreOffice',
+  'Importa con Excel/OpenOffice o Easyfatt-Xml (.DefXml)',
+  'Ripara collegamenti e stati (import Danea)',
+] as const

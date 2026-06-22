@@ -205,6 +205,7 @@ export default function RepairLineItemsSection({
         rows={tableRows}
         columns={columns}
         rowKey={r => `${r._index}-${r.productId || 'free'}`}
+        tableId="repair-lines"
         emptyMessage="Nessuna riga — aggiungi dal catalogo o inserisci una riga libera."
         virtualize={false}
       />

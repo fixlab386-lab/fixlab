@@ -7,6 +7,20 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 let mainWindow: BrowserWindow | null = null
 
+function isOAuthPopupUrl(url: string): boolean {
+  try {
+    const { hostname } = new URL(url)
+    return (
+      hostname === 'accounts.google.com' ||
+      hostname.endsWith('.google.com') ||
+      hostname.endsWith('.firebaseapp.com') ||
+      hostname.endsWith('.web.app')
+    )
+  } catch {
+    return false
+  }
+}
+
 function resolveAppIcon(): string {
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'icon.png')
@@ -40,6 +54,23 @@ function createWindow(): void {
   })
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isOAuthPopupUrl(url)) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          width: 520,
+          height: 720,
+          show: true,
+          autoHideMenuBar: true,
+          title: 'Accedi con Google',
+          webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            sandbox: true,
+          },
+        },
+      }
+    }
     void shell.openExternal(url)
     return { action: 'deny' }
   })

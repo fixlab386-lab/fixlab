@@ -52,7 +52,11 @@ export default function TabDimensioniPeso({ prodotto, onChange }: Props) {
       </DaneaFormRow>
 
       <DaneaFormRow label="U.m. vol.">
-        <select className="prodotti-select prodotti-select--combo prodotti-input--short" defaultValue="cdm">
+        <select
+          className="prodotti-select prodotti-select--combo prodotti-input--short"
+          value={dim.umVol ?? 'cdm'}
+          onChange={e => patchDim({ umVol: e.target.value })}
+        >
           {UM_VOLUME.map(u => (
             <option key={u} value={u}>
               {u}

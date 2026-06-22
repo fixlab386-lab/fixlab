@@ -1,7 +1,6 @@
 import {
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithRedirect,
   getRedirectResult,
   createUserWithEmailAndPassword,
   deleteUser,
@@ -38,20 +37,12 @@ export function needsEmailVerification(user: User, userProfile?: { emailVerifica
   return false
 }
 
-export async function signInWithGoogle(): Promise<UserCredential | null> {
-  if (isElectronApp()) {
-    await signInWithRedirect(auth, googleProvider)
-    return null
-  }
+export async function signInWithGoogle(): Promise<UserCredential> {
   return signInWithPopup(auth, googleProvider)
 }
 
 export async function handleGoogleRedirectResult(): Promise<UserCredential | null> {
-  try {
-    return await getRedirectResult(auth)
-  } catch {
-    return null
-  }
+  return getRedirectResult(auth)
 }
 
 export type CreateStudioProfileOptions = {
@@ -151,6 +142,12 @@ export function mapAuthError(code: string): string {
       return 'Troppi tentativi. Riprova tra qualche minuto.'
     case 'auth/popup-closed-by-user':
       return 'Accesso con Google annullato.'
+    case 'auth/popup-blocked':
+      return 'Il popup di Google è stato bloccato. Consenti i popup per FixLab e riprova.'
+    case 'auth/unauthorized-domain':
+      return 'Dominio non autorizzato per l\'accesso con Google. Contatta il supporto.'
+    case 'auth/operation-not-allowed':
+      return 'Accesso con Google non abilitato. Contatta il supporto.'
     case 'auth/account-exists-with-different-credential':
       return 'Esiste già un account con questa email. Accedi con email e password.'
     case 'auth/network-request-failed':

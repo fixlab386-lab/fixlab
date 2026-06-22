@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-export type OpzioniTabId = 'moduli' | 'azienda' | 'clienti' | 'prodotti' | 'documenti' | 'fatturazione' | 'avvisi' | 'abbonamento' | 'varie'
+export type OpzioniTabId = 'moduli' | 'azienda' | 'clienti' | 'prodotti' | 'documenti' | 'fatturazione' | 'avvisi' | 'varie'
 
 export const OPZIONI_TABS: { id: OpzioniTabId; label: string }[] = [
   { id: 'moduli', label: 'Moduli' },
@@ -10,7 +10,6 @@ export const OPZIONI_TABS: { id: OpzioniTabId; label: string }[] = [
   { id: 'documenti', label: 'Documenti' },
   { id: 'fatturazione', label: 'Fatturazione elettronica' },
   { id: 'avvisi', label: 'Avvisi' },
-  { id: 'abbonamento', label: 'Abbonamento' },
   { id: 'varie', label: 'Varie' },
 ]
 

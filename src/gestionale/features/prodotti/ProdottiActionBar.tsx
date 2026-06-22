@@ -1,55 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { FixedDropdownMenu } from '../../components/FixedDropdown'
 import { STAMPA_ITEMS, UTILITA_ITEMS } from './constants'
 
-function DropdownBtn({
-  label,
-  items,
-  onPick,
-  disabled,
-}: {
-  label: React.ReactNode
-  items: readonly string[]
-  onPick: (item: string) => void
-  disabled?: boolean
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const close = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [open])
-
-  return (
-    <div className="prodotti-dropdown" ref={ref}>
-      <button type="button" className="prodotti-actionbar__btn" disabled={disabled} onClick={() => setOpen(v => !v)}>
-        {label}
-        <span className="caret">▼</span>
-      </button>
-      {open ? (
-        <div className="prodotti-dropdown__menu">
-          {items.map(item => (
-            <button
-              key={item}
-              type="button"
-              className="prodotti-dropdown__item"
-              onClick={() => {
-                onPick(item)
-                setOpen(false)
-              }}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  )
-}
+const DROPDOWN_PROPS = {
+  wrapperClass: 'prodotti-dropdown',
+  btnClass: 'prodotti-actionbar__btn',
+  menuClass: 'prodotti-dropdown__menu prodotti-dropdown__menu--fixed',
+  itemClass: 'prodotti-dropdown__item',
+} as const
 
 type Props = {
   hasSelection: boolean
@@ -94,7 +51,14 @@ export default function ProdottiActionBar({
         <button type="button" className="prodotti-actionbar__btn" disabled={!hasSelection} onClick={onElimina}>
           <span style={{ color: '#c00' }}>🗑</span> Elimina
         </button>
-        <DropdownBtn label={<><span>🖨</span> Stampa</>} items={STAMPA_ITEMS} onPick={onStampa} />
+        <FixedDropdownMenu
+          {...DROPDOWN_PROPS}
+          label={<><span>🖨</span> Stampa</>}
+          items={STAMPA_ITEMS}
+          onPick={onStampa}
+          direction="up"
+          align="left"
+        />
         <button type="button" className="prodotti-actionbar__btn" onClick={onEtichette}>
           Etichette
         </button>
@@ -119,7 +83,14 @@ export default function ProdottiActionBar({
         <button type="button" className="prodotti-actionbar__btn" onClick={onModificaSelez}>
           Modifica selez.
         </button>
-        <DropdownBtn label="Utilità" items={UTILITA_ITEMS} onPick={onUtilita} />
+        <FixedDropdownMenu
+          {...DROPDOWN_PROPS}
+          label="Utilità"
+          items={UTILITA_ITEMS}
+          onPick={onUtilita}
+          direction="up"
+          align="right"
+        />
       </div>
     </div>
   )

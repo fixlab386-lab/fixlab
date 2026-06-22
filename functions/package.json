@@ -11,8 +11,11 @@
     "deploy": "firebase deploy --only functions"
   },
   "dependencies": {
+    "7zip-bin": "^5.2.0",
+    "adm-zip": "^0.5.16",
     "firebase-admin": "^13.0.2",
     "firebase-functions": "^6.3.2",
+    "node-firebird": "^1.1.9",
     "nodemailer": "^7.0.3"
   },
   "devDependencies": {

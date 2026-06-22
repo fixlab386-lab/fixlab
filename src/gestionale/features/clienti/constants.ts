@@ -38,6 +38,20 @@ export const COLONNE_DEF: { id: ColonnaId; label: string; default: boolean }[] =
   { id: 'dichIntento', label: 'Dich. d\'intento', default: false },
 ]
 
+export const COLONNE_WIDTH_DEFAULT: Record<ColonnaId, number> = {
+  cod: 56,
+  denominazione: 180,
+  indirizzo: 140,
+  cap: 56,
+  citta: 100,
+  prov: 48,
+  nazione: 80,
+  codDestinatario: 96,
+  partitaIva: 120,
+  agente: 100,
+  dichIntento: 96,
+}
+
 export const STAMPA_MODELLI = ['Scheda cliente/fornitore', 'Elenco'] as const
 
 export const AGENTI = ['(Nessuno)', 'Agente 1', 'Agente 2', 'Agente 3'] as const

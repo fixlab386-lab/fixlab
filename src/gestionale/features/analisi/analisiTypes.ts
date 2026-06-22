@@ -2,6 +2,9 @@
 
 export type AnalisiKind = 'vendite' | 'acquisti' | 'flussi'
 
+/** Tipo analisi flussi (sidebar «Analisi»). */
+export type AnalisiFlussiMode = 'pagamenti' | 'fatturatoIvato' | 'fatturatoNetto'
+
 /** Cosa calcolare (menu «Calcola»). */
 export type AnalisiCalc = 'totDovuto' | 'imponibile' | 'iva' | 'quantita' | 'numero'
 
@@ -66,8 +69,21 @@ export type PeriodSelection = {
 export const ANALISI_KIND_LABELS: Record<AnalisiKind, string> = {
   vendite: 'Analisi vendite',
   acquisti: 'Analisi acquisti',
-  flussi: 'Analisi flussi',
+  flussi: 'Analisi flussi Entrate-Uscite',
 }
+
+export const ANALISI_FLUSSI_MODES: { id: AnalisiFlussiMode; label: string }[] = [
+  { id: 'pagamenti', label: 'Pagamenti' },
+  { id: 'fatturatoIvato', label: 'Fatturato ivato' },
+  { id: 'fatturatoNetto', label: 'Fatturato netto' },
+]
+
+/** Radio base del riquadro «Periodo» per i flussi (come Danea). */
+export const ANALISI_FLUSSI_PERIODS: { id: AnalisiPeriod; label: string }[] = [
+  { id: 'tutti', label: 'Tutti' },
+  { id: 'annoCorrente', label: 'Anno corrente' },
+  { id: 'annoScorso', label: 'Anno scorso' },
+]
 
 /** Radio base del riquadro «Periodo» (come Danea). */
 export const ANALISI_BASE_PERIODS: { id: AnalisiPeriod; label: string }[] = [
@@ -156,14 +172,31 @@ export const ANALISI_CALC_OPTIONS: { id: AnalisiCalc; label: string }[] = [
   { id: 'numero', label: 'Numero documenti' },
 ]
 
-/** Opzioni rapide mostrate direttamente nella sidebar «Analisi per». */
-export const ANALISI_PRIMARY_DIMENSIONS: { id: AnalisiDimension; label: string }[] = [
+/** Opzioni rapide mostrate direttamente nella sidebar «Analisi per» (vendite). */
+export const ANALISI_VENDITE_PRIMARY_DIMENSIONS: { id: AnalisiDimension; label: string }[] = [
   { id: 'mese', label: 'Mese' },
   { id: 'cliente', label: 'Cliente' },
   { id: 'regione', label: 'Regione' },
   { id: 'agente', label: 'Agente' },
   { id: 'categoriaProdotto', label: 'Categoria prodotto' },
 ]
+
+/** Opzioni rapide «Analisi per» (acquisti). */
+export const ANALISI_ACQUISTI_PRIMARY_DIMENSIONS: { id: AnalisiDimension; label: string }[] = [
+  { id: 'mese', label: 'Mese' },
+  { id: 'cliente', label: 'Fornitore' },
+  { id: 'regione', label: 'Regione' },
+  { id: 'agente', label: 'Agente' },
+  { id: 'pagamento', label: 'Conto' },
+]
+
+/** @deprecated Usare primaryDimensionsForKind */
+export const ANALISI_PRIMARY_DIMENSIONS = ANALISI_VENDITE_PRIMARY_DIMENSIONS
+
+export function primaryDimensionsForKind(kind: AnalisiKind): { id: AnalisiDimension; label: string }[] {
+  if (kind === 'acquisti') return ANALISI_ACQUISTI_PRIMARY_DIMENSIONS
+  return ANALISI_VENDITE_PRIMARY_DIMENSIONS
+}
 
 /** Elenco completo del menu «Altro…» (come Danea). */
 export const ANALISI_ALL_DIMENSIONS: { id: AnalisiDimension; label: string }[] = [

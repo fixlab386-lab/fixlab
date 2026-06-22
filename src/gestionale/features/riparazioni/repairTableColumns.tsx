@@ -1,6 +1,5 @@
 import type { DataTableColumn } from '../../../components/ui'
 import type { Repair } from '../../../types'
-import { REPAIR_PRIORITIES } from './constants'
 import { formatRepairDate, repairStatusLabel } from './utils'
 
 type RepairTableHandlers = {
@@ -78,19 +77,6 @@ export function createRepairTableColumns(handlers?: RepairTableHandlers): DataTa
           {r.problem || '—'}
         </span>
       ),
-    },
-    {
-      id: 'priority',
-      header: 'Priorità',
-      width: 80,
-      sortable: true,
-      accessor: r => r.priority,
-      render: r =>
-        r.priority !== 'normal' ? (
-          <span style={{ fontSize: 11, fontWeight: 600 }}>{REPAIR_PRIORITIES[r.priority]?.label || r.priority}</span>
-        ) : (
-          '—'
-        ),
     },
     {
       id: 'total',

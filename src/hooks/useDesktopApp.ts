@@ -54,11 +54,20 @@ export function useDesktopApp() {
     await api.installUpdate()
   }, [])
 
+  const checkForUpdates = useCallback(async () => {
+    const api = getDesktopApi()
+    if (!api?.checkForUpdates) return null
+    const status = await api.checkForUpdates()
+    setUpdateStatus(status)
+    return status
+  }, [])
+
   return {
     isDesktop,
     version,
     updateStatus,
     installUpdate,
+    checkForUpdates,
   }
 }
 
@@ -73,6 +82,13 @@ export function formatUpdateStatusLabel(status: FixLabUpdateStatus | null): stri
   if (status.state === 'downloaded') {
     return `Aggiornamento ${status.version ?? ''} pronto — riavvia per installare`
   }
-  if (status.state === 'error') return 'Controllo aggiornamenti non riuscito'
+  if (status.state === 'error') {
+    return status.error
+      ? `Errore aggiornamento: ${status.error}`
+      : 'Controllo aggiornamenti non riuscito'
+  }
+  if (status.state === 'not-available' && status.version) {
+    return `Sei aggiornato (ultima release: ${status.version})`
+  }
   return null
 }

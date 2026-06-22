@@ -72,7 +72,7 @@ export default function DocumentLineItemsSection({
       setPickerSearching(true)
       const load = searchLower
         ? searchProducts(studioId, searchLower, 12)
-        : loadRecentProducts(studioId, 12)
+        : loadRecentProducts(studioId)
       void load
         .then(items => {
           if (!cancelled) setPickerProducts(items)
@@ -857,6 +857,7 @@ export default function DocumentLineItemsSection({
         rows={tableRows}
         columns={columns}
         rowKey={r => r.id}
+        tableId="document-lines"
         virtualize={false}
         emptyMessage={
           usesTrailingRow

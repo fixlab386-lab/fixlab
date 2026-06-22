@@ -4,6 +4,7 @@ exports.commitDocument = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-admin/firestore");
 const auth_1 = require("./auth");
+const callableOptions_1 = require("./callableOptions");
 const stock_1 = require("./stock");
 const db = (0, firestore_1.getFirestore)('fixlab');
 const STOCK_DEDUCT_TYPES = new Set(['vendita_banco', 'ddt']);
@@ -46,7 +47,7 @@ function stripUndefined(value) {
     }
     return out;
 }
-exports.commitDocument = (0, https_1.onCall)({ region: 'europe-west1' }, async (request) => {
+exports.commitDocument = (0, https_1.onCall)(callableOptions_1.europeWest1Callable, async (request) => {
     try {
         return await commitDocumentHandler(request);
     }

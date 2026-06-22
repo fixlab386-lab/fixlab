@@ -1,3 +1,6 @@
+import ActionBarDropdown from '../../components/ActionBarDropdown'
+import { DOCUMENTI_UTILITA_ITEMS } from './constants'
+
 type Props = {
   hasSelection: boolean
   canDelete: boolean
@@ -7,6 +10,7 @@ type Props = {
   onElimina: () => void
   onStampa: () => void
   onExcel: () => void
+  onUtilita: (tipo: string) => void
 }
 
 export default function DocumentiActionBar({
@@ -18,6 +22,7 @@ export default function DocumentiActionBar({
   onElimina,
   onStampa,
   onExcel,
+  onUtilita,
 }: Props) {
   return (
     <div className="documenti-actionbar" data-tutorial="documenti-toolbar">
@@ -50,9 +55,7 @@ export default function DocumentiActionBar({
           <span className="documenti-actionbar__icon">📊</span>
           Excel
         </button>
-        <button type="button" className="documenti-actionbar__btn" disabled>
-          Utilità
-        </button>
+        <ActionBarDropdown label="⚡ Utilità" items={DOCUMENTI_UTILITA_ITEMS} onPick={onUtilita} />
       </div>
     </div>
   )

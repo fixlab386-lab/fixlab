@@ -9,9 +9,8 @@ export function useRepairListState(repairs: Repair[], staleDays: number | null) 
   const [selected, setSelected] = useState<Repair | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<string[]>([])
   const [detailCollapsed, setDetailCollapsed] = useState(false)
-  const [statusFilter, setStatusFilter] = useState<string>('active')
-  const [priorityFilter, setPriorityFilter] = useState('all')
-  const [showFilterMenu, setShowFilterMenu] = useState(true)
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [showFilterMenu, setShowFilterMenu] = useState(false)
   const [sortColumnId, setSortColumnId] = useState<string | null>('date')
   const [sortDirection, setSortDirection] = useState<DataTableSortDirection>('desc')
   const [detailTab, setDetailTab] = useState<'riepilogo' | 'cliente' | 'dispositivo' | 'lavorazione' | 'documenti'>('riepilogo')
@@ -19,8 +18,8 @@ export function useRepairListState(repairs: Repair[], staleDays: number | null) 
   const searchLower = useMemo(() => search.trim().toLowerCase(), [search])
 
   const filtered = useMemo(
-    () => filterRepairs(repairs, searchLower, statusFilter, priorityFilter, staleDays, isRepairStale),
-    [repairs, searchLower, statusFilter, priorityFilter, staleDays],
+    () => filterRepairs(repairs, searchLower, statusFilter, staleDays, isRepairStale),
+    [repairs, searchLower, statusFilter, staleDays],
   )
 
   const handleSort = useCallback((columnId: string) => {
@@ -50,8 +49,7 @@ export function useRepairListState(repairs: Repair[], staleDays: number | null) 
   }, [])
 
   const resetFilters = useCallback(() => {
-    setStatusFilter('active')
-    setPriorityFilter('all')
+    setStatusFilter('all')
   }, [])
 
   return {
@@ -65,8 +63,6 @@ export function useRepairListState(repairs: Repair[], staleDays: number | null) 
     setDetailCollapsed,
     statusFilter,
     setStatusFilter,
-    priorityFilter,
-    setPriorityFilter,
     showFilterMenu,
     sortColumnId,
     sortDirection,

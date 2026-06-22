@@ -40,8 +40,10 @@ import {
   ORDINE_CLIENTE_FORM_TABS,
   IncludiDocumentiDialog,
   buildFullNumber,
+  defaultDocumentNumerazione,
   documentTotals,
   documentYearFromDate,
+  documentYearFromNumerazione,
   documentTypeLabel,
   emptyDocumentRow,
   getIncludableDocuments,
@@ -53,6 +55,7 @@ import {
 import TabProvvigioni from '../gestionale/features/agenti/tabs/TabProvvigioni'
 import { useAgents } from '../gestionale/hooks/useAgentOptions'
 import type { ActiveDocumentType, DocumentFormTabId } from '../gestionale/features/documenti/constants'
+import NumerazioneSelect from '../gestionale/features/shared/NumerazioneSelect'
 import { ActionBar, FormField, ToolButton, type ActionBarAction } from '../components/ui'
 import '../theme/gestionale-document-form.css'
 import '../gestionale/theme/clienti-section.css'
@@ -212,7 +215,7 @@ export default function NuovoDocumento() {
 
   const [type, setType] = useState<ActiveDocumentType>(parseDocType(searchParams.get('type')))
   const [number, setNumber] = useState(1)
-  const [numbering, setNumbering] = useState('')
+  const [numbering, setNumbering] = useState(() => defaultDocumentNumerazione(new Date().toISOString().slice(0, 10)))
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [subjectId, setSubjectId] = useState('')
   const [subjectType, setSubjectType] = useState<'client' | 'supplier'>(initialSubjectType)
@@ -264,7 +267,7 @@ export default function NuovoDocumento() {
   const [transportAppearance, setTransportAppearance] = useState('')
   const [transportShippingCode, setTransportShippingCode] = useState('')
 
-  const documentYear = useMemo(() => documentYearFromDate(date), [date])
+  const documentYear = useMemo(() => documentYearFromNumerazione(numbering, date), [numbering, date])
   const fullNumberPreview = useMemo(
     () => buildFullNumber(number, documentYear, numbering),
     [number, documentYear, numbering],
@@ -310,7 +313,7 @@ export default function NuovoDocumento() {
       if (snap.exists()) setStudioData(snap.data() as StudioDoc)
     })
     if (!isEdit) {
-      getNextDocumentNumber(studioId, type, documentYearFromDate(date)).then(setNumber)
+      getNextDocumentNumber(studioId, type, documentYearFromNumerazione(numbering, date)).then(setNumber)
     }
   }, [studioId, isEdit, type])
 
@@ -327,7 +330,7 @@ export default function NuovoDocumento() {
         setType(d.type as ActiveDocumentType)
       }
       setNumber(d.number)
-      setNumbering(d.numbering || '')
+      setNumbering(d.numbering || defaultDocumentNumerazione(d.date))
       setDate(d.date)
       setSubjectId(d.subjectId || '')
       setSubjectType(d.subjectType || 'client')
@@ -643,7 +646,7 @@ export default function NuovoDocumento() {
 
   const saveWithFallback = useCallback(
     async (saveStatus: DocRecord['status']) => {
-      const year = documentYearFromDate(date)
+      const year = documentYearFromNumerazione(numbering, date)
       let num = number
       let fullNum = buildFullNumber(num, year, numbering)
       if (!isEdit) {
@@ -827,7 +830,7 @@ export default function NuovoDocumento() {
       setSaving(true)
       try {
         const today = new Date().toISOString().slice(0, 10)
-        const year = documentYearFromDate(today)
+        const year = documentYearFromNumerazione(numbering, today)
         const newNumber = await getNextDocumentNumber(studioId, targetType, year)
         const fullNum = buildFullNumber(newNumber, year, numbering)
         const payload: Omit<DocRecord, 'id' | 'createdAt' | 'updatedAt'> = {
@@ -1266,11 +1269,19 @@ export default function NuovoDocumento() {
                 />
               </FormField>
               <FormField label="Numeraz." htmlFor="doc-numeraz-vb">
-                <input
+                <NumerazioneSelect
                   id="doc-numeraz-vb"
-                  className="gestionale-form-field__input"
                   value={numbering}
-                  onChange={e => setNumbering(e.target.value)}
+                  date={date}
+                  onChange={value => {
+                    setNumbering(value)
+                    if (!studioId) return
+                    void getNextDocumentNumber(
+                      studioId,
+                      type,
+                      documentYearFromNumerazione(value, date),
+                    ).then(setNumber)
+                  }}
                 />
               </FormField>
               {isVenditaBanco ? (
@@ -1637,13 +1648,20 @@ export default function NuovoDocumento() {
                       onChange={e => setNumber(parseInt(e.target.value, 10) || 1)}
                     />
                   </FormField>
-                  <FormField label="Suffisso" htmlFor="doc-suffix">
-                    <input
+                  <FormField label="Numeraz." htmlFor="doc-suffix">
+                    <NumerazioneSelect
                       id="doc-suffix"
-                      className="gestionale-form-field__input"
                       value={numbering}
-                      onChange={e => setNumbering(e.target.value)}
-                      placeholder="opzionale"
+                      date={date}
+                      onChange={value => {
+                        setNumbering(value)
+                        if (!studioId) return
+                        void getNextDocumentNumber(
+                          studioId,
+                          type,
+                          documentYearFromNumerazione(value, date),
+                        ).then(setNumber)
+                      }}
                     />
                   </FormField>
                   <FormField label="Data" htmlFor="doc-date">

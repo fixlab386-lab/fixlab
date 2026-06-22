@@ -7,7 +7,7 @@ import {
 import type { DocumentoOrdineCliente, RigaOrdineCliente } from './types'
 import type { RigaDocumento } from '../vendita-banco/types'
 import { buildClientDestinations } from './clientDestinations'
-import { buildFullNumber, documentYearFromDate } from '../documenti'
+import { defaultDocumentNumerazione, documentYearFromNumerazione, buildFullNumber } from '../documenti'
 import {
   grossFromNet,
   listinoToPriceList,
@@ -80,7 +80,7 @@ export function createInitialOrdineCliente(): DocumentoOrdineCliente {
     listino: 'Privati',
     data: today,
     numero: 1,
-    numerazione: '',
+    numerazione: defaultDocumentNumerazione(today),
     righe: [emptyRigaOrdine()],
     prezziIvati: false,
     tipoPagamento: '',
@@ -255,7 +255,7 @@ export function buildOrdinePayload(
   saveStatus: DocRecord['status'],
   repairId?: string,
 ): Omit<DocRecord, 'id' | 'createdAt' | 'updatedAt'> {
-  const documentYear = documentYearFromDate(doc.data)
+  const documentYear = documentYearFromNumerazione(doc.numerazione, doc.data)
   const fullNumber = buildFullNumber(doc.numero, documentYear, doc.numerazione)
 
   const internalNotes = [

@@ -29,6 +29,9 @@ export const AGENTI = ['(Nessuno)', 'Agente 1', 'Agente 2', 'Agente 3'] as const
 
 export const NUMERAZIONI = ['', 'A', 'B', 'C', 'D', 'E'] as const
 
+/** @deprecated Usare NumerazioneSelect con anni (documentNumerationOptions). */
+export const NUMERAZIONI_LETTERE = NUMERAZIONI
+
 export const NAZIONI = ['Italia', 'San Marino', 'Svizzera', 'Francia', 'Germania', 'Altro'] as const
 
 export const RINNOVO_MESI = [1, 3, 6, 12, 24, 36] as const

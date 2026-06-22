@@ -26,7 +26,7 @@ import {
   downloadHtmlAsPdf,
   printHtmlInIframe,
 } from '../../../lib/printDocument'
-import { buildFullNumber, documentYearFromDate } from '../../../gestionale/features/documenti'
+import { buildFullNumber, defaultDocumentNumerazione, documentYearFromDate, documentYearFromNumerazione } from '../../../gestionale/features/documenti'
 import { mergeIncludedRows } from '../documenti/inclusionUtils'
 import { emitPaymentsForDocumentIfNeeded } from '../../lib/paymentSchedule'
 import { docRecordToVenditaBancoState } from '../../lib/docRecordLoaders'
@@ -39,7 +39,8 @@ import {
 } from '../../lib/confirmSaveOnClose'
 import type { Category, Client, DocRecord, DocumentType, Product } from '../../../types'
 import ClientFormModal from '../../../components/ClientFormModal'
-import { NUMERAZIONI, VENDITA_BANCO_TABS, COMMENTI_INTERNI_PREDEFINITI } from './constants'
+import NumerazioneSelect from '../shared/NumerazioneSelect'
+import { VENDITA_BANCO_TABS, COMMENTI_INTERNI_PREDEFINITI } from './constants'
 import { getCustomCommentiInterni, addCustomCommentoInterno } from '../../../lib/userPrefs'
 import StampaDialog from './dialogs/StampaDialog'
 import AnteprimaStampaDialog, { type AnteprimaStampaMeta } from './dialogs/AnteprimaStampaDialog'
@@ -215,7 +216,11 @@ export default function VenditaAlBancoModal() {
     })
     const today = new Date().toISOString().slice(0, 10)
     const docDate = venditaBancoSeed?.data || today
-    void getNextDocumentNumber(studioId, 'vendita_banco', documentYearFromDate(docDate)).then(num => {
+    void getNextDocumentNumber(
+      studioId,
+      'vendita_banco',
+      documentYearFromNumerazione(defaultDocumentNumerazione(docDate), docDate),
+    ).then(num => {
       if (venditaBancoSeed) {
         const totals = documentTotalsFromRighe(venditaBancoSeed.righe, 0, 22)
         patchDoc({
@@ -223,6 +228,7 @@ export default function VenditaAlBancoModal() {
           listino: venditaBancoSeed.listino,
           data: docDate,
           numero: num,
+          numerazione: defaultDocumentNumerazione(docDate),
           intestatario: venditaBancoSeed.intestatario,
           destinazione: venditaBancoSeed.destinazione,
           tipoPagamento: venditaBancoSeed.tipoPagamento || '',
@@ -234,6 +240,7 @@ export default function VenditaAlBancoModal() {
         patchDoc({
           data: today,
           numero: num,
+          numerazione: defaultDocumentNumerazione(today),
           cliente: { id: '', nome: GENERIC_CLIENT_LABEL, codFiscale: '', partitaIva: '' },
         })
       }
@@ -271,9 +278,11 @@ export default function VenditaAlBancoModal() {
       }
       patchDoc({ numerazione })
       if (!studioId) return
-      void getNextDocumentNumber(studioId, 'vendita_banco', documentYearFromDate(docState.data)).then(num =>
-        patchDoc({ numero: num, numerazione }),
-      )
+      void getNextDocumentNumber(
+        studioId,
+        'vendita_banco',
+        documentYearFromNumerazione(numerazione, docState.data),
+      ).then(num => patchDoc({ numero: num, numerazione }))
     },
     [studioId, docState.data, docState.protetto, patchDoc],
   )
@@ -309,7 +318,10 @@ export default function VenditaAlBancoModal() {
     }
   }, [venditaBancoOpen, docWithTotals, savedSnapshot])
 
-  const documentYear = useMemo(() => documentYearFromDate(docState.data), [docState.data])
+  const documentYear = useMemo(
+    () => documentYearFromNumerazione(docState.numerazione, docState.data),
+    [docState.numerazione, docState.data],
+  )
 
   const buildPayload = useCallback(
     (saveStatus: DocRecord['status']): Omit<DocRecord, 'id' | 'createdAt' | 'updatedAt'> => {
@@ -373,7 +385,7 @@ export default function VenditaAlBancoModal() {
 
   const saveWithFallback = useCallback(
     async (saveStatus: DocRecord['status']) => {
-      const year = documentYearFromDate(docState.data)
+      const year = documentYearFromNumerazione(docState.numerazione, docState.data)
       let num = docState.numero
       let fullNum = buildFullNumber(num, year, docState.numerazione)
       if (!savedDocumentId) {
@@ -498,11 +510,11 @@ export default function VenditaAlBancoModal() {
 
   const handleClose = useCallback(async () => {
     const needsPrompt = documentNeedsSaveOnClose(activeRighe.length > 0, savedDocumentId, isDirty)
-    const outcome = await confirmSaveDocumentOnClose(needsPrompt, async () => {
+    const { closed } = await confirmSaveDocumentOnClose(needsPrompt, async () => {
       const ok = await handleSave('confirmed')
       if (!ok) throw new Error('Salvataggio non riuscito.')
     })
-    if (outcome === 'close') {
+    if (closed) {
       closeVenditaBanco()
     }
   }, [activeRighe.length, savedDocumentId, isDirty, handleSave, closeVenditaBanco])
@@ -745,7 +757,7 @@ export default function VenditaAlBancoModal() {
         }
 
         const today = new Date().toISOString().slice(0, 10)
-        const year = documentYearFromDate(today)
+        const year = documentYearFromNumerazione(docState.numerazione, today)
         const rows = activeRighe.map(rigaToDocumentRow).map(r => ({ ...r, id: crypto.randomUUID() }))
         const linkedPayload = omitUndefined({
           studioId,
@@ -1049,19 +1061,13 @@ export default function VenditaAlBancoModal() {
                     </WinField>
 
                     <WinField label="Numeraz." htmlFor="vb-numeraz" className="vb-header-field--numeraz">
-                      <WinSelect
+                      <NumerazioneSelect
                         id="vb-numeraz"
                         value={docState.numerazione}
+                        date={docState.data}
                         disabled={protetto}
-                        onChange={e => handleNumerazioneChange(e.target.value)}
-                      >
-                        <option value="">—</option>
-                        {NUMERAZIONI.filter(n => n).map(n => (
-                          <option key={n} value={n}>
-                            {n}
-                          </option>
-                        ))}
-                      </WinSelect>
+                        onChange={handleNumerazioneChange}
+                      />
                     </WinField>
 
                     <label className="vb-check-label vb-header-field--followup">

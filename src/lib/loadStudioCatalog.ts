@@ -1,4 +1,6 @@
+import type { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore'
 import type { Client, DocRecord, Payment, Product, Repair, Supplier } from '../types'
+import { FIRESTORE_PAGE_SIZE } from './firestoreScale'
 import {
   fetchClientRepairs,
   fetchClientsPage,
@@ -10,33 +12,58 @@ import {
   hasPaymentsForDocument,
 } from './firestorePagination'
 
-export async function loadRecentProducts(studioId: string, limit = 40): Promise<Product[]> {
-  const { items } = await fetchProductsPage(studioId, null, limit)
-  return items
-}
-
-export async function loadRecentClients(studioId: string, limit = 40): Promise<Client[]> {
-  const { items } = await fetchClientsPage(studioId, null, limit)
-  return items
-}
-
-export async function loadRecentSuppliers(studioId: string, limit = 40): Promise<Supplier[]> {
-  const { items } = await fetchSuppliersPage(studioId, null, limit)
-  return items
-}
-
-export async function loadRecentDocuments(
+type PageFetcher<T extends { id: string }> = (
   studioId: string,
-  limit = 40,
-  type?: string,
-): Promise<DocRecord[]> {
-  const { items } = await fetchDocumentsPage(studioId, null, limit, type)
-  return items
+  cursor: QueryDocumentSnapshot<DocumentData> | null,
+  pageSize: number,
+) => Promise<{
+  items: T[]
+  lastDoc: QueryDocumentSnapshot<DocumentData> | null
+  hasMore: boolean
+}>
+
+async function loadAllPages<T extends { id: string }>(
+  fetchPage: PageFetcher<T>,
+  studioId: string,
+): Promise<T[]> {
+  const all: T[] = []
+  const byId = new Map<string, T>()
+  let cursor: QueryDocumentSnapshot<DocumentData> | null = null
+  for (;;) {
+    const { items, lastDoc, hasMore } = await fetchPage(studioId, cursor, FIRESTORE_PAGE_SIZE)
+    for (const item of items) {
+      if (!byId.has(item.id)) {
+        byId.set(item.id, item)
+        all.push(item)
+      }
+    }
+    if (!hasMore || items.length === 0) break
+    cursor = lastDoc
+  }
+  return all
 }
 
-export async function loadRecentPayments(studioId: string, limit = 40): Promise<Payment[]> {
-  const { items } = await fetchPaymentsPage(studioId, null, limit)
-  return items
+export async function loadRecentProducts(studioId: string): Promise<Product[]> {
+  return loadAllPages(fetchProductsPage, studioId)
+}
+
+export async function loadRecentClients(studioId: string): Promise<Client[]> {
+  return loadAllPages(fetchClientsPage, studioId)
+}
+
+export async function loadRecentSuppliers(studioId: string): Promise<Supplier[]> {
+  return loadAllPages(fetchSuppliersPage, studioId)
+}
+
+export async function loadRecentDocuments(studioId: string, type?: string): Promise<DocRecord[]> {
+  return loadAllPages(
+    (id, cursor, pageSize) => fetchDocumentsPage(id, cursor, pageSize, type),
+    studioId,
+  )
+}
+
+export async function loadRecentPayments(studioId: string): Promise<Payment[]> {
+  return loadAllPages(fetchPaymentsPage, studioId)
 }
 
 export function loadClientRepairs(studioId: string, clientId: string, limit = 100): Promise<Repair[]> {

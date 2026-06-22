@@ -40,7 +40,6 @@ export default function RiparazioniSection() {
     syncing,
     loadingMore,
     hasMore,
-    truncated,
     error: loadError,
     loadMore,
     showInitialSpinner,
@@ -80,8 +79,7 @@ export default function RiparazioniSection() {
 
   const activeCount = useMemo(() => repairs.filter(r => r.status !== 'completed').length, [repairs])
 
-  const hasActiveFilters =
-    list.statusFilter !== 'active' || list.priorityFilter !== 'all' || staleDays != null
+  const hasActiveFilters = list.statusFilter !== 'all' || staleDays != null
 
   const listTotalValue = useMemo(() => list.filtered.reduce((t, r) => t + (r.totalCost || 0), 0), [list.filtered])
 
@@ -184,12 +182,10 @@ export default function RiparazioniSection() {
       {list.showFilterMenu ? (
         <RepairFilterBar
           statusFilter={list.statusFilter}
-          priorityFilter={list.priorityFilter}
           statusCounts={statusCounts}
           activeCount={activeCount}
           totalCount={repairs.length}
           onStatusFilterChange={list.setStatusFilter}
-          onPriorityFilterChange={list.setPriorityFilter}
           onClearFilters={() => {
             list.resetFilters()
             setStaleDays(null)
@@ -206,6 +202,7 @@ export default function RiparazioniSection() {
             rows={list.filtered}
             columns={columns}
             rowKey={r => r.id}
+            tableId="riparazioni"
             selectedKeys={list.selectedKeys}
             onSelectionChange={keys => {
               list.setSelectedKeys(keys)
@@ -251,7 +248,7 @@ export default function RiparazioniSection() {
         }
       />
 
-      <LoadMoreBar hasMore={hasMore} loading={loadingMore} truncated={truncated} onLoadMore={loadMore} />
+      <LoadMoreBar hasMore={hasMore} loading={loadingMore} onLoadMore={loadMore} />
 
       <ActionBar
         count={list.filtered.length}

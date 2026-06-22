@@ -127,7 +127,7 @@
 
 /* Prodotti — stesso rapporto master/detail Danea */
 .prodotti-section .prodotti-section__body {
-  grid-template-columns: minmax(0, 75fr) minmax(280px, 25fr);
+  grid-template-columns: minmax(0, 72fr) minmax(320px, 28fr);
 }
 
 .prodotti-section__scheda {

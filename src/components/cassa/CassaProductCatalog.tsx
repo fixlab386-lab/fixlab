@@ -22,7 +22,7 @@ export default function CassaProductCatalog({ studioId, products, onAdd }: Props
     if (!studioId) return
     const term = search.trim()
     if (!term) {
-      void loadRecentProducts(studioId, 24).then(items => {
+      void loadRecentProducts(studioId).then(items => {
         setResults(items.filter(p => p.stock > 0))
       })
       return

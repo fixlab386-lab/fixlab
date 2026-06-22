@@ -393,6 +393,7 @@ html:has(.gestionale-shell) #root {
   overflow: hidden;
   text-overflow: ellipsis;
   user-select: none;
+  position: relative;
 }
 
 .gestionale-datatable__th--sortable {
@@ -446,6 +447,65 @@ html:has(.gestionale-shell) #root {
 
 .gestionale-datatable__row--selected .gestionale-datatable__link {
   color: #cce0ff;
+}
+
+.gestionale-datatable__table--resizable {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.gestionale-datatable__th-label {
+  display: inline-block;
+  max-width: calc(100% - 12px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.gestionale-datatable__col-resizer,
+.clienti-grid__col-resizer,
+.prodotti-grid__col-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+  touch-action: none;
+}
+
+.gestionale-datatable__col-resizer:hover,
+.gestionale-datatable__col-resizer:active,
+.clienti-grid__col-resizer:hover,
+.clienti-grid__col-resizer:active,
+.prodotti-grid__col-resizer:hover,
+.prodotti-grid__col-resizer:active {
+  background: rgba(99, 102, 241, 0.35);
+}
+
+body.gestionale-col-resize-active,
+body.vb-col-resize-active {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+body.gestionale-col-resize-active *,
+body.vb-col-resize-active * {
+  cursor: col-resize !important;
+}
+
+.gestionale-datatable__row--expanded {
+  height: auto;
+}
+
+.gestionale-datatable__td--expanded {
+  white-space: normal;
+  overflow: visible;
+  height: auto;
+  word-break: break-word;
+  vertical-align: top;
 }
 
 .gestionale-datatable__td {

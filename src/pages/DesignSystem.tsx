@@ -212,6 +212,7 @@ export default function DesignSystem() {
               rows={filteredRows}
               columns={columns}
               rowKey={r => r.id}
+              tableId="design-system"
               selectable
               selectedKeys={selectedKeys}
               onSelectionChange={keys => {

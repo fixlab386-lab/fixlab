@@ -143,7 +143,7 @@ export default function OperazioneMagazzinoModal({
   useEffect(() => {
     if (!open || !studioId) return
     let cancelled = false
-    const load = mode === 'unload' ? loadRecentClients(studioId, 40) : loadRecentSuppliers(studioId, 40)
+    const load = mode === 'unload' ? loadRecentClients(studioId) : loadRecentSuppliers(studioId)
     void load.then(rows => {
       if (cancelled) return
       setSubjects(rows.map(r => ({ id: r.id, name: r.name })))
@@ -161,10 +161,10 @@ export default function OperazioneMagazzinoModal({
         mode === 'unload'
           ? term
             ? searchClients(studioId, term, 20)
-            : loadRecentClients(studioId, 40)
+            : loadRecentClients(studioId)
           : term
             ? searchSuppliers(studioId, term, 20)
-            : loadRecentSuppliers(studioId, 40)
+            : loadRecentSuppliers(studioId)
       void load.then(rows => {
         setSubjects(rows.map(r => ({ id: r.id, name: r.name })))
       })

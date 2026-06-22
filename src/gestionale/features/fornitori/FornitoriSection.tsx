@@ -18,7 +18,7 @@ import { printHtmlInIframe } from '../../../lib/printDocument'
 import type { Supplier } from '../../../types'
 import { exportSuppliersExcel } from '../../lib/exportSuppliersExcel'
 import { SectionHeader } from '../../../components/ui'
-import { importSuppliersFromCsv } from '../../lib/importAnagraficaCsv'
+import { openEntitySpreadsheetImport } from '../../lib/openEntitySpreadsheetImport'
 import FornitoriActionBar from './FornitoriActionBar'
 import FornitoriColonneMenu from './FornitoriColonneMenu'
 import FornitoriLista from './FornitoriLista'
@@ -74,7 +74,6 @@ export default function FornitoriSection({ onRegisterNuovo }: { onRegisterNuovo?
     syncing,
     loadingMore,
     hasMore,
-    truncated,
     error: loadError,
     loadMore,
     showInitialSpinner,
@@ -96,13 +95,13 @@ export default function FornitoriSection({ onRegisterNuovo }: { onRegisterNuovo?
   const [snapshot, setSnapshot] = useState<Fornitore | null>(null)
   const [activeTab, setActiveTab] = useState<SchedaTabId>('anagrafica')
 
-  const [criterioRaggruppamento, setCriterioRaggruppamento] = useState<RaggruppaCriterio>('Pagamento')
+  const [criterioRaggruppamento, setCriterioRaggruppamento] = useState<RaggruppaCriterio>('Nessuno')
   const [filtriColonna, setFiltriColonna] = useState<Partial<Record<ColonnaId, ColumnFilter>>>({})
   const [colonneVisibili, setColonneVisibili] = useState(DEFAULT_COLONNE)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [filtraAttivo, setFiltraAttivo] = useState(true)
+  const [filtraAttivo, setFiltraAttivo] = useState(false)
   const [searchPiva, setSearchPiva] = useState('')
   const [sortColumn, setSortColumn] = useState<ColonnaId | null>('cod')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
@@ -183,8 +182,8 @@ export default function FornitoriSection({ onRegisterNuovo }: { onRegisterNuovo?
   }, [fornitori, searchPiva])
 
   const hasScopedFilters = useMemo(
-    () => truncated && (Boolean(searchPiva.trim()) || Object.keys(filtriColonna).length > 0 || filtraAttivo),
-    [truncated, searchPiva, filtriColonna, filtraAttivo],
+    () => Boolean(searchPiva.trim()) || Object.keys(filtriColonna).length > 0,
+    [searchPiva, filtriColonna],
   )
 
   const visibleColIds = useMemo(
@@ -472,7 +471,7 @@ export default function FornitoriSection({ onRegisterNuovo }: { onRegisterNuovo?
             onFilterPersonalizzato={col => setFiltroPersCol(col)}
           />
           <PaginatedFilterHint visible={hasScopedFilters} loading={loadingMore} onLoadMore={loadMore} />
-          <LoadMoreBar hasMore={hasMore} loading={loadingMore} truncated={truncated} onLoadMore={loadMore} />
+          <LoadMoreBar hasMore={hasMore} loading={loadingMore} onLoadMore={loadMore} />
 
           <FornitoriActionBar
             hasSelection={Boolean(selected)}
@@ -490,24 +489,13 @@ export default function FornitoriSection({ onRegisterNuovo }: { onRegisterNuovo?
             onUtilita={tipo => {
               if (tipo.startsWith('Esporta')) handleExcel()
               else {
-                const input = document.createElement('input')
-                input.type = 'file'
-                input.accept = '.xlsx,.xls,.csv'
-                input.onchange = async () => {
-                  const file = input.files?.[0]
-                  if (!file || !studioId) return
-                  try {
-                    const text = await file.text()
-                    const result = await importSuppliersFromCsv(text, studioId, () => getNextSupplierCode(studioId))
-                    if (result.error) setError(result.error)
-                    else {
-                      setError(`Importati ${result.imported} fornitori${result.skipped ? ` (${result.skipped} righe saltate)` : ''}.`)
-                    }
-                  } catch {
-                    setError('Importazione non riuscita.')
-                  }
-                }
-                input.click()
+                openEntitySpreadsheetImport({
+                  studioId,
+                  entity: 'suppliers',
+                  onSuccess: msg => setError(msg),
+                  onError: msg => setError(msg),
+                  onProgress: msg => setError(msg),
+                })
               }
             }}
           />

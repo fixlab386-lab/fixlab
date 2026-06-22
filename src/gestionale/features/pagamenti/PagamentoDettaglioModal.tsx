@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../../../firebase'
 import type { Payment, PaymentResource } from '../../../types'
-import { NUMERAZIONI } from '../vendita-banco/constants'
+import NumerazioneSelect from '../shared/NumerazioneSelect'
 import { WinField, WinInput, WinSelect } from '../vendita-banco/WinControls'
 import { formatDataIt, parseDataIt } from '../vendita-banco/utils'
 import TabRigheRegistrazione from './tabs/TabRigheRegistrazione'
@@ -169,13 +169,13 @@ export default function PagamentoDettaglioModal({
               </WinField>
 
               <WinField label="Numeraz." htmlFor="pd-numeraz">
-                <WinSelect id="pd-numeraz" value={state.numbering} disabled={readOnly} onChange={e => patch({ numbering: e.target.value })}>
-                  {NUMERAZIONI.map(n => (
-                    <option key={n || 'default'} value={n}>
-                      {n || '—'}
-                    </option>
-                  ))}
-                </WinSelect>
+                <NumerazioneSelect
+                  id="pd-numeraz"
+                  value={state.numbering}
+                  date={state.registrationDate || state.dueDate}
+                  disabled={readOnly}
+                  onChange={value => patch({ numbering: value })}
+                />
               </WinField>
             </div>
 

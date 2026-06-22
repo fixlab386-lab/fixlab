@@ -128,7 +128,7 @@ export default function PagamentoModal({
     const term = subjectSearch.trim()
     const timer = window.setTimeout(() => {
       if (!term) {
-        void Promise.all([loadRecentClients(studioId, 10), loadRecentSuppliers(studioId, 6)]).then(
+        void Promise.all([loadRecentClients(studioId), loadRecentSuppliers(studioId)]).then(
           ([clients, suppliers]) => {
             const items: { id: string; name: string; type: 'client' | 'supplier'; hint?: string }[] = []
             clients.forEach(c => items.push({ id: c.id, name: c.name, type: 'client', hint: c.phone }))

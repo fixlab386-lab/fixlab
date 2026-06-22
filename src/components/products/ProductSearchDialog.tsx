@@ -77,11 +77,11 @@ export default function ProductSearchDialog({
 
   useEffect(() => {
     if (!studioId) {
-      setResults(sortProducts(products).slice(0, 40))
+      setResults(sortProducts(products))
       return
     }
     let cancelled = false
-    void loadRecentProducts(studioId, 40).then(data => {
+    void loadRecentProducts(studioId).then(data => {
       if (!cancelled) {
         setResults(sortProducts(data))
         setSearched(false)
@@ -177,7 +177,7 @@ export default function ProductSearchDialog({
                   ? ' — ricerca…'
                   : hasActiveCriteria || searched
                     ? ` — ${results.length} prodotto/i`
-                    : ` — ${results.length} recenti`}
+                    : ` — ${results.length} prodotto/i`}
               </p>
 
               <div className="product-search-dialog__table-wrap">

@@ -25,6 +25,12 @@ service firebase.storage {
       return isLegacyPrimaryStudio(studioId) || hasStudioClaim(studioId);
     }
 
+    match /studios/{studioId}/danea-imports/{fileName} {
+      allow read, delete: if canAccessStudioStorage(studioId);
+      allow create: if canAccessStudioStorage(studioId)
+        && request.resource.size < 200 * 1024 * 1024;
+    }
+
     match /studios/{studioId}/{allPaths=**} {
       allow read: if canAccessStudioStorage(studioId);
       allow create, update: if canAccessStudioStorage(studioId)

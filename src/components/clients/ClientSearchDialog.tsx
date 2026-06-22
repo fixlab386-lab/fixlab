@@ -63,12 +63,12 @@ export default function ClientSearchDialog({
   useEffect(() => {
     if (!studioId) {
       setResults(
-        [...clients].sort((a, b) => a.name.localeCompare(b.name, 'it', { sensitivity: 'base' })).slice(0, 40),
+        [...clients].sort((a, b) => a.name.localeCompare(b.name, 'it', { sensitivity: 'base' })),
       )
       return
     }
     let cancelled = false
-    void loadRecentClients(studioId, 40).then(data => {
+    void loadRecentClients(studioId).then(data => {
       if (!cancelled) {
         setResults([...data].sort((a, b) => a.name.localeCompare(b.name, 'it', { sensitivity: 'base' })))
         setSearched(false)
@@ -143,7 +143,7 @@ export default function ClientSearchDialog({
               ? 'Ricerca in corso…'
               : hasActiveCriteria && searched
                 ? `${results.length} cliente/i trovati.`
-                : `${results.length} cliente/i recenti — compila i filtri e clicca Cerca.`}
+                : `${results.length} cliente/i — compila i filtri e clicca Cerca.`}
           </p>
 
           <div className="client-search-dialog__table-wrap">

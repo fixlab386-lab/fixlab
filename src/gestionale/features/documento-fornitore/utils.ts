@@ -1,3 +1,4 @@
+import { defaultDocumentNumerazione } from '../documenti/utils'
 import type { DocRecord } from '../../../types'
 import type { DocumentoOrdineFornitore, RigaOrdineFornitore } from '../ordine-fornitore/types'
 import {
@@ -127,7 +128,7 @@ export function createDocumentoFornitoreFromSeed(
     listino: seed.listino,
     data: seed.data,
     numero,
-    numerazione: '',
+    numerazione: defaultDocumentNumerazione(seed.data),
     righe: seed.righe,
     tipoPagamento: seed.tipoPagamento,
     acconto: seed.acconto,

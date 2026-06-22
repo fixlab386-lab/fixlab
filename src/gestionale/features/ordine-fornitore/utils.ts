@@ -2,7 +2,7 @@ import type { DocRecord, DocumentRow, Supplier } from '../../../types'
 import type { DocumentoOrdineCliente } from '../ordine-cliente/types'
 import type { DocumentoOrdineFornitore, RigaOrdineFornitore } from './types'
 import { buildSupplierDestinations } from './supplierDestinations'
-import { buildFullNumber, documentYearFromDate } from '../documenti'
+import { buildFullNumber, defaultDocumentNumerazione, documentYearFromDate, documentYearFromNumerazione } from '../documenti'
 import { listinoToPriceList } from '../vendita-banco/utils'
 import {
   calcRigaOrdine,
@@ -32,7 +32,7 @@ export function createInitialOrdineFornitore(): DocumentoOrdineFornitore {
     listino: 'Privati',
     data: today,
     numero: 1,
-    numerazione: '',
+    numerazione: defaultDocumentNumerazione(today),
     righe: [emptyRigaOrdine()],
     prezziIvati: false,
     tipoPagamento: '',
@@ -165,7 +165,7 @@ export function buildOrdineFornitorePayload(
   totals: ReturnType<typeof documentTotalsFromRigheOrdine>,
   saveStatus: DocRecord['status'],
 ): Omit<DocRecord, 'id' | 'createdAt' | 'updatedAt'> {
-  const documentYear = documentYearFromDate(doc.data)
+  const documentYear = documentYearFromNumerazione(doc.numerazione, doc.data)
   const fullNumber = buildFullNumber(doc.numero, documentYear, doc.numerazione)
   const t = doc.trasporto
 

@@ -1,14 +1,10 @@
 import {
   collection,
+  getAggregateFromServer,
   getCountFromServer,
-  getDocs,
-  limit,
-  orderBy,
   query,
-  startAfter,
+  sum,
   where,
-  type DocumentData,
-  type QueryDocumentSnapshot,
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import {
@@ -86,7 +82,9 @@ async function countOpenClientOrders(studioId: string): Promise<number> {
   return Math.max(0, total - completed - cancelled)
 }
 
-/** Somma vendite mese corrente (clienti) paginando documenti del periodo. */
+const SALES_STATUSES = ['confirmed', 'sent', 'completed'] as const
+
+/** Somma vendite mese corrente via aggregazione Firestore (poche letture vs paginare ogni documento). */
 async function sumSalesMonthTotal(studioId: string): Promise<number> {
   const now = new Date()
   const year = now.getFullYear()
@@ -96,38 +94,29 @@ async function sumSalesMonthTotal(studioId: string): Promise<number> {
   const endYear = month === 11 ? year + 1 : year
   const end = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
 
-  let total = 0
-  let cursor: QueryDocumentSnapshot<DocumentData> | null = null
-  const pageSize = 400
+  const baseFilters = [
+    where('studioId', '==', studioId),
+    where('status', 'in', [...SALES_STATUSES]),
+    where('date', '>=', start),
+    where('date', '<', end),
+  ] as const
 
-  for (;;) {
-    const base = [
-      collection(db, 'documents'),
-      where('studioId', '==', studioId),
-      where('date', '>=', start),
-      where('date', '<', end),
-      orderBy('date', 'desc'),
-    ] as const
-
-    const q = cursor
-      ? query(...base, startAfter(cursor), limit(pageSize))
-      : query(...base, limit(pageSize))
-
-    const snap = await getDocs(q)
-    if (snap.empty) break
-
-    for (const d of snap.docs) {
-      const data = d.data()
-      if (data.status === 'cancelled' || data.status === 'draft') continue
-      if (data.subjectType === 'supplier') continue
-      total += Number(data.totalDocument) || 0
-    }
-
-    if (snap.docs.length < pageSize) break
-    cursor = snap.docs[snap.docs.length - 1]
+  try {
+    const [totalSnap, supplierSnap] = await Promise.all([
+      getAggregateFromServer(query(collection(db, 'documents'), ...baseFilters), {
+        total: sum('totalDocument'),
+      }),
+      getAggregateFromServer(
+        query(collection(db, 'documents'), ...baseFilters, where('subjectType', '==', 'supplier')),
+        { total: sum('totalDocument') },
+      ),
+    ])
+    const gross = Number(totalSnap.data().total) || 0
+    const supplier = Number(supplierSnap.data().total) || 0
+    return Math.max(0, gross - supplier)
+  } catch {
+    return 0
   }
-
-  return total
 }
 
 async function loadDashboardAggregatesFresh(studioId: string): Promise<DashboardAggregates> {
@@ -172,19 +161,14 @@ async function loadDashboardAggregatesFresh(studioId: string): Promise<Dashboard
   }
 }
 
-/** KPI esatti via conteggi Firestore (cache 10 min + refresh in background). */
+/** KPI esatti via conteggi Firestore (cache 10 min). */
 export async function loadDashboardAggregates(
   studioId: string,
   options?: { force?: boolean },
 ): Promise<DashboardAggregates> {
   if (!options?.force) {
     const cached = readAggregatesCache(studioId)
-    if (cached) {
-      void loadDashboardAggregatesFresh(studioId)
-        .then(fresh => writeAggregatesCache(studioId, fresh))
-        .catch(() => {})
-      return cached
-    }
+    if (cached) return cached
   }
 
   const fresh = await loadDashboardAggregatesFresh(studioId)

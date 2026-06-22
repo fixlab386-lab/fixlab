@@ -160,6 +160,19 @@ export default function StudioDetail({ studio, onClose, onUpdated }: Props) {
   const handleImpersonate = async () => {
     setBusy('impersonate')
     setError('')
+    setSuccess('')
+
+    // Apri subito (sincrono col click) — altrimenti i browser bloccano il popup dopo l'await.
+    const popup = window.open('about:blank', '_blank')
+    if (!popup) {
+      setError('Il browser ha bloccato la finestra. Consenti i popup per questo sito e riprova.')
+      setBusy('')
+      return
+    }
+    popup.document.title = 'Impersonazione FIXLab'
+    popup.document.body.innerHTML =
+      '<p style="font-family:system-ui,sans-serif;padding:24px;color:#52525b">Accesso in corso...</p>'
+
     try {
       const { token } = await callImpersonateUser(studio.ownerId)
       setImpersonationStudioName(studio.name)
@@ -168,9 +181,11 @@ export default function StudioDetail({ studio, onClose, onUpdated }: Props) {
       const url = isHashRouter
         ? `${window.location.origin}${window.location.pathname}#/impersonate?${qs}`
         : `${window.location.origin}/impersonate?${qs}`
-      window.open(url, '_blank', 'noopener,noreferrer')
+      popup.location.href = url
+      popup.focus()
       setSuccess('Finestra impersonazione aperta.')
     } catch (err) {
+      popup.close()
       setError(formatCallableError(err, 'Impersonazione non riuscita.'))
     } finally {
       setBusy('')

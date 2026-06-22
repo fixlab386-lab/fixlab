@@ -11,12 +11,13 @@ import { callCommitDocumentWithFallback } from '../../../lib/commitDocument'
 import { formatCallableError } from '../../../lib/cloudFunctions'
 import { downloadHtmlAsPdf, printHtmlInIframe } from '../../../lib/printDocument'
 import { invalidateDashboardCache } from '../start/dashboardCache'
-import { documentYearFromDate, DOCUMENT_TRANSFORM_MAP, getIncludableDocuments } from '../documenti'
+import { defaultDocumentNumerazione, documentYearFromDate, documentYearFromNumerazione, DOCUMENT_TRANSFORM_MAP, getIncludableDocuments } from '../documenti'
 import IncludiDocumentiDialog from '../documenti/dialogs/IncludiDocumentiDialog'
 import { mergeIncludedRows, type InclusionMode } from '../documenti/inclusionUtils'
 import type { ActiveDocumentType } from '../documenti/constants'
 import type { Category, DocRecord, Product, Supplier } from '../../../types'
-import { NUMERAZIONI, COMMENTI_INTERNI_PREDEFINITI } from '../vendita-banco/constants'
+import NumerazioneSelect from '../shared/NumerazioneSelect'
+import { COMMENTI_INTERNI_PREDEFINITI } from '../vendita-banco/constants'
 import { getCustomCommentiInterni, addCustomCommentoInterno } from '../../../lib/userPrefs'
 import TabNote from '../vendita-banco/tabs/TabNote'
 import TabIndirizzi from '../vendita-banco/tabs/TabIndirizzi'
@@ -572,11 +573,11 @@ export default function DocumentoFornitoreModal() {
 
   const handleClose = useCallback(async () => {
     const needsPrompt = documentNeedsSaveOnClose(activeRighe.length > 0, savedDocumentId, isDirty)
-    const outcome = await confirmSaveDocumentOnClose(needsPrompt, () => handleSalva('confirmed'))
-    if (outcome === 'close') {
+    const { closed, error } = await confirmSaveDocumentOnClose(needsPrompt, () => handleSalva('confirmed'))
+    if (closed) {
       closeDocumentoFornitore()
-    } else if (needsPrompt) {
-      setLoadError('Salvataggio non riuscito.')
+    } else if (error) {
+      setLoadError(error)
     }
   }, [activeRighe.length, savedDocumentId, isDirty, handleSalva, closeDocumentoFornitore])
 
@@ -699,13 +700,20 @@ export default function DocumentoFornitoreModal() {
                         <WinInput id="df-numero" type="number" min={1} value={docState.numero} readOnly />
                       </WinField>
                       <WinField label="Numeraz." htmlFor="df-numeraz" className="vb-header-field--numeraz">
-                        <WinSelect id="df-numeraz" value={docState.numerazione} onChange={e => patchDoc({ numerazione: e.target.value })}>
-                          {NUMERAZIONI.map(n => (
-                            <option key={n || 'default'} value={n}>
-                              {n || '—'}
-                            </option>
-                          ))}
-                        </WinSelect>
+                        <NumerazioneSelect
+                          id="df-numeraz"
+                          value={docState.numerazione}
+                          date={docState.data}
+                          onChange={numerazione => {
+                            patchDoc({ numerazione })
+                            if (!studioId || !docState.documentType) return
+                            void getNextDocumentNumber(
+                              studioId,
+                              docState.documentType,
+                              documentYearFromNumerazione(numerazione, docState.data),
+                            ).then(num => patchDoc({ numero: num, numerazione }))
+                          }}
+                        />
                       </WinField>
                     </div>
 

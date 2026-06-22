@@ -29,7 +29,7 @@ export default function TabCliente({ form, s }: Props) {
     const term = clientSearch.trim()
     const timer = window.setTimeout(
       () => {
-        const load = term ? searchClients(studioId, term) : loadRecentClients(studioId, 40)
+        const load = term ? searchClients(studioId, term) : loadRecentClients(studioId)
         void load.then(data => {
           if (!cancelled) setClients(data)
         })

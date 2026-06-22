@@ -659,8 +659,13 @@ body.vb-col-resize-active * {
 
 .vb-addresses__row3 {
   display: grid;
-  grid-template-columns: 72px 1fr 48px;
-  gap: 4px;
+  grid-template-columns: minmax(72px, 88px) minmax(0, 1fr) 48px;
+  gap: 6px;
+  align-items: end;
+}
+
+.vb-addresses__row3 .vb-field {
+  min-width: 0;
 }
 
 .vb-scadenzario {

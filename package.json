@@ -1,7 +1,7 @@
 {
   "name": "fixlab",
   "private": true,
-  "version": "1.0.81",
+  "version": "1.0.91",
   "description": "FIXLab — gestionale desktop per laboratori di riparazione",
   "author": "FixLab",
   "repository": {

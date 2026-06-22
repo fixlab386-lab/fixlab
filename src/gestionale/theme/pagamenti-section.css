@@ -690,8 +690,13 @@
 
 .pagamenti-dettaglio__indirizzi-row {
   display: grid;
-  grid-template-columns: 80px 1fr 56px;
+  grid-template-columns: minmax(80px, 96px) minmax(0, 1fr) 56px;
   gap: 8px;
+  align-items: end;
+}
+
+.pagamenti-dettaglio__indirizzi-row .vb-field {
+  min-width: 0;
 }
 
 .pagamenti-dettaglio__rif {

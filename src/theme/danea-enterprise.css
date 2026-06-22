@@ -182,7 +182,7 @@
 /* Split master-detail 75/25 */
 .gestionale-theme .fornitori-section .clienti-section__body,
 .gestionale-theme .clienti-section__body {
-  grid-template-columns: minmax(0, 75fr) minmax(280px, 25fr);
+  grid-template-columns: minmax(0, 72fr) minmax(320px, 28fr);
 }
 
 .gestionale-theme .clienti-section__scheda {

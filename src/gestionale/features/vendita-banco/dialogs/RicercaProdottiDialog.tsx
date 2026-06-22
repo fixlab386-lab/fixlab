@@ -73,7 +73,7 @@ export default function RicercaProdottiDialog({
   useEffect(() => {
     if (!studioId) return
     let cancelled = false
-    void loadRecentProducts(studioId, 40).then(data => {
+    void loadRecentProducts(studioId).then(data => {
       if (!cancelled) {
         setResults(data)
         setSearched(false)

@@ -14,6 +14,7 @@ import { isActiveDocumentoClienteModalType } from '../features/documento-cliente
 import type { DocumentoFornitoreModalType, DocumentoFornitoreState } from '../features/documento-fornitore/types'
 import { isActiveDocumentoFornitoreModalType } from '../features/documento-fornitore/constants'
 import type { DocumentoVenditaBanco } from '../features/vendita-banco/types'
+import { numerazioneFromDocRecord } from '../features/documenti/utils'
 import { documentRowToRiga } from '../features/vendita-banco/utils'
 
 function priceListToListino(priceList?: DocRecord['priceList']): string {
@@ -149,7 +150,7 @@ export function docRecordToOrdineCliente(d: DocRecord): DocumentoOrdineCliente {
     listino: priceListToListino(d.priceList),
     data: d.date,
     numero: d.number,
-    numerazione: d.numbering || '',
+    numerazione: numerazioneFromDocRecord(d),
     righe,
     prezziIvati: d.pricesVatIncluded ?? false,
     tipoPagamento: d.paymentMethod || '',
@@ -214,7 +215,7 @@ export function docRecordToOrdineFornitore(d: DocRecord): DocumentoOrdineFornito
     listino: priceListToListino(d.priceList),
     data: d.date,
     numero: d.number,
-    numerazione: d.numbering || '',
+    numerazione: numerazioneFromDocRecord(d),
     righe,
     prezziIvati: d.pricesVatIncluded ?? false,
     tipoPagamento: d.paymentMethod || '',

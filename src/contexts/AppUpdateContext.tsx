@@ -66,6 +66,32 @@ function desktopBanner(status: FixLabUpdateStatus | null, dismissedVersion: stri
 
   const version = status.version ?? null
 
+  if (status.state === 'checking') {
+    return {
+      visible: true,
+      kind: 'desktop',
+      version: null,
+      message: 'Controllo aggiornamenti FixLab…',
+      progress: null,
+      canApply: false,
+      applyLabel: '',
+    }
+  }
+
+  if (status.state === 'error') {
+    return {
+      visible: true,
+      kind: 'desktop',
+      version: null,
+      message: status.error
+        ? `Aggiornamento automatico non riuscito: ${status.error}`
+        : 'Aggiornamento automatico non riuscito. Controlla la connessione o usa il pulsante in Impostazioni.',
+      progress: null,
+      canApply: false,
+      applyLabel: '',
+    }
+  }
+
   if (status.state === 'available') {
     if (version && dismissedVersion === version) return idleBanner
     return {

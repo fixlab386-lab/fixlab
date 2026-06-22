@@ -16,11 +16,12 @@ import { invalidateDashboardCache } from '../start/dashboardCache'
 import { docRecordToOrdineCliente } from '../../lib/docRecordLoaders'
 import { downloadHtmlAsPdf, printHtmlInIframe } from '../../../lib/printDocument'
 import { CONFERMA_ORDINE_PRINT_CSS } from '../../../lib/confermaOrdineTemplate'
-import { documentYearFromDate } from '../documenti'
+import { documentYearFromDate, documentYearFromNumerazione } from '../documenti'
 import IncludiDocumentiDialog from '../documenti/dialogs/IncludiDocumentiDialog'
 import { getIncludableDocuments, mergeIncludedRows, type InclusionMode } from '../documenti/inclusionUtils'
+import NumerazioneSelect from '../shared/NumerazioneSelect'
+import { COMMENTI_INTERNI_PREDEFINITI } from '../vendita-banco/constants'
 import type { Category, Client, DocRecord, Payment, Product, Repair } from '../../../types'
-import { NUMERAZIONI, COMMENTI_INTERNI_PREDEFINITI } from '../vendita-banco/constants'
 import { getCustomCommentiInterni, addCustomCommentoInterno } from '../../../lib/userPrefs'
 import TabNote from '../vendita-banco/tabs/TabNote'
 import TabIndirizzi from '../vendita-banco/tabs/TabIndirizzi'
@@ -326,39 +327,61 @@ export default function OrdineClienteModal() {
     window.setTimeout(() => setActionMessage(null), 2000)
   }
 
-  const saveOrdine = async (
-    status: DocumentoOrdineCliente['stato'] = docState.stato,
-    doc: DocumentoOrdineCliente = docWithTotals,
-  ): Promise<DocumentoOrdineCliente> => {
-    if (!studioId) throw new Error('Archivio non disponibile.')
-    if (!user) throw new Error('Sessione scaduta: effettua di nuovo l\'accesso.')
-    if (!doc.cliente.id) throw new Error('Seleziona un cliente.')
-    const docTotals = documentTotalsFromRigheOrdine(doc.righe, doc.speseImporto, doc.speseIva)
-    const righe = doc.righe.filter(r => r.descrizione.trim() && r.tipoRiga !== 'nota')
-    const repairId = ordineClientePreset?.repairId
-    const payload = buildOrdinePayload({ ...doc, ...docTotals }, studioId, righe, docTotals, status, repairId)
-    const result = await callCommitDocumentWithFallback({
-      documentId: savedDocumentId || undefined,
-      document: payload,
-      assignNumber: !savedDocumentId,
-    })
-    setSavedDocumentId(result.documentId)
-    if (repairId) {
-      await updateRepair(repairId, {
-        linkedDocumentId: result.documentId,
-        linkedDocumentType: 'ordine_cliente',
+  const saveOrdine = useCallback(
+    async (
+      status: DocumentoOrdineCliente['stato'] = docState.stato,
+      doc: DocumentoOrdineCliente = docWithTotals,
+    ): Promise<DocumentoOrdineCliente> => {
+      if (!studioId) throw new Error('Archivio non disponibile.')
+      if (!user) throw new Error('Sessione scaduta: effettua di nuovo l\'accesso.')
+      if (!doc.cliente.id) throw new Error('Seleziona un cliente.')
+      const righe = doc.righe.filter(r => r.descrizione.trim() && r.tipoRiga !== 'nota')
+      if (righe.length === 0) {
+        throw new Error('Aggiungi almeno una riga con descrizione prima di salvare.')
+      }
+      const docTotals = documentTotalsFromRigheOrdine(doc.righe, doc.speseImporto, doc.speseIva)
+      const repairId = ordineClientePreset?.repairId
+      const payload = buildOrdinePayload({ ...doc, ...docTotals }, studioId, righe, docTotals, status, repairId)
+      const result = await callCommitDocumentWithFallback({
+        documentId: savedDocumentId || undefined,
+        document: payload,
+        assignNumber: !savedDocumentId,
       })
+      setSavedDocumentId(result.documentId)
+      if (repairId) {
+        await updateRepair(repairId, {
+          linkedDocumentId: result.documentId,
+          linkedDocumentType: 'ordine_cliente',
+        })
+      }
+      const savedDoc = { ...doc, ...docTotals, numero: result.number, stato: status }
+      patchDoc({ numero: result.number, stato: status })
+      setSavedSnapshot(snapshotDocumentState(savedDoc))
+      invalidateDashboardCache(studioId)
+      if (result.usedLocalFallback) {
+        setActionMessage('Ordine salvato (modalità locale).')
+        window.setTimeout(() => setActionMessage(null), 3000)
+      } else {
+        setActionMessage(`Ordine ${result.fullNumber} salvato.`)
+        window.setTimeout(() => setActionMessage(null), 3000)
+      }
+      return savedDoc
+    },
+    [studioId, user, docState.stato, docWithTotals, ordineClientePreset?.repairId, savedDocumentId, patchDoc],
+  )
+
+  const handleSalva = useCallback(async () => {
+    setSaving(true)
+    setLoadError(null)
+    try {
+      await saveOrdine('confirmed')
+    } catch (e) {
+      setLoadError(formatCallableError(e, 'Salvataggio non riuscito.'))
+      throw e
+    } finally {
+      setSaving(false)
     }
-    const savedDoc = { ...doc, ...docTotals, numero: result.number, stato: status }
-    patchDoc({ numero: result.number, stato: status })
-    setSavedSnapshot(snapshotDocumentState(savedDoc))
-    invalidateDashboardCache(studioId)
-    if (result.usedLocalFallback) {
-      setActionMessage('Ordine salvato (modalità locale).')
-      window.setTimeout(() => setActionMessage(null), 3000)
-    }
-    return savedDoc
-  }
+  }, [saveOrdine])
 
   const buildPrintDoc = useCallback(
     (modello?: StampaModello) => {
@@ -555,13 +578,13 @@ export default function OrdineClienteModal() {
 
   const handleClose = useCallback(async () => {
     const needsPrompt = documentNeedsSaveOnClose(activeRighe.length > 0, savedDocumentId, isDirty)
-    const outcome = await confirmSaveDocumentOnClose(needsPrompt, () => saveOrdine('confirmed'))
-    if (outcome === 'close') {
+    const { closed, error } = await confirmSaveDocumentOnClose(needsPrompt, () => saveOrdine('confirmed'))
+    if (closed) {
       closeOrdineCliente()
-    } else if (needsPrompt) {
-      setLoadError('Salvataggio non riuscito.')
+    } else if (error) {
+      setLoadError(error)
     }
-  }, [activeRighe.length, savedDocumentId, isDirty, closeOrdineCliente])
+  }, [activeRighe.length, savedDocumentId, isDirty, closeOrdineCliente, saveOrdine])
 
   useEffect(() => {
     if (!ordineClienteOpen) return
@@ -712,13 +735,20 @@ export default function OrdineClienteModal() {
                         </WinField>
 
                         <WinField label="Numeraz." htmlFor="oc-numeraz" className="vb-header-field--numeraz">
-                          <WinSelect id="oc-numeraz" value={docState.numerazione} onChange={e => patchDoc({ numerazione: e.target.value })}>
-                            {NUMERAZIONI.map(n => (
-                              <option key={n || 'default'} value={n}>
-                                {n || '—'}
-                              </option>
-                            ))}
-                          </WinSelect>
+                          <NumerazioneSelect
+                            id="oc-numeraz"
+                            value={docState.numerazione}
+                            date={docState.data}
+                            onChange={numerazione => {
+                              patchDoc({ numerazione })
+                              if (!studioId) return
+                              void getNextDocumentNumber(
+                                studioId,
+                                'ordine_cliente',
+                                documentYearFromNumerazione(numerazione, docState.data),
+                              ).then(num => patchDoc({ numero: num, numerazione }))
+                            }}
+                          />
                         </WinField>
                       </div>
 
@@ -900,6 +930,15 @@ export default function OrdineClienteModal() {
                       />
 
                       <div className="gestionale-mdi-window__action-spacer" />
+                      <button
+                        type="button"
+                        className="gestionale-mdi-window__action-btn"
+                        title="Salva ordine"
+                        disabled={saving || !user}
+                        onClick={() => void handleSalva()}
+                      >
+                        💾 Salva
+                      </button>
                       <button type="button" className="gestionale-mdi-window__action-btn" title="Calcolatrice" disabled>
                         🧮
                       </button>

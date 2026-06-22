@@ -1,5 +1,6 @@
 import {
   collection,
+  documentId,
   getCountFromServer,
   getDocs,
   limit,
@@ -9,6 +10,7 @@ import {
   Timestamp,
   where,
   type DocumentData,
+  type QueryConstraint,
   type QueryDocumentSnapshot,
 } from 'firebase/firestore'
 import { db } from '../firebase'
@@ -18,7 +20,7 @@ import { filterClientsByCriteria } from './clientSearch'
 import { filterProductsByCriteria, type ProductSearchCriteria } from './productSearch'
 import type { ProductSelectionFilters } from '../gestionale/features/vendita-banco/productSelectionFilter'
 import { filterProductsForSelection } from '../gestionale/features/vendita-banco/productSelectionFilter'
-import { isLowStock, STALE_REPAIR_DAYS } from './dashboardMetrics'
+import { STALE_REPAIR_DAYS } from './dashboardMetrics'
 import { FIRESTORE_PAGE_SIZE, FIRESTORE_SEARCH_LIMIT } from './firestoreScale'
 import { haystackIncludesAll, tokenizeSearchTerm } from './searchTokens'
 
@@ -61,22 +63,37 @@ async function searchByTokens<T>(
   }
 }
 
+/** Ordine stabile: tie-break su documentId evita salti in paginazione (import con stesso createdAt). */
+function studioPageConstraints(
+  studioId: string,
+  orderField: string,
+  extra: QueryConstraint[] = [],
+): QueryConstraint[] {
+  return [where('studioId', '==', studioId), ...extra, orderBy(orderField, 'desc'), orderBy(documentId(), 'desc')]
+}
+
+export function studioListenQuery(
+  collectionName: string,
+  studioId: string,
+  orderField: string,
+  maxItems: number,
+  extra: QueryConstraint[] = [],
+) {
+  return query(collection(db, collectionName), ...studioPageConstraints(studioId, orderField, extra), limit(maxItems))
+}
+
 async function fetchStudioPage<T>(
   collectionName: string,
   studioId: string,
   orderField: string,
   pageSize: number,
   cursor?: QueryDocumentSnapshot<DocumentData> | null,
+  extra: QueryConstraint[] = [],
 ): Promise<PageResult<T>> {
-  const base = [
-    collection(db, collectionName),
-    where('studioId', '==', studioId),
-    orderBy(orderField, 'desc'),
-  ] as const
-
+  const constraints = studioPageConstraints(studioId, orderField, extra)
   const q = cursor
-    ? query(...base, startAfter(cursor), limit(pageSize))
-    : query(...base, limit(pageSize))
+    ? query(collection(db, collectionName), ...constraints, startAfter(cursor), limit(pageSize))
+    : query(collection(db, collectionName), ...constraints, limit(pageSize))
 
   const snap = await getDocs(q)
   const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as T))
@@ -124,16 +141,10 @@ export function fetchDocumentsPage(
 ) {
   if (!type) return fetchStudioPage<DocRecord>('documents', studioId, 'createdAt', pageSize, cursor)
 
-  const base = [
-    collection(db, 'documents'),
-    where('studioId', '==', studioId),
-    where('type', '==', type),
-    orderBy('createdAt', 'desc'),
-  ] as const
-
+  const constraints = studioPageConstraints(studioId, 'createdAt', [where('type', '==', type)])
   const q = cursor
-    ? query(...base, startAfter(cursor), limit(pageSize))
-    : query(...base, limit(pageSize))
+    ? query(collection(db, 'documents'), ...constraints, startAfter(cursor), limit(pageSize))
+    : query(collection(db, 'documents'), ...constraints, limit(pageSize))
 
   return getDocs(q).then(snap => {
     const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as DocRecord))
@@ -572,19 +583,17 @@ export async function searchClientsByCriteria(
   return filterClientsByCriteria(narrowed, criteria).slice(0, maxResults)
 }
 
-/** Conteggio prodotti sotto scorta (paginato, no picco memoria). */
+/** Conteggio prodotti sotto scorta via aggregazione (stock 1–3, soglia predefinita). */
 export async function countLowStockProducts(studioId: string): Promise<number> {
-  let count = 0
-  let cursor: QueryDocumentSnapshot<DocumentData> | null = null
-  for (;;) {
-    const page = await fetchProductsPage(studioId, cursor, 400)
-    for (const p of page.items) {
-      if (isLowStock(p)) count++
-    }
-    if (!page.hasMore || page.items.length === 0) break
-    cursor = page.lastDoc
-  }
-  return count
+  const snap = await getCountFromServer(
+    query(
+      collection(db, 'products'),
+      where('studioId', '==', studioId),
+      where('stock', '>=', 1),
+      where('stock', '<=', 3),
+    ),
+  )
+  return snap.data().count
 }
 
 /** Conteggio riparazioni stale (on_hold + aperte inattive). */

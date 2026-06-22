@@ -8,7 +8,7 @@ export function resolveOpzioniTab(tab: string | null): OpzioniTabId {
     legale: 'varie',
   }
   if (tab && legacy[tab]) return legacy[tab]
-  const valid: OpzioniTabId[] = ['moduli', 'azienda', 'clienti', 'prodotti', 'documenti', 'fatturazione', 'avvisi', 'abbonamento', 'varie']
+  const valid: OpzioniTabId[] = ['moduli', 'azienda', 'clienti', 'prodotti', 'documenti', 'fatturazione', 'avvisi', 'varie']
   if (tab && valid.includes(tab as OpzioniTabId)) return tab as OpzioniTabId
   return 'moduli'
 }

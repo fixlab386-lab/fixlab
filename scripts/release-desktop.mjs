@@ -58,8 +58,15 @@ function run(command, args, label) {
 }
 
 run(npmCmd, ['version', bump], `npm version ${bump}`)
+
+const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version
+const tag = `v${version}`
+
 run(npmCmd, ['run', 'build:desktop'], 'build desktop')
 run(npxCmd, ['electron-builder', '--win', '--publish', 'always'], 'electron-builder publish win')
+
+console.log('\n→ Carico latest.yml per auto-update…')
+run(process.execPath, ['scripts/upload-release-assets.mjs', tag], 'upload release assets')
 
 console.log('\n✓ Release desktop Windows completata.')
 console.log('→ Per macOS: avvia GitHub Actions "Desktop Mac" (o npm run publish:desktop:mac su un Mac).')

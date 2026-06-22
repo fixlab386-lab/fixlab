@@ -1,3 +1,5 @@
+import { useRef, useState } from 'react'
+import { FixedDropdownMenu } from '../../../components/FixedDropdown'
 import { LISTINI_GLOBALI, LISTINI_PRINCIPALI, LISTINI_REGOLE_DEFAULT, TIPOLOGIE_PRODOTTO, TIPOLOGIA_LABELS, UNITA_MISURA } from '../constants'
 import type { Prodotto } from '../types'
 import { listinoLabel } from '../utils'
@@ -102,17 +104,19 @@ export default function TabCaratteristiche({
           <button type="button" className="prodotti-link" onClick={onTogglePrezzi}>
             Prezzi…
           </button>
-          <button
-            type="button"
-            className="danea-form__edit-btn"
-            title="Menu prezzi"
-            onClick={() => {
-              const azione = prompt('Menu Prezzi: Impostazioni | Opzioni applicazione', 'Impostazioni')
-              if (azione) onPrezziMenu(azione)
-            }}
-          >
-            ▼
-          </button>
+          <FixedDropdownMenu
+            wrapperClass="prodotti-dropdown prodotti-dropdown--inline"
+            btnClass="danea-form__edit-btn"
+            menuClass="prodotti-dropdown__menu prodotti-dropdown__menu--fixed"
+            itemClass="prodotti-dropdown__item"
+            label="▼"
+            items={['Impostazioni', 'Opzioni applicazione']}
+            onPick={onPrezziMenu}
+            direction="down"
+            align="left"
+            minWidth={200}
+            showCaret={false}
+          />
         </DaneaFormLinks>
 
         {prezziEspansi ? (

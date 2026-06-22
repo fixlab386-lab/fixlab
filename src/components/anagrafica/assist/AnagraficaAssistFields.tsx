@@ -176,8 +176,8 @@ export function AddressCapAssistFields({ value, onChange, inp, lbl, variant = 'm
 
   return (
     <>
-      <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 60px', gap: '8px' }}>
-        <div ref={capWrapRef} style={{ position: 'relative' }}>
+      <div className="gestionale-loc-row">
+        <div ref={capWrapRef} className="gestionale-loc-row__cell" style={{ position: 'relative' }}>
           {renderLabel('CAP')}
           <div className="gestionale-field-with-action">
             <input
@@ -211,20 +211,20 @@ export function AddressCapAssistFields({ value, onChange, inp, lbl, variant = 'm
             </div>
           ) : null}
         </div>
-        <div>
+        <div className="gestionale-loc-row__cell gestionale-loc-row__cell--city">
           {renderLabel('Città')}
           <input
             className={isWin ? 'vb-input' : undefined}
-            style={isWin ? undefined : legacyInp}
+            style={isWin ? undefined : { ...legacyInp, minWidth: 0, width: '100%' }}
             value={value.city ?? ''}
             onChange={e => onChange({ city: e.target.value })}
           />
         </div>
-        <div>
+        <div className="gestionale-loc-row__cell gestionale-loc-row__cell--prov">
           {renderLabel('Prov.')}
           <input
             className={isWin ? 'vb-input' : undefined}
-            style={isWin ? undefined : legacyInp}
+            style={isWin ? undefined : { ...legacyInp, minWidth: 0, width: '100%' }}
             value={value.province ?? ''}
             onChange={e => onChange({ province: e.target.value.toUpperCase() })}
             maxLength={2}

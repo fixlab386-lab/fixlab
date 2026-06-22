@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react'
+import TableColumnResizer from '../../../components/ui/TableColumnResizer'
+import { useExpandableTableCells } from '../../../hooks/useExpandableTableCells'
+import { useTableColumnWidths } from '../../../hooks/useTableColumnWidths'
 import { useVirtualWindow } from '../../../hooks/useVirtualWindow'
-import { COLONNE_DEF } from './constants'
+import { COLONNE_DEF, COLONNE_WIDTH_DEFAULT } from './constants'
 import type { Fornitore, ColonnaId, ColumnFilter } from './types'
 import {
   applyColumnFilters,
@@ -192,13 +195,16 @@ export default function FornitoriLista({
   }
 
   const colSpan = visibleCols.length + 1
+  const { hasExpanded, isExpanded, onCellDoubleClick } = useExpandableTableCells()
+  const { widths: colWidths, startResize } = useTableColumnWidths('fixlab.fornitori.colWidths', COLONNE_WIDTH_DEFAULT)
   const { scrollRef, start, end, enabled, topPad, bottomPad } = useVirtualWindow(rows.length, 28)
-  const visibleRows = enabled ? rows.slice(start, end) : rows
+  const useVirtual = enabled && !hasExpanded
+  const visibleRows = useVirtual ? rows.slice(start, end) : rows
 
   return (
     <div className="clienti-section__lista">
       <div className="clienti-grid-wrap" ref={scrollRef}>
-        <table className="clienti-grid">
+        <table className="clienti-grid clienti-grid--resizable">
           <thead>
             <tr>
               <th style={{ width: 28 }} aria-label="Selezione" />
@@ -211,7 +217,13 @@ export default function FornitoriLista({
                     className={[hasFilter ? 'clienti-grid__th--filtered' : '', isSorted ? 'clienti-grid__th--sorted' : '']
                       .filter(Boolean)
                       .join(' ')}
-                    style={{ position: 'relative', cursor: 'pointer' }}
+                    style={{
+                      position: 'relative',
+                      cursor: 'pointer',
+                      width: colWidths[col.id],
+                      minWidth: colWidths[col.id],
+                      maxWidth: colWidths[col.id],
+                    }}
                     onClick={() => onSort(col.id)}
                   >
                     {col.label}
@@ -227,6 +239,10 @@ export default function FornitoriLista({
                     >
                       ▾
                     </span>
+                    <TableColumnResizer
+                      className="clienti-grid__col-resizer"
+                      onMouseDown={clientX => startResize(col.id, clientX)}
+                    />
                     {filterCol === col.id ? (
                       <FilterPopover
                         col={col.id}
@@ -263,7 +279,7 @@ export default function FornitoriLista({
                 </td>
               </tr>
             ) : null}
-            {enabled && topPad > 0 ? (
+            {useVirtual && topPad > 0 ? (
               <tr aria-hidden="true">
                 <td colSpan={colSpan} style={{ height: topPad, padding: 0, border: 'none' }} />
               </tr>
@@ -282,10 +298,11 @@ export default function FornitoriLista({
               }
               const c = row.fornitore
               const selected = c.id === selectedId
+              const rowExpanded = visibleCols.some(col => isExpanded(c.id, col.id))
               return (
                 <tr
                   key={c.id}
-                  className={[selected ? 'clienti-grid__row--selected' : '', c.isDraft ? 'clienti-grid__row--draft' : '']
+                  className={[selected ? 'clienti-grid__row--selected' : '', c.isDraft ? 'clienti-grid__row--draft' : '', rowExpanded ? 'clienti-grid__row--expanded' : '']
                     .filter(Boolean)
                     .join(' ')}
                   onClick={() => onSelect(c)}
@@ -293,13 +310,29 @@ export default function FornitoriLista({
                   <td onClick={e => e.stopPropagation()}>
                     <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => onToggleSelect(c.id)} />
                   </td>
-                  {visibleCols.map(col => (
-                    <td key={col.id}>{getColumnValue(c, col.id) || '—'}</td>
-                  ))}
+                  {visibleCols.map(col => {
+                    const cellExpanded = isExpanded(c.id, col.id)
+                    const value = getColumnValue(c, col.id) || '—'
+                    return (
+                      <td
+                        key={col.id}
+                        className={cellExpanded ? 'clienti-grid__td--expanded' : undefined}
+                        style={{
+                          width: colWidths[col.id],
+                          minWidth: colWidths[col.id],
+                          maxWidth: colWidths[col.id],
+                        }}
+                        title={cellExpanded ? undefined : 'Doppio clic per espandere'}
+                        onDoubleClick={e => onCellDoubleClick(c.id, col.id, e)}
+                      >
+                        {value}
+                      </td>
+                    )
+                  })}
                 </tr>
               )
             })}
-            {enabled && bottomPad > 0 ? (
+            {useVirtual && bottomPad > 0 ? (
               <tr aria-hidden="true">
                 <td colSpan={colSpan} style={{ height: bottomPad, padding: 0, border: 'none' }} />
               </tr>

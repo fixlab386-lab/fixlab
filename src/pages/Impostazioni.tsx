@@ -60,7 +60,6 @@ import TabProdotti from '../components/settings/opzioni/TabProdotti'
 import TabDocumenti from '../components/settings/opzioni/TabDocumenti'
 import TabFatturazioneElettronica from '../components/settings/opzioni/TabFatturazioneElettronica'
 import TabAvvisi from '../components/settings/opzioni/TabAvvisi'
-import TabAbbonamento from '../components/settings/opzioni/TabAbbonamento'
 import TabVarie from '../components/settings/opzioni/TabVarie'
 import {
   applicationOptionsToFirestore,
@@ -1038,8 +1037,6 @@ export default function ImpostazioniPanel({ onClose, initialTab: initialTabProp 
               }
             />
           )}
-
-          {activeTab === 'abbonamento' && <TabAbbonamento />}
 
           {activeTab === 'varie' && (
             <TabVarie

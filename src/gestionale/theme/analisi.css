@@ -692,4 +692,87 @@
   .analisi-main {
     grid-template-columns: 200px 1fr 180px;
   }
+
+  .analisi-main--flussi {
+    grid-template-columns: 320px 1fr 200px;
+  }
+}
+
+/* ---------- Analisi flussi (Entrate / Uscite / Saldo) ---------- */
+.analisi-main--flussi {
+  grid-template-columns: 340px 1fr 200px;
+}
+
+.analisi-list--flussi {
+  min-width: 0;
+}
+
+.analisi-list__head--flussi,
+.analisi-list__row--flussi,
+.analisi-list__foot--flussi {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr 1fr;
+  gap: 6px;
+  align-items: center;
+}
+
+.analisi-list__head--flussi {
+  justify-content: initial;
+}
+
+.analisi-list__row--flussi {
+  justify-content: initial;
+}
+
+.analisi-list__row--flussi .analisi-list__row-label {
+  flex: initial;
+}
+
+.analisi-list__row--flussi .analisi-list__row-val {
+  text-align: right;
+  font-size: 10px;
+}
+
+.analisi-list__foot--flussi {
+  justify-content: initial;
+}
+
+.analisi-list__foot--flussi .analisi-list__foot-total {
+  text-align: right;
+  font-size: 10px;
+}
+
+.analisi-flussi-chart__title {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.analisi-flussi-chart__legend {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 6px 0 2px;
+  font-size: 10px;
+  color: #444;
+}
+
+.analisi-flussi-chart__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.analisi-flussi-chart__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.analisi-chart__gridline--zero {
+  border-top: 1px solid #6a7a88 !important;
 }

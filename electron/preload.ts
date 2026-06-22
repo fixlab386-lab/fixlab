@@ -15,6 +15,7 @@ const fixlabDesktop = {
     }
   },
   installUpdate: (): Promise<void> => ipcRenderer.invoke('update:install'),
+  checkForUpdates: (): Promise<UpdateStatus> => ipcRenderer.invoke('update:check'),
 }
 
 contextBridge.exposeInMainWorld('fixlabDesktop', fixlabDesktop)

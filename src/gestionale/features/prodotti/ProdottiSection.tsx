@@ -21,6 +21,7 @@ import type { Product } from '../../../types'
 import { db } from '../../../firebase'
 import type { Category } from '../../../types'
 import { exportProductsExcel } from '../../lib/exportProductsExcel'
+import { openEntitySpreadsheetImport } from '../../lib/openEntitySpreadsheetImport'
 import ProdottiActionBar from './ProdottiActionBar'
 import ProdottiLista from './ProdottiLista'
 import ProdottiScheda from './ProdottiScheda'
@@ -73,7 +74,6 @@ export default function ProdottiSection() {
     syncing: productsSyncing,
     loadingMore: productsLoadingMore,
     hasMore: productsHasMore,
-    truncated: productsTruncated,
     error: productsError,
     loadMore: loadMoreProducts,
     showInitialSpinner: productsInitial,
@@ -83,7 +83,6 @@ export default function ProdottiSection() {
     syncing: movementsSyncing,
     loadingMore: movementsLoadingMore,
     hasMore: movementsHasMore,
-    truncated: movementsTruncated,
     loadMore: loadMoreMovements,
   } = useStudioPagedLiveQuery(studioId, listenStockMovements, fetchStockMovementsPage, liveEnabled)
   const { data: categories, loading: categoriesLoading } = useStudioLiveQuery(
@@ -95,7 +94,7 @@ export default function ProdottiSection() {
   const [fornitori, setFornitori] = useState<string[]>([])
   useEffect(() => {
     if (!studioId) return
-    void loadRecentSuppliers(studioId, 100).then(rows => {
+    void loadRecentSuppliers(studioId).then(rows => {
       setFornitori(rows.map(s => s.name).sort((a, b) => a.localeCompare(b, 'it')))
     })
   }, [studioId])
@@ -116,13 +115,13 @@ export default function ProdottiSection() {
   const [previousId, setPreviousId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<SchedaTabId>('caratteristiche')
 
-  const [criterioRaggruppamento, setCriterioRaggruppamento] = useState<RaggruppaCriterio>('Categoria')
+  const [criterioRaggruppamento, setCriterioRaggruppamento] = useState<RaggruppaCriterio>('Nessuno')
   const [filtriColonna, setFiltriColonna] = useState<Partial<Record<ColonnaId, ColumnFilter>>>({})
   const [colonneVisibili, setColonneVisibili] = useState(DEFAULT_COLONNE)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [filtraAttivo, setFiltraAttivo] = useState(true)
+  const [filtraAttivo, setFiltraAttivo] = useState(false)
   const [categoryFilterId, setCategoryFilterId] = useState<string | null>(null)
   const [mostraTotali, setMostraTotali] = useState(false)
 
@@ -179,15 +178,12 @@ export default function ProdottiSection() {
     return list
   }, [prodotti, editing, cercaCampo, cercaModo, cercaQuery, categoryFilterId, categories])
 
-  const listTruncated = productsTruncated || movementsTruncated
   const hasScopedFilters = useMemo(
     () =>
-      listTruncated &&
-      (Boolean(cercaQuery.trim()) ||
-        Object.keys(filtriColonna).length > 0 ||
-        filtraAttivo ||
-        Boolean(categoryFilterId)),
-    [listTruncated, cercaQuery, filtriColonna, filtraAttivo, categoryFilterId],
+      Boolean(cercaQuery.trim()) ||
+      Object.keys(filtriColonna).length > 0 ||
+      Boolean(categoryFilterId),
+    [cercaQuery, filtriColonna, categoryFilterId],
   )
 
   const selected = useMemo(() => {
@@ -474,7 +470,6 @@ export default function ProdottiSection() {
           <LoadMoreBar
             hasMore={productsHasMore || movementsHasMore}
             loading={productsLoadingMore || movementsLoadingMore}
-            truncated={productsTruncated || movementsTruncated}
             onLoadMore={() => {
               if (productsHasMore) void loadMoreProducts()
               else if (movementsHasMore) void loadMoreMovements()
@@ -555,7 +550,18 @@ export default function ProdottiSection() {
           if (selectedIds.size === 0) showInfo('Seleziona almeno un prodotto.')
           else showInfo(`Modifica selezione: ${selectedIds.size} record (apri la scheda del primo).`)
         }}
-        onUtilita={tipo => showInfo(tipo)}
+        onUtilita={tipo => {
+          if (tipo.startsWith('Esporta')) handleExcel()
+          else {
+            openEntitySpreadsheetImport({
+              studioId,
+              entity: 'products',
+              onSuccess: showInfo,
+              onError: showInfo,
+              onProgress: showInfo,
+            })
+          }
+        }}
       />
 
       {showElimina ? <ConfermaEliminaDialog onSi={() => void handleEliminaConfirm()} onNo={() => setShowElimina(false)} /> : null}

@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import { useExpandableTableCells } from '../../hooks/useExpandableTableCells'
+import { useTableColumnWidths } from '../../hooks/useTableColumnWidths'
+import TableColumnResizer from './TableColumnResizer'
 
 export type DataTableSortDirection = 'asc' | 'desc'
 
@@ -33,6 +36,11 @@ export type DataTableProps<T> = {
   emptyMessage?: string
   className?: string
   getRowClassName?: (row: T, index: number) => string | undefined
+  /** Persistenza larghezze colonne in localStorage */
+  tableId?: string
+  resizableColumns?: boolean
+  /** Doppio clic sulla cella per espandere il testo (wrap) */
+  expandableCells?: boolean
 }
 
 const DEFAULT_ROW_HEIGHT = 26
@@ -66,10 +74,31 @@ export default function DataTable<T>({
   emptyMessage = 'Nessun elemento da visualizzare.',
   className = '',
   getRowClassName,
+  tableId,
+  resizableColumns = true,
+  expandableCells = true,
 }: DataTableProps<T>) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(0)
+  const { hasExpanded, isExpanded, onCellDoubleClick } = useExpandableTableCells()
+
+  const defaultColumnWidths = useMemo(() => {
+    const widths: Record<string, number> = {}
+    for (const col of columns) {
+      if (typeof col.width === 'number') widths[col.id] = col.width
+      else if (col.minWidth) widths[col.id] = col.minWidth
+      else widths[col.id] = 100
+    }
+    return widths
+  }, [columns])
+
+  const storageKey = tableId ? `fixlab.datatable.${tableId}` : ''
+  const columnResize = useTableColumnWidths(
+    storageKey || 'fixlab.datatable.default',
+    defaultColumnWidths,
+  )
+  const columnWidths = resizableColumns ? columnResize.widths : defaultColumnWidths
 
   const selectedSet = useMemo(() => new Set(selectedKeys), [selectedKeys])
 
@@ -82,7 +111,7 @@ export default function DataTable<T>({
     return sortDirection === 'desc' ? sorted.reverse() : sorted
   }, [rows, columns, sortColumnId, sortDirection])
 
-  const useVirtual = virtualize && sortedRows.length >= virtualizeThreshold
+  const useVirtual = virtualize && sortedRows.length >= virtualizeThreshold && !hasExpanded
 
   const { startIndex, endIndex, offsetTop, totalHeight } = useMemo(() => {
     if (!useVirtual) {
@@ -154,11 +183,12 @@ export default function DataTable<T>({
     const key = rowKey(row)
     const selected = selectedSet.has(key)
     const extra = getRowClassName?.(row, index) ?? ''
+    const rowExpanded = expandableCells && columns.some(col => isExpanded(key, col.id))
 
     return (
       <tr
         key={key}
-        className={`gestionale-datatable__row${selected ? ' gestionale-datatable__row--selected' : ''}${extra ? ` ${extra}` : ''}`}
+        className={`gestionale-datatable__row${selected ? ' gestionale-datatable__row--selected' : ''}${rowExpanded ? ' gestionale-datatable__row--expanded' : ''}${extra ? ` ${extra}` : ''}`}
         onClick={() => onRowClick?.(row)}
         onDoubleClick={() => onRowDoubleClick?.(row)}
       >
@@ -173,15 +203,30 @@ export default function DataTable<T>({
             />
           </td>
         ) : null}
-        {columns.map(col => (
-          <td
-            key={col.id}
-            className={`gestionale-datatable__td ${tdAlign(col.align)}`}
-            style={col.width != null ? { width: col.width } : undefined}
-          >
-            {col.render ? col.render(row, index) : col.accessor ? String(col.accessor(row) ?? '') : null}
-          </td>
-        ))}
+        {columns.map(col => {
+          const cellExpanded = expandableCells && isExpanded(key, col.id)
+          return (
+            <td
+              key={col.id}
+              className={`gestionale-datatable__td ${tdAlign(col.align)}${cellExpanded ? ' gestionale-datatable__td--expanded' : ''}`}
+              style={
+                resizableColumns
+                  ? { width: columnWidths[col.id], minWidth: columnWidths[col.id], maxWidth: columnWidths[col.id] }
+                  : col.width != null
+                    ? { width: col.width }
+                    : undefined
+              }
+              title={expandableCells && !cellExpanded ? 'Doppio clic per espandere' : undefined}
+              onDoubleClick={
+                expandableCells
+                  ? (e: MouseEvent) => onCellDoubleClick(key, col.id, e)
+                  : undefined
+              }
+            >
+              {col.render ? col.render(row, index) : col.accessor ? String(col.accessor(row) ?? '') : null}
+            </td>
+          )
+        })}
       </tr>
     )
   }
@@ -197,7 +242,10 @@ export default function DataTable<T>({
   return (
     <div className={`gestionale-datatable${className ? ` ${className}` : ''}`}>
       <div ref={scrollRef} className="gestionale-datatable__scroll" onScroll={handleScroll}>
-        <table className="gestionale-datatable__table" role="grid">
+        <table
+          className={`gestionale-datatable__table${resizableColumns ? ' gestionale-datatable__table--resizable' : ''}`}
+          role="grid"
+        >
           <thead className="gestionale-datatable__thead">
             <tr>
               {selectable ? (
@@ -216,22 +264,27 @@ export default function DataTable<T>({
               ) : null}
               {columns.map(col => {
                 const sorted = sortColumnId === col.id
+                const w = columnWidths[col.id]
                 return (
                   <th
                     key={col.id}
                     className={`gestionale-datatable__th ${thAlign(col.align)}${col.sortable ? ' gestionale-datatable__th--sortable' : ''}`}
-                    style={{
-                      width: col.width,
-                      minWidth: col.minWidth,
-                    }}
+                    style={
+                      resizableColumns
+                        ? { width: w, minWidth: w, maxWidth: w }
+                        : { width: col.width, minWidth: col.minWidth }
+                    }
                     onClick={col.sortable && onSort ? () => onSort(col.id) : undefined}
                     aria-sort={sorted ? (sortDirection === 'asc' ? 'ascending' : 'descending') : undefined}
                   >
-                    {col.header}
+                    <span className="gestionale-datatable__th-label">{col.header}</span>
                     {col.sortable && sorted ? (
                       <span className="gestionale-datatable__sort-icon" aria-hidden="true">
                         {sortDirection === 'asc' ? '▲' : '▼'}
                       </span>
+                    ) : null}
+                    {resizableColumns ? (
+                      <TableColumnResizer onMouseDown={clientX => columnResize.startResize(col.id, clientX)} />
                     ) : null}
                   </th>
                 )

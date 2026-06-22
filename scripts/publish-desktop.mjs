@@ -48,9 +48,39 @@ function run(command, args, label) {
 }
 
 const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version
-console.log(`Pubblicazione desktop FixLab v${version}…`)
+const tag = `v${version}`
+console.log(`Pubblicazione desktop FixLab ${tag}…`)
+
+function runGit(args, label) {
+  console.log(`\n→ ${label}`)
+  const result = spawnSync('git', args, { cwd: root, stdio: 'inherit', env: process.env, shell: process.platform === 'win32' })
+  if (result.status !== 0) process.exit(result.status ?? 1)
+}
+
+runGit(['tag', '-f', tag], `git tag ${tag}`)
+runGit(['push', 'origin', tag, '--force'], `git push ${tag}`)
 
 run(npmCmd, ['run', 'build:desktop'], 'build desktop')
-run(npxCmd, ['electron-builder', '--win', '--publish', 'always'], 'electron-builder publish')
 
-console.log(`\n✓ Release desktop v${version} pubblicata.`)
+console.log('\n→ electron-builder publish')
+const publish = spawnSync(npxCmd, ['electron-builder', '--win', '--publish', 'always'], {
+  cwd: root,
+  stdio: 'inherit',
+  env: process.env,
+  shell: process.platform === 'win32',
+})
+
+if (publish.status !== 0) {
+  console.warn('\n⚠ electron-builder publish fallito — carico asset manualmente (exe + latest.yml)…')
+} else {
+  console.log('\n→ Verifica asset release (latest.yml per auto-update)…')
+}
+
+const uploadAssets = spawnSync(process.execPath, ['scripts/upload-release-assets.mjs', tag], {
+  cwd: root,
+  stdio: 'inherit',
+  env: process.env,
+})
+if (uploadAssets.status !== 0) process.exit(uploadAssets.status ?? 1)
+
+console.log(`\n✓ Release desktop ${tag} pubblicata.`)

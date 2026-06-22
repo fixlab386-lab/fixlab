@@ -1,4 +1,8 @@
-export const SUPER_ADMIN_EMAILS = ['studio@gmail.com', 'samuelelazzaro78@gmail.com'] as const
+export const SUPER_ADMIN_EMAILS = [
+  'studio@gmail.com',
+  'samuelelazzaro78@gmail.com',
+  'samuele.lazzaro78@gmail.com',
+] as const
 
 export function isSuperAdminEmail(email: string | undefined | null): boolean {
   if (!email) return false

@@ -11,7 +11,7 @@ import { printHtmlInIframe } from '../../../lib/printDocument'
 import type { Client } from '../../../types'
 import { exportClientsExcel } from '../../../components/clients/exportClientsExcel'
 import { SectionHeader } from '../../../components/ui'
-import { importClientsFromCsv } from '../../lib/importAnagraficaCsv'
+import { openEntitySpreadsheetImport } from '../../lib/openEntitySpreadsheetImport'
 import ClientiActionBar from './ClientiActionBar'
 import ClientiColonneMenu from './ClientiColonneMenu'
 import ClientiLista from './ClientiLista'
@@ -65,7 +65,6 @@ export default function ClientiSection() {
     syncing,
     loadingMore,
     hasMore,
-    truncated,
     error: loadError,
     loadMore,
     showInitialSpinner,
@@ -87,13 +86,13 @@ export default function ClientiSection() {
   const [snapshot, setSnapshot] = useState<Cliente | null>(null)
   const [activeTab, setActiveTab] = useState<SchedaTabId>('anagrafica')
 
-  const [criterioRaggruppamento, setCriterioRaggruppamento] = useState<RaggruppaCriterio>('Pagamento')
+  const [criterioRaggruppamento, setCriterioRaggruppamento] = useState<RaggruppaCriterio>('Nessuno')
   const [filtriColonna, setFiltriColonna] = useState<Partial<Record<ColonnaId, ColumnFilter>>>({})
   const [colonneVisibili, setColonneVisibili] = useState(DEFAULT_COLONNE)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [filtraAttivo, setFiltraAttivo] = useState(true)
+  const [filtraAttivo, setFiltraAttivo] = useState(false)
   const [searchPiva, setSearchPiva] = useState('')
   const [sortColumn, setSortColumn] = useState<ColonnaId | null>('cod')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
@@ -170,8 +169,8 @@ export default function ClientiSection() {
   }, [clienti, searchPiva])
 
   const hasScopedFilters = useMemo(
-    () => truncated && (Boolean(searchPiva.trim()) || Object.keys(filtriColonna).length > 0 || filtraAttivo),
-    [truncated, searchPiva, filtriColonna, filtraAttivo],
+    () => Boolean(searchPiva.trim()) || Object.keys(filtriColonna).length > 0,
+    [searchPiva, filtriColonna],
   )
 
   const visibleColIds = useMemo(
@@ -460,7 +459,7 @@ export default function ClientiSection() {
             onFilterPersonalizzato={col => setFiltroPersCol(col)}
           />
           <PaginatedFilterHint visible={hasScopedFilters} loading={loadingMore} onLoadMore={loadMore} />
-          <LoadMoreBar hasMore={hasMore} loading={loadingMore} truncated={truncated} onLoadMore={loadMore} />
+          <LoadMoreBar hasMore={hasMore} loading={loadingMore} onLoadMore={loadMore} />
 
           <ClientiActionBar
             hasSelection={Boolean(selected)}
@@ -474,24 +473,13 @@ export default function ClientiSection() {
             onUtilita={tipo => {
               if (tipo.startsWith('Esporta')) handleExcel()
               else {
-                const input = document.createElement('input')
-                input.type = 'file'
-                input.accept = '.xlsx,.xls,.csv'
-                input.onchange = async () => {
-                  const file = input.files?.[0]
-                  if (!file || !studioId) return
-                  try {
-                    const text = await file.text()
-                    const result = await importClientsFromCsv(text, studioId, () => getNextClientCode(studioId))
-                    if (result.error) setError(result.error)
-                    else {
-                      setError(`Importati ${result.imported} clienti${result.skipped ? ` (${result.skipped} righe saltate)` : ''}.`)
-                    }
-                  } catch {
-                    setError('Importazione non riuscita.')
-                  }
-                }
-                input.click()
+                openEntitySpreadsheetImport({
+                  studioId,
+                  entity: 'clients',
+                  onSuccess: msg => setError(msg),
+                  onError: msg => setError(msg),
+                  onProgress: msg => setError(msg),
+                })
               }
             }}
           />

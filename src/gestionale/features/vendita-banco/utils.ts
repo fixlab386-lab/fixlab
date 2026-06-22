@@ -1,5 +1,5 @@
-import type { Client, DocumentRow } from '../../../types'
-import type { Product } from '../../../types'
+import { defaultDocumentNumerazione } from '../documenti'
+import type { Client, DocumentRow, Product } from '../../../types'
 import { clientToOrdineCliente } from '../ordine-cliente/utils'
 import type { DocumentoVenditaBanco, RigaDocumento, ScadenzaPagamento, VenditaBancoSeed } from './types'
 
@@ -158,7 +158,7 @@ export function createInitialDocumento(): DocumentoVenditaBanco {
     listino: 'Privati',
     data: today,
     numero: 1,
-    numerazione: '',
+    numerazione: defaultDocumentNumerazione(today),
     seguiraDocVendita: false,
     righe: [emptyRiga()],
     tipoPagamento: '',

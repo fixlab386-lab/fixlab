@@ -17,3 +17,5 @@ export {
   extendSubscription,
   updateStudioSubscription,
 } from './admin'
+export { importDaneaBef } from './daneaBefImport'
+export { repairDaneaDocuments } from './repairDaneaDocuments'

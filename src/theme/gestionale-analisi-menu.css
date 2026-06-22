@@ -12,10 +12,6 @@
 }
 
 .gestionale-toolbar-analisi__menu {
-  position: absolute;
-  top: calc(100% + 2px);
-  left: 50%;
-  transform: translateX(-50%);
   min-width: 150px;
 }
 
@@ -38,4 +34,6 @@
 
 .gestionale-toolbar-analisi__icon--flussi {
   color: #e6a800;
+  font-weight: 800;
+  font-size: 14px;
 }

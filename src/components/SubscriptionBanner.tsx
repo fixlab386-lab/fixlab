@@ -1,5 +1,3 @@
-import { useAppWindows } from '../contexts/AppWindowsContext'
-
 type Props = {
   daysLeft: number
   onDismiss?: () => void
@@ -24,15 +22,9 @@ export function dismissSubscriptionBanner(): void {
 }
 
 export default function SubscriptionBanner({ daysLeft, onDismiss }: Props) {
-  const { openOpzioni } = useAppWindows()
-
   const handleDismiss = () => {
     dismissSubscriptionBanner()
     onDismiss?.()
-  }
-
-  const handleRenew = () => {
-    openOpzioni('abbonamento')
   }
 
   return (
@@ -55,43 +47,25 @@ export default function SubscriptionBanner({ daysLeft, onDismiss }: Props) {
     >
       <span>
         ⚠️ Il tuo abbonamento scade tra <strong>{daysLeft}</strong>{' '}
-        {daysLeft === 1 ? 'giorno' : 'giorni'}. Rinnova ora per continuare a usare FIXLab.
+        {daysLeft === 1 ? 'giorno' : 'giorni'}.
       </span>
-      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-        <button
-          type="button"
-          onClick={handleRenew}
-          style={{
-            padding: '6px 14px',
-            background: '#d97706',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontWeight: 600,
-            fontSize: '13px',
-          }}
-        >
-          Rinnova →
-        </button>
-        <button
-          type="button"
-          onClick={handleDismiss}
-          aria-label="Chiudi avviso"
-          style={{
-            padding: '4px 10px',
-            background: 'transparent',
-            border: '1px solid #d97706',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            color: '#92400e',
-            fontSize: '16px',
-            lineHeight: 1,
-          }}
-        >
-          ×
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={handleDismiss}
+        aria-label="Chiudi avviso"
+        style={{
+          padding: '4px 10px',
+          background: 'transparent',
+          border: '1px solid #d97706',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          color: '#92400e',
+          fontSize: '16px',
+          lineHeight: 1,
+        }}
+      >
+        ×
+      </button>
     </div>
   )
 }

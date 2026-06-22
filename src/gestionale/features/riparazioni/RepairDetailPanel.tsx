@@ -4,7 +4,6 @@ import { useAppWindows } from '../../../contexts/AppWindowsContext'
 import { DetailPanel, DetailPanelFields, ToolButton, type DetailPanelField } from '../../../components/ui'
 import type { Repair } from '../../../types'
 import ClientLinkedDocumentsPanel from '../shared/ClientLinkedDocumentsPanel'
-import { REPAIR_PRIORITIES } from './constants'
 import { formatRepairDate, repairStatusLabel } from './utils'
 import { openOrdineForRepair } from './openOrdineForRepair'
 
@@ -28,10 +27,6 @@ function summaryFields(repair: Repair): DetailPanelField[] {
     { label: 'Telefono', value: repair.clientPhone },
     { label: 'Dispositivo', value: `${repair.deviceBrand} ${repair.deviceModel}`.trim() },
     { label: 'Problema', value: repair.problem, span: 2 },
-    {
-      label: 'Priorità',
-      value: REPAIR_PRIORITIES[repair.priority]?.label || repair.priority,
-    },
     { label: 'Totale', value: `€ ${(repair.totalCost || 0).toFixed(2)}` },
     { label: 'Apertura', value: formatRepairDate(repair.createdAt) },
     ...(repair.diagnosis ? [{ label: 'Diagnosi', value: repair.diagnosis, span: 2 as const }] : []),

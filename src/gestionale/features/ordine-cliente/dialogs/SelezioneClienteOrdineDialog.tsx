@@ -122,7 +122,7 @@ export default function SelezioneClienteOrdineDialog({
     const timer = window.setTimeout(() => {
       const q = clientQuery.trim()
       if (!q) {
-        void loadRecentClients(studioId, 12).then(items => {
+        void loadRecentClients(studioId).then(items => {
           if (!cancelled) setClientSuggestions(items)
         })
         return

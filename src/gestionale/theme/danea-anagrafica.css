@@ -25,7 +25,7 @@
 /* ── Master-detail 75 / 25 ── */
 .clienti-section .clienti-section__body,
 .fornitori-section .clienti-section__body {
-  grid-template-columns: minmax(0, 75fr) minmax(280px, 25fr);
+  grid-template-columns: minmax(0, 72fr) minmax(320px, 28fr);
 }
 
 .danea-section__lista-col {
@@ -280,21 +280,48 @@
   min-width: 0;
 }
 
-.danea-form__row--3 {
+.danea-form__row--loc {
+  align-items: start;
+}
+
+.danea-form__loc-grid {
   display: grid;
-  grid-template-columns: 88px 72px 1fr 40px;
-  align-items: center;
-  gap: 6px;
-  min-height: 24px;
+  grid-template-columns: minmax(92px, 108px) minmax(0, 1fr) 48px;
+  gap: 6px 8px;
+  width: 100%;
+  min-width: 0;
 }
 
-.danea-form__row--3 .danea-form__label--sub {
-  display: none;
+.danea-form__loc-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  position: relative;
 }
 
-.danea-form__row--3 .danea-form__sublabel {
+.danea-form__loc-cell .danea-form__sublabel {
   font-size: 12px;
+  font-weight: 400;
   color: var(--win-text-main);
+  line-height: 1.2;
+}
+
+.danea-form__loc-cell .clienti-input {
+  width: 100%;
+  min-width: 0;
+}
+
+.danea-form__loc-cell .danea-form__control {
+  gap: 2px;
+}
+
+.danea-form__loc-cell--city {
+  min-width: 0;
+}
+
+.danea-form__loc-cell--prov .clienti-input {
+  text-transform: uppercase;
 }
 
 .danea-form__links {
@@ -360,29 +387,6 @@
   padding: 2px 6px;
   font-size: 11px;
   border-radius: 0;
-}
-
-/* CAP/Città/Prov in form Danea */
-.danea-form .clienti-row--3 {
-  display: grid;
-  grid-template-columns: 88px 72px 1fr 40px;
-  gap: 6px;
-  align-items: center;
-  margin-bottom: 3px;
-}
-
-.danea-form .clienti-row--3 .clienti-field {
-  display: contents;
-}
-
-.danea-form .clienti-row--3 .clienti-field__label {
-  font-size: 12px;
-  font-weight: 400;
-  text-align: left;
-}
-
-.danea-form .clienti-row--3 .clienti-field:first-child .clienti-field__label::before {
-  content: '';
 }
 
 .danea-section .clienti-grid tr.clienti-grid__row--selected td input[type='checkbox'] {

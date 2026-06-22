@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
+import { FixedDropdownPanel, useDropdownDismiss } from '../../components/FixedDropdown'
 import { RAGGRUPPA_CRITERI, RAGGRUPPA_LABELS } from './constants'
 import type { RaggruppaCriterio } from './types'
 import ProdottiColonneMenu from './ProdottiColonneMenu'
@@ -34,43 +35,39 @@ function RaggruppaDropdown({
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const close = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [open])
+  useDropdownDismiss(open, ref, () => setOpen(false))
 
   return (
     <div className="prodotti-dropdown" ref={ref}>
       <button type="button" className={actionBtnClass(value !== 'Nessuno')} onClick={() => setOpen(v => !v)}>
         Raggruppa <span style={{ fontSize: 9 }}>▼</span>
       </button>
-      {open ? (
-        <div className="prodotti-dropdown__menu prodotti-dropdown__menu--down">
-          {RAGGRUPPA_CRITERI.map(c => (
-            <button
-              key={c}
-              type="button"
-              className="prodotti-dropdown__item"
-              onClick={() => {
-                onChange(c)
-                setOpen(false)
-              }}
-            >
-              {c === value ? '✓ ' : ''}
-              {RAGGRUPPA_LABELS[c]}
-            </button>
-          ))}
-          <label className="prodotti-dropdown__check" style={{ borderTop: '1px solid #ccc', marginTop: 4 }}>
-            <input type="checkbox" checked={mostraTotali} onChange={e => onMostraTotali(e.target.checked)} />
-            Mostra totali parziali
-          </label>
-        </div>
-      ) : null}
+      <FixedDropdownPanel
+        open={open}
+        anchorRef={ref}
+        direction="down"
+        align="left"
+        menuClassName="prodotti-dropdown__menu prodotti-dropdown__menu--fixed"
+      >
+        {RAGGRUPPA_CRITERI.map(c => (
+          <button
+            key={c}
+            type="button"
+            className="prodotti-dropdown__item"
+            onClick={() => {
+              onChange(c)
+              setOpen(false)
+            }}
+          >
+            {c === value ? '✓ ' : ''}
+            {RAGGRUPPA_LABELS[c]}
+          </button>
+        ))}
+        <label className="prodotti-dropdown__check" style={{ borderTop: '1px solid #ccc', marginTop: 4 }}>
+          <input type="checkbox" checked={mostraTotali} onChange={e => onMostraTotali(e.target.checked)} />
+          Mostra totali parziali
+        </label>
+      </FixedDropdownPanel>
     </div>
   )
 }

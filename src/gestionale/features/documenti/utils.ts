@@ -62,8 +62,56 @@ export function documentYearFromDate(date: string): number {
   return Number.isNaN(y) ? new Date().getFullYear() : y
 }
 
+/** true se la numerazione è un anno (es. "2026"). */
+export function isNumerationYear(value: string): boolean {
+  return /^\d{4}$/.test((value || '').trim())
+}
+
+/** Anno di numerazione predefinito per una data documento. */
+export function defaultDocumentNumerazione(date?: string): string {
+  return String(documentYearFromDate(date || new Date().toISOString().slice(0, 10)))
+}
+
+/** Anno effettivo per progressivo: dall'anno scelto in numerazione o dalla data. */
+export function documentYearFromNumerazione(numerazione: string, date: string): number {
+  const trimmed = (numerazione || '').trim()
+  if (isNumerationYear(trimmed)) return parseInt(trimmed, 10)
+  return documentYearFromDate(date)
+}
+
+/** Anni selezionabili nel dropdown Numeraz. (anno corrente ± margine). */
+export function documentNumerationOptions(referenceYear?: number): string[] {
+  const base = referenceYear ?? new Date().getFullYear()
+  const years: string[] = []
+  for (let y = base - 2; y <= base + 5; y++) {
+    years.push(String(y))
+  }
+  return years
+}
+
+/** Valore da mostrare nel select Numeraz. */
+export function resolveDocumentNumerazione(
+  numerazione: string,
+  date: string,
+  documentYear?: number,
+): string {
+  const trimmed = (numerazione || '').trim()
+  if (trimmed) return trimmed
+  if (documentYear && documentYear >= 1900) return String(documentYear)
+  return defaultDocumentNumerazione(date)
+}
+
+export function numerazioneFromDocRecord(d: {
+  numbering?: string
+  documentYear?: number
+  date: string
+}): string {
+  return resolveDocumentNumerazione(d.numbering || '', d.date, d.documentYear)
+}
+
 export function buildFullNumber(number: number, year: number, numbering?: string): string {
-  if (numbering?.trim()) return `${number}/${numbering.trim()}`
+  const trimmed = numbering?.trim()
+  if (trimmed) return `${number}/${trimmed}`
   return `${number}/${year}`
 }
 

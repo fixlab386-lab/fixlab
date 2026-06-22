@@ -14,11 +14,12 @@ import { formatCallableError } from '../../../lib/cloudFunctions'
 import { invalidateDashboardCache } from '../start/dashboardCache'
 import { downloadHtmlAsPdf, printHtmlInIframe } from '../../../lib/printDocument'
 import { CONFERMA_ORDINE_PRINT_CSS } from '../../../lib/confermaOrdineTemplate'
-import { documentYearFromDate } from '../documenti'
+import { documentYearFromDate, documentYearFromNumerazione } from '../documenti'
 import IncludiDocumentiDialog from '../documenti/dialogs/IncludiDocumentiDialog'
 import { getIncludableDocuments, mergeIncludedRows, type InclusionMode } from '../documenti/inclusionUtils'
+import NumerazioneSelect from '../shared/NumerazioneSelect'
+import { COMMENTI_INTERNI_PREDEFINITI } from '../vendita-banco/constants'
 import type { Category, DocRecord, Product, Supplier } from '../../../types'
-import { NUMERAZIONI, COMMENTI_INTERNI_PREDEFINITI } from '../vendita-banco/constants'
 import { getCustomCommentiInterni, addCustomCommentoInterno } from '../../../lib/userPrefs'
 import TabNote from '../vendita-banco/tabs/TabNote'
 import TabIndirizzi from '../vendita-banco/tabs/TabIndirizzi'
@@ -524,13 +525,13 @@ export default function OrdineFornitoreModal() {
 
   const handleClose = useCallback(async () => {
     const needsPrompt = documentNeedsSaveOnClose(activeRighe.length > 0, savedDocumentId, isDirty)
-    const outcome = await confirmSaveDocumentOnClose(needsPrompt, () => saveOrdine('confirmed'))
-    if (outcome === 'close') {
+    const { closed, error } = await confirmSaveDocumentOnClose(needsPrompt, () => saveOrdine('confirmed'))
+    if (closed) {
       closeOrdineFornitore()
-    } else if (needsPrompt) {
-      setLoadError('Salvataggio non riuscito.')
+    } else if (error) {
+      setLoadError(error)
     }
-  }, [activeRighe.length, savedDocumentId, isDirty, closeOrdineFornitore])
+  }, [activeRighe.length, savedDocumentId, isDirty, closeOrdineFornitore, saveOrdine])
 
   useEffect(() => {
     if (!ordineFornitoreOpen) return
@@ -689,13 +690,20 @@ export default function OrdineFornitoreModal() {
                         </WinField>
 
                         <WinField label="Numeraz." htmlFor="of-numeraz" className="vb-header-field--numeraz">
-                          <WinSelect id="of-numeraz" value={docState.numerazione} onChange={e => patchDoc({ numerazione: e.target.value })}>
-                            {NUMERAZIONI.map(n => (
-                              <option key={n || 'default'} value={n}>
-                                {n || '—'}
-                              </option>
-                            ))}
-                          </WinSelect>
+                          <NumerazioneSelect
+                            id="of-numeraz"
+                            value={docState.numerazione}
+                            date={docState.data}
+                            onChange={numerazione => {
+                              patchDoc({ numerazione })
+                              if (!studioId) return
+                              void getNextDocumentNumber(
+                                studioId,
+                                'ordine_fornitore',
+                                documentYearFromNumerazione(numerazione, docState.data),
+                              ).then(num => patchDoc({ numero: num, numerazione }))
+                            }}
+                          />
                         </WinField>
                       </div>
 

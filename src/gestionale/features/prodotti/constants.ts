@@ -57,6 +57,14 @@ export const COLONNE_DEF: { id: ColonnaId; label: string; default: boolean }[] =
   { id: 'produttore', label: 'Produttore', default: true },
 ]
 
+export const COLONNE_WIDTH_DEFAULT: Record<ColonnaId, number> = {
+  categoria: 140,
+  cod: 72,
+  descrizione: 220,
+  prezzo: 72,
+  produttore: 120,
+}
+
 export const DEFAULT_COLONNE: Record<ColonnaId, boolean> = Object.fromEntries(
   COLONNE_DEF.map(c => [c.id, c.default]),
 ) as Record<ColonnaId, boolean>

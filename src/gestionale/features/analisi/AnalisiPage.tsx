@@ -18,7 +18,7 @@ import {
   ANALISI_DIMENSION_LABELS,
   ANALISI_KIND_LABELS,
   ANALISI_PERIOD_QUICK,
-  ANALISI_PRIMARY_DIMENSIONS,
+  primaryDimensionsForKind,
   isAltroPeriod,
   lastMonths,
   periodSelectionLabel,
@@ -29,6 +29,7 @@ import {
 } from './analisiTypes'
 import AnalisiBarChart from './AnalisiBarChart'
 import AnalisiPieChart from './AnalisiPieChart'
+import AnalisiFlussiPanel from './AnalisiFlussiPanel'
 import AnalisiPortalMenu from './AnalisiPortalMenu'
 import '../../theme/analisi.css'
 
@@ -150,6 +151,7 @@ export default function AnalisiPage() {
 
   const dimensionLabel = ANALISI_DIMENSION_LABELS[dimension]
   const calcLabel = ANALISI_CALC_OPTIONS.find(o => o.id === calc)?.label ?? 'Valore'
+  const primaryDimensions = primaryDimensionsForKind(analisiKind)
   const altroPeriodActive = isAltroPeriod(period)
   const periodAltroLabel = altroPeriodActive
     ? periodSelectionLabel({ period, year: periodMonth?.year, month: periodMonth?.month, customFrom, customTo })
@@ -223,6 +225,9 @@ export default function AnalisiPage() {
       </div>
 
       <div className="analisi-body">
+        {analisiKind === 'flussi' ? (
+          <AnalisiFlussiPanel dataset={dataset ?? { documents: [], payments: [], clientsById: new Map(), suppliersById: new Map(), productsById: new Map(), productsByCode: new Map() }} loading={loading} error={error} />
+        ) : (
         <div className="analisi-main">
           {/* Colonna sinistra: elenco valori */}
           <div className="analisi-list">
@@ -261,7 +266,7 @@ export default function AnalisiPage() {
             ) : viewMode === 'pie' ? (
               <AnalisiPieChart buckets={sortedBuckets} calc={calc} />
             ) : (
-              <AnalisiBarChart buckets={sortedBuckets} calc={calc} axisLabel={dimensionLabel} />
+              <AnalisiBarChart buckets={sortedBuckets} calc={calc} axisLabel={dimensionLabel} kind={analisiKind} />
             )}
           </div>
 
@@ -349,7 +354,7 @@ export default function AnalisiPage() {
             <section className="analisi-side-section">
               <h3 className="analisi-side-section__title">Analisi per</h3>
               <div className="analisi-side-section__options">
-                {ANALISI_PRIMARY_DIMENSIONS.map(opt => (
+                {primaryDimensions.map(opt => (
                   <label key={opt.id} className="analisi-radio">
                     <input
                       type="radio"
@@ -365,7 +370,7 @@ export default function AnalisiPage() {
                     <input
                       type="radio"
                       name="analisi-dim"
-                      checked={!ANALISI_PRIMARY_DIMENSIONS.some(o => o.id === dimension)}
+                      checked={!primaryDimensions.some(o => o.id === dimension)}
                       onChange={() => setShowAltro(true)}
                     />
                     <button
@@ -374,7 +379,7 @@ export default function AnalisiPage() {
                       className="analisi-altro__btn"
                       onClick={() => setShowAltro(v => !v)}
                     >
-                      {ANALISI_PRIMARY_DIMENSIONS.some(o => o.id === dimension) ? 'Altro…' : `${dimensionLabel} ▾`}
+                      {primaryDimensions.some(o => o.id === dimension) ? 'Altro…' : `${dimensionLabel} ▾`}
                     </button>
                   </label>
                   <AnalisiPortalMenu
@@ -466,9 +471,10 @@ export default function AnalisiPage() {
             </section>
           </div>
         </div>
+        )}
       </div>
 
-      {/* Barra azioni in basso */}
+      {analisiKind !== 'flussi' ? (
       <div className="gestionale-mdi-window__actionbar analisi-actionbar">
         <button type="button" className="gestionale-mdi-window__action-btn" onClick={handleOrdina}>
           ⇅ Ordina
@@ -507,8 +513,9 @@ export default function AnalisiPage() {
           ⟳ Utilità
         </button>
       </div>
+      ) : null}
 
-      {showInterval ? (
+      {analisiKind !== 'flussi' && showInterval ? (
         <div
           className="analisi-interval-backdrop"
           role="presentation"

@@ -4,7 +4,11 @@ import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 
 const db = getFirestore('fixlab')
-const SUPER_ADMIN_EMAILS = ['studio@gmail.com', 'samuelelazzaro78@gmail.com']
+const SUPER_ADMIN_EMAILS = [
+  'studio@gmail.com',
+  'samuelelazzaro78@gmail.com',
+  'samuele.lazzaro78@gmail.com',
+]
 
 function isSuperAdminEmail(email: string | undefined): boolean {
   if (!email) return false

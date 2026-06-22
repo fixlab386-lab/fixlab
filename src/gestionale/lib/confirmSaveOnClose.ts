@@ -9,25 +9,32 @@ export function documentNeedsSaveOnClose(
   return hasRows && (!savedDocumentId || isDirty)
 }
 
+export type SaveDocumentOnCloseResult = {
+  closed: boolean
+  error?: string
+}
+
 /**
  * Chiede se salvare prima di chiudere. Se l'utente conferma, esegue `save` in automatico.
- * @returns `'close'` se il modale va chiuso, `'stay'` se resta aperto (salvataggio rifiutato o fallito).
  */
 export async function confirmSaveDocumentOnClose(
   needsPrompt: boolean,
   save: () => Promise<unknown>,
-): Promise<'close' | 'stay'> {
-  if (!needsPrompt) return 'close'
+): Promise<SaveDocumentOnCloseResult> {
+  if (!needsPrompt) return { closed: true }
 
   if (!window.confirm(SAVE_DOCUMENT_CONFIRM_MESSAGE)) {
-    return 'close'
+    return { closed: true }
   }
 
   try {
     await save()
-    return 'close'
-  } catch {
-    return 'stay'
+    return { closed: true }
+  } catch (err) {
+    return {
+      closed: false,
+      error: err instanceof Error ? err.message : 'Salvataggio non riuscito.',
+    }
   }
 }
 

@@ -92,7 +92,7 @@ export default function Cassa() {
     const term = clientSearch.trim()
     const timer = window.setTimeout(
       () => {
-        const load = term ? searchClients(studioId, term) : loadRecentClients(studioId, 40)
+        const load = term ? searchClients(studioId, term) : loadRecentClients(studioId)
         void load.then(data => {
           if (!cancelled) setClientResults(data)
         })

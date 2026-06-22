@@ -53,60 +53,65 @@ export default function SedeCapFields({ cap, citta, prov, disabled, onPatch }: P
 
   return (
     <>
-      <div className="clienti-row--3">
-        <div className="clienti-field" ref={wrapRef} style={{ position: 'relative' }}>
-          <label className="clienti-field__label">CAP</label>
-          <div className="clienti-row" style={{ gap: 2 }}>
-            <input
-              className="clienti-input clienti-input--short"
-              value={cap}
-              disabled={disabled}
-              maxLength={5}
-              onChange={e => void handleCapChange(e.target.value)}
-            />
-            <button
-              type="button"
-              className="clienti-icon-btn"
-              title="Ricerca CAP / Città / Provincia"
-              disabled={disabled}
-              onClick={() => setShowCapDialog(true)}
-            >
-              🔍
-            </button>
-          </div>
-          {showCapPicker && capOptions.length > 1 ? (
-            <div className="clienti-cap-picker">
-              {capOptions.map(opt => (
-                <button
-                  key={`${opt.cap}-${opt.citta}-${opt.provincia}`}
-                  type="button"
-                  className="clienti-cap-picker__item"
-                  onClick={() => applyCap(opt)}
-                >
-                  {opt.citta} ({opt.provincia})
-                </button>
-              ))}
+      <div className="danea-form__row danea-form__row--loc">
+        <span className="danea-form__label" aria-hidden="true">
+          &nbsp;
+        </span>
+        <div className="danea-form__loc-grid">
+          <div className="danea-form__loc-cell" ref={wrapRef}>
+            <span className="danea-form__sublabel">CAP</span>
+            <div className="danea-form__control">
+              <input
+                className="clienti-input"
+                value={cap}
+                disabled={disabled}
+                maxLength={5}
+                onChange={e => void handleCapChange(e.target.value)}
+              />
+              <button
+                type="button"
+                className="clienti-icon-btn"
+                title="Ricerca CAP / Città / Provincia"
+                disabled={disabled}
+                onClick={() => setShowCapDialog(true)}
+              >
+                🔍
+              </button>
             </div>
-          ) : null}
-        </div>
-        <div className="clienti-field">
-          <label className="clienti-field__label">Città</label>
-          <input
-            className="clienti-input"
-            value={citta}
-            disabled={disabled}
-            onChange={e => onPatch({ citta: e.target.value })}
-          />
-        </div>
-        <div className="clienti-field">
-          <label className="clienti-field__label">Prov.</label>
-          <input
-            className="clienti-input clienti-input--prov"
-            maxLength={2}
-            value={prov}
-            disabled={disabled}
-            onChange={e => onPatch({ prov: e.target.value.toUpperCase() })}
-          />
+            {showCapPicker && capOptions.length > 1 ? (
+              <div className="clienti-cap-picker">
+                {capOptions.map(opt => (
+                  <button
+                    key={`${opt.cap}-${opt.citta}-${opt.provincia}`}
+                    type="button"
+                    className="clienti-cap-picker__item"
+                    onClick={() => applyCap(opt)}
+                  >
+                    {opt.citta} ({opt.provincia})
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <div className="danea-form__loc-cell danea-form__loc-cell--city">
+            <span className="danea-form__sublabel">Città</span>
+            <input
+              className="clienti-input"
+              value={citta}
+              disabled={disabled}
+              onChange={e => onPatch({ citta: e.target.value })}
+            />
+          </div>
+          <div className="danea-form__loc-cell danea-form__loc-cell--prov">
+            <span className="danea-form__sublabel">Prov.</span>
+            <input
+              className="clienti-input"
+              maxLength={2}
+              value={prov}
+              disabled={disabled}
+              onChange={e => onPatch({ prov: e.target.value.toUpperCase() })}
+            />
+          </div>
         </div>
       </div>
 

@@ -1,16 +1,19 @@
 import { useMemo, useState } from 'react'
 import type { AnalisiBucket } from './analisiAggregation'
 import { formatValue } from './analisiAggregation'
-import type { AnalisiCalc } from './analisiTypes'
+import type { AnalisiCalc, AnalisiKind } from './analisiTypes'
 
 type Props = {
   buckets: AnalisiBucket[]
   calc: AnalisiCalc
   axisLabel?: string
+  kind?: AnalisiKind
 }
 
-const POS_TOP = '#7cc04a'
-const POS_BOTTOM = '#a9d97a'
+const VENDITE_POS_TOP = '#7cc04a'
+const VENDITE_POS_BOTTOM = '#a9d97a'
+const ACQUISTI_POS_TOP = '#e8943a'
+const ACQUISTI_POS_BOTTOM = '#f5b86a'
 const NEG_TOP = '#e0746a'
 const NEG_BOTTOM = '#f0a59d'
 
@@ -31,8 +34,11 @@ function niceTicks(max: number, target = 10): number[] {
   return ticks
 }
 
-export default function AnalisiBarChart({ buckets, calc, axisLabel }: Props) {
+export default function AnalisiBarChart({ buckets, calc, axisLabel, kind = 'vendite' }: Props) {
   const [hover, setHover] = useState<{ x: number; y: number; b: AnalisiBucket } | null>(null)
+  const posTop = kind === 'acquisti' ? ACQUISTI_POS_TOP : VENDITE_POS_TOP
+  const posBottom = kind === 'acquisti' ? ACQUISTI_POS_BOTTOM : VENDITE_POS_BOTTOM
+  const posStroke = kind === 'acquisti' ? '#c87820' : '#5fa336'
 
   const maxAbs = useMemo(() => buckets.reduce((m, b) => Math.max(m, Math.abs(b.value)), 0), [buckets])
   const ticks = useMemo(() => niceTicks(maxAbs), [maxAbs])
@@ -79,8 +85,8 @@ export default function AnalisiBarChart({ buckets, calc, axisLabel }: Props) {
           >
             <defs>
               <linearGradient id="analisi-bar-pos" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={POS_TOP} />
-                <stop offset="100%" stopColor={POS_BOTTOM} />
+                <stop offset="0%" stopColor={posTop} />
+                <stop offset="100%" stopColor={posBottom} />
               </linearGradient>
               <linearGradient id="analisi-bar-neg" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={NEG_TOP} />
@@ -99,7 +105,7 @@ export default function AnalisiBarChart({ buckets, calc, axisLabel }: Props) {
                   width={barW}
                   height={Math.max(h, b.value !== 0 ? 0.4 : 0)}
                   fill={b.negative ? 'url(#analisi-bar-neg)' : 'url(#analisi-bar-pos)'}
-                  stroke={b.negative ? '#c85a50' : '#5fa336'}
+                  stroke={b.negative ? '#c85a50' : posStroke}
                   strokeWidth={0.15}
                   onMouseEnter={e => setHover({ x: e.clientX, y: e.clientY, b })}
                   onMouseMove={e => setHover({ x: e.clientX, y: e.clientY, b })}

@@ -58,7 +58,6 @@ export default function MovimentiSection({ initialProductId }: Props) {
     syncing: movementsSyncing,
     loadingMore,
     hasMore,
-    truncated,
     error: movementsError,
     loadMore,
     showInitialSpinner: movementsInitial,
@@ -98,9 +97,9 @@ export default function MovimentiSection({ initialProductId }: Props) {
     if (!studioId) return
     let cancelled = false
     void Promise.all([
-      loadRecentClients(studioId, 200),
-      loadRecentSuppliers(studioId, 200),
-      loadRecentProducts(studioId, 300),
+      loadRecentClients(studioId),
+      loadRecentSuppliers(studioId),
+      loadRecentProducts(studioId),
     ])
       .then(([clients, suppliers, products]) => {
         if (cancelled) return
@@ -362,6 +361,7 @@ export default function MovimentiSection({ initialProductId }: Props) {
             rows={tableRows}
             columns={columns}
             rowKey={m => m.id}
+            tableId="movimenti"
             selectedKeys={list.selectedKeys}
             onSelectionChange={keys => {
               list.setSelectedKeys(keys)
@@ -391,7 +391,7 @@ export default function MovimentiSection({ initialProductId }: Props) {
             <span />
             <span className="movimenti-section__foot-num">{totals.incoming || ''}</span>
           </div>
-          <LoadMoreBar hasMore={hasMore} loading={loadingMore} truncated={truncated} onLoadMore={loadMore} />
+          <LoadMoreBar hasMore={hasMore} loading={loadingMore} onLoadMore={loadMore} />
         </div>
 
         <MovimentiSidebar

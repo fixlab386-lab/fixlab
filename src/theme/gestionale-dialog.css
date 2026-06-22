@@ -180,6 +180,31 @@
   min-width: 0;
 }
 
+.gestionale-loc-row {
+  display: grid;
+  grid-template-columns: minmax(88px, 100px) minmax(0, 1fr) 48px;
+  gap: 8px;
+  align-items: end;
+}
+
+.gestionale-loc-row__cell {
+  min-width: 0;
+}
+
+.gestionale-loc-row__cell .vb-input,
+.gestionale-loc-row__cell input {
+  width: 100%;
+  min-width: 0;
+}
+
+.gestionale-loc-row__cell--city {
+  min-width: 0;
+}
+
+.gestionale-loc-row__cell--prov {
+  max-width: 48px;
+}
+
 .gestionale-field-action-btn {
   flex-shrink: 0;
   width: 26px;

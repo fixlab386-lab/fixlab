@@ -16,6 +16,7 @@ import {
 } from '../../vendita-banco/constants'
 import { useStudioTables } from '../../../../contexts/StudioTablesContext'
 import { aliquotaValues } from '../../../../lib/studioTables'
+import { isSpreadsheetImportFile, spreadsheetImportRejectionMessage } from '../../../../lib/daneaImport/spreadsheet'
 import {
   confrontaPrezziCatalogoOrdine,
   exportRigheOrdineExcel,
@@ -802,11 +803,15 @@ export default function TabRigheOrdineCliente({
       <input
         ref={importRef}
         type="file"
-        accept=".xlsx,.xls,.csv"
         style={{ display: 'none' }}
         onChange={e => {
           const file = e.target.files?.[0]
           if (!file) return
+          if (!isSpreadsheetImportFile(file)) {
+            alert(spreadsheetImportRejectionMessage(file.name))
+            e.target.value = ''
+            return
+          }
           void importRigheOrdineFromExcel(file).then(imported => {
             if (!imported.length) {
               alert('Nessuna riga valida nel file.')

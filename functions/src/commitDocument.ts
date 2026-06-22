@@ -1,6 +1,7 @@
 import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/https'
 import { FieldValue, getFirestore, type DocumentReference } from 'firebase-admin/firestore'
 import { assertStudioAccess } from './auth'
+import { europeWest1Callable } from './callableOptions'
 import { applyStockDelta, buildMovementFields } from './stock'
 
 const db = getFirestore('fixlab')
@@ -84,7 +85,7 @@ function stripUndefined<T>(value: T): T {
   return out as T
 }
 
-export const commitDocument = onCall({ region: 'europe-west1' }, async request => {
+export const commitDocument = onCall(europeWest1Callable, async request => {
   try {
     return await commitDocumentHandler(request)
   } catch (err) {

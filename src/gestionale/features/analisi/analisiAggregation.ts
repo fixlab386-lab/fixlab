@@ -1,4 +1,4 @@
-import type { Client, DocRecord, Product, Supplier } from '../../../types'
+import type { Client, DocRecord, Payment, Product, Supplier } from '../../../types'
 import { fetchStudioCollectionForExport } from '../../../lib/firestorePagination'
 import { SALES_DOCUMENT_TYPES, PURCHASE_DOCUMENT_TYPES } from '../documenti/constants'
 import { regioneFromProvincia } from './provinceRegioni'
@@ -6,6 +6,7 @@ import {
   isProductLevelDimension,
   type AnalisiCalc,
   type AnalisiDimension,
+  type AnalisiFlussiMode,
   type AnalisiKind,
   type AnalisiPeriod,
 } from './analisiTypes'
@@ -15,10 +16,28 @@ const PURCHASE_SET = new Set<string>(PURCHASE_DOCUMENT_TYPES)
 
 export type AnalisiDataset = {
   documents: DocRecord[]
+  payments: Payment[]
   clientsById: Map<string, Client>
   suppliersById: Map<string, Supplier>
   productsById: Map<string, Product>
   productsByCode: Map<string, Product>
+}
+
+export type FlussiBucket = {
+  key: string
+  label: string
+  sortKey: number
+  entrate: number
+  uscite: number
+  saldo: number
+}
+
+export type FlussiResult = {
+  buckets: FlussiBucket[]
+  totalEntrate: number
+  totalUscite: number
+  totalSaldo: number
+  count: number
 }
 
 export type AnalisiBucket = {
@@ -74,13 +93,28 @@ function fmtDateIt(date: Date): string {
   return date.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-/** Carica i dati necessari all'analisi (documenti + anagrafiche). */
+/** Carica i dati necessari all'analisi (documenti + anagrafiche + pagamenti per flussi). */
 export async function loadAnalisiDataset(studioId: string, kind: AnalisiKind): Promise<AnalisiDataset> {
-  const [docsRaw, clientsRaw, suppliersRaw, productsRaw] = await Promise.all([
+  const loads: [
+    Promise<unknown[]>,
+    Promise<unknown[]>,
+    Promise<unknown[]>,
+    Promise<unknown[]>,
+    Promise<unknown[]> | null,
+  ] = [
     fetchStudioCollectionForExport('documents', studioId),
     fetchStudioCollectionForExport('clients', studioId),
     fetchStudioCollectionForExport('suppliers', studioId),
     fetchStudioCollectionForExport('products', studioId),
+    kind === 'flussi' ? fetchStudioCollectionForExport('payments', studioId) : null,
+  ]
+
+  const [docsRaw, clientsRaw, suppliersRaw, productsRaw, paymentsRaw] = await Promise.all([
+    loads[0],
+    loads[1],
+    loads[2],
+    loads[3],
+    loads[4] ?? Promise.resolve([]),
   ])
 
   const allDocs = docsRaw as unknown as DocRecord[]
@@ -102,7 +136,14 @@ export async function loadAnalisiDataset(studioId: string, kind: AnalisiKind): P
     if (p.code) productsByCode.set(p.code, p)
   }
 
-  return { documents, clientsById, suppliersById, productsById, productsByCode }
+  return {
+    documents,
+    payments: (paymentsRaw as unknown as Payment[]) || [],
+    clientsById,
+    suppliersById,
+    productsById,
+    productsByCode,
+  }
 }
 
 function endOfDay(d: Date): Date {
@@ -410,6 +451,119 @@ export function aggregateAnalisi(dataset: AnalisiDataset, opts: AggregateOptions
   }
 
   return { buckets: Array.from(buckets.values()), total, count, max }
+}
+
+export type FlussiAggregateOptions = {
+  mode: AnalisiFlussiMode
+  period: AnalisiPeriod
+  periodYear?: number
+  periodMonth?: number
+  customFrom?: string
+  customTo?: string
+  subjectId?: string | null
+  onlySettled?: boolean
+}
+
+function monthBucketKey(date: Date): { key: string; label: string; sortKey: number } {
+  const y = date.getFullYear()
+  const m = date.getMonth()
+  return { key: `${y}-${String(m).padStart(2, '0')}`, label: `${MONTH_NAMES[m]} ${y}`, sortKey: y * 12 + m }
+}
+
+function parsePaymentDate(payment: Payment): Date | null {
+  const raw = payment.settled && payment.settledDate ? payment.settledDate : payment.date
+  return parseDocDate(raw)
+}
+
+function docAmountForFlussi(doc: DocRecord, mode: AnalisiFlussiMode): number {
+  if (mode === 'fatturatoNetto') return doc.totalNet || 0
+  return doc.totalDocument || 0
+}
+
+/** Aggrega entrate/uscite/saldo per mese (analisi flussi Danea). */
+export function aggregateFlussi(dataset: AnalisiDataset, opts: FlussiAggregateOptions): FlussiResult {
+  const { from, to } = periodRange({
+    period: opts.period,
+    year: opts.periodYear,
+    month: opts.periodMonth,
+    customFrom: opts.customFrom,
+    customTo: opts.customTo,
+  })
+
+  const buckets = new Map<string, FlussiBucket>()
+  let totalEntrate = 0
+  let totalUscite = 0
+
+  const settledDocIds = new Set<string>()
+  if (opts.onlySettled && opts.mode !== 'pagamenti') {
+    for (const payment of dataset.payments) {
+      if (payment.settled && payment.linkedDocumentId) settledDocIds.add(payment.linkedDocumentId)
+    }
+  }
+
+  const upsertFlussi = (date: Date, entrate: number, uscite: number) => {
+    const meta = monthBucketKey(date)
+    const existing = buckets.get(meta.key)
+    if (existing) {
+      existing.entrate += entrate
+      existing.uscite += uscite
+      existing.saldo = existing.entrate - existing.uscite
+    } else {
+      buckets.set(meta.key, {
+        key: meta.key,
+        label: meta.label,
+        sortKey: meta.sortKey,
+        entrate,
+        uscite,
+        saldo: entrate - uscite,
+      })
+    }
+    totalEntrate += entrate
+    totalUscite += uscite
+  }
+
+  if (opts.mode === 'pagamenti') {
+    for (const payment of dataset.payments) {
+      if (opts.onlySettled && !payment.settled) continue
+      const date = parsePaymentDate(payment)
+      if (!date) continue
+      if (from && date < from) continue
+      if (to && date > to) continue
+      if (opts.subjectId && payment.subjectId !== opts.subjectId) continue
+
+      const entrate = payment.amountIn || 0
+      const uscite = payment.amountOut || 0
+      if (entrate === 0 && uscite === 0) continue
+      upsertFlussi(date, entrate, uscite)
+    }
+  } else {
+    for (const doc of dataset.documents) {
+      if (doc.status === 'cancelled') continue
+      const date = parseDocDate(doc.date) ?? parseDocDate((doc as { createdAt?: unknown }).createdAt)
+      if (!date) continue
+      if (from && date < from) continue
+      if (to && date > to) continue
+      if (opts.subjectId && doc.subjectId !== opts.subjectId) continue
+      if (opts.onlySettled && !settledDocIds.has(doc.id)) continue
+
+      const amount = docAmountForFlussi(doc, opts.mode)
+      if (amount <= 0) continue
+      if (SALES_SET.has(doc.type)) {
+        upsertFlussi(date, amount, 0)
+      } else if (PURCHASE_SET.has(doc.type)) {
+        upsertFlussi(date, 0, amount)
+      }
+    }
+  }
+
+  const sorted = Array.from(buckets.values()).sort((a, b) => a.sortKey - b.sortKey)
+  return {
+    buckets: sorted,
+    totalEntrate,
+    totalUscite,
+    totalSaldo: totalEntrate - totalUscite,
+    count: sorted.length,
+  }
 }
 
 function upsert(map: Map<string, AnalisiBucket>, key: string, label: string, value: number, sortKey: number) {

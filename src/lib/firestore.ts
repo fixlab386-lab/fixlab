@@ -12,6 +12,7 @@ import {
   buildSupplierSearchTokens,
 } from './searchTokens'
 import { FIRESTORE_LIVE_WINDOW } from './firestoreScale'
+import { studioListenQuery } from './firestorePagination'
 import { db } from '../firebase'
 import {
   collection, doc, addDoc, updateDoc, deleteDoc, getDoc,
@@ -65,13 +66,7 @@ export const deleteCategory = async (id: string) => {
 // ==================== PRODUCTS ====================
 
 export const getProducts = async (studioId: string, maxItems = FIRESTORE_LIVE_WINDOW): Promise<Product[]> => {
-  const q = query(
-    collection(db, 'products'),
-    where('studioId', '==', studioId),
-    orderBy('createdAt', 'desc'),
-    limit(maxItems),
-  )
-  const snap = await getDocs(q)
+  const snap = await getDocs(studioListenQuery('products', studioId, 'createdAt', maxItems))
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Product))
 }
 
@@ -105,12 +100,7 @@ export function listenProducts(
   onError?: (error: Error) => void,
   maxItems = FIRESTORE_LIVE_WINDOW,
 ) {
-  const q = query(
-    collection(db, 'products'),
-    where('studioId', '==', studioId),
-    orderBy('createdAt', 'desc'),
-    limit(maxItems),
-  )
+  const q = studioListenQuery('products', studioId, 'createdAt', maxItems)
   return onSnapshot(
     q,
     snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product))),
@@ -129,13 +119,7 @@ export const getNextProductCode = async (studioId: string): Promise<string> => {
 // ==================== REPAIRS ====================
 
 export const getRepairs = async (studioId: string, maxItems = FIRESTORE_LIVE_WINDOW): Promise<Repair[]> => {
-  const q = query(
-    collection(db, 'repairs'),
-    where('studioId', '==', studioId),
-    orderBy('createdAt', 'desc'),
-    limit(maxItems),
-  )
-  const snap = await getDocs(q)
+  const snap = await getDocs(studioListenQuery('repairs', studioId, 'createdAt', maxItems))
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Repair))
 }
 
@@ -157,12 +141,7 @@ export function listenRepairs(
   onError?: (error: Error) => void,
   maxItems = FIRESTORE_LIVE_WINDOW,
 ) {
-  const q = query(
-    collection(db, 'repairs'),
-    where('studioId', '==', studioId),
-    orderBy('createdAt', 'desc'),
-    limit(maxItems),
-  )
+  const q = studioListenQuery('repairs', studioId, 'createdAt', maxItems)
   return onSnapshot(
     q,
     snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as Repair))),
@@ -193,13 +172,7 @@ export function listenReadyRepairs(
 // ==================== CLIENTS ====================
 
 export const getClients = async (studioId: string, maxItems = FIRESTORE_LIVE_WINDOW): Promise<Client[]> => {
-  const q = query(
-    collection(db, 'clients'),
-    where('studioId', '==', studioId),
-    orderBy('createdAt', 'desc'),
-    limit(maxItems),
-  )
-  const snap = await getDocs(q)
+  const snap = await getDocs(studioListenQuery('clients', studioId, 'createdAt', maxItems))
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Client))
 }
 
@@ -233,12 +206,7 @@ export function listenClients(
   onError?: (error: Error) => void,
   maxItems = FIRESTORE_LIVE_WINDOW,
 ) {
-  const q = query(
-    collection(db, 'clients'),
-    where('studioId', '==', studioId),
-    orderBy('createdAt', 'desc'),
-    limit(maxItems),
-  )
+  const q = studioListenQuery('clients', studioId, 'createdAt', maxItems)
   return onSnapshot(
     q,
     snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as Client))),
@@ -253,13 +221,7 @@ export const getNextClientCode = async (studioId: string): Promise<string> => {
 // ==================== SUPPLIERS ====================
 
 export const getSuppliers = async (studioId: string, maxItems = FIRESTORE_LIVE_WINDOW): Promise<Supplier[]> => {
-  const q = query(
-    collection(db, 'suppliers'),
-    where('studioId', '==', studioId),
-    orderBy('createdAt', 'desc'),
-    limit(maxItems),
-  )
-  const snap = await getDocs(q)
+  const snap = await getDocs(studioListenQuery('suppliers', studioId, 'createdAt', maxItems))
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Supplier))
 }
 
@@ -315,12 +277,7 @@ export function listenSuppliers(
   onError?: (error: Error) => void,
   maxItems = FIRESTORE_LIVE_WINDOW,
 ) {
-  const q = query(
-    collection(db, 'suppliers'),
-    where('studioId', '==', studioId),
-    orderBy('createdAt', 'desc'),
-    limit(maxItems),
-  )
+  const q = studioListenQuery('suppliers', studioId, 'createdAt', maxItems)
   return onSnapshot(
     q,
     snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as Supplier))),
@@ -335,24 +292,8 @@ export const getDocuments = async (
   type?: string,
   maxItems = FIRESTORE_LIVE_WINDOW,
 ): Promise<DocRecord[]> => {
-  let q
-  if (type) {
-    q = query(
-      collection(db, 'documents'),
-      where('studioId', '==', studioId),
-      where('type', '==', type),
-      orderBy('createdAt', 'desc'),
-      limit(maxItems),
-    )
-  } else {
-    q = query(
-      collection(db, 'documents'),
-      where('studioId', '==', studioId),
-      orderBy('createdAt', 'desc'),
-      limit(maxItems),
-    )
-  }
-  const snap = await getDocs(q)
+  const extra = type ? [where('type', '==', type)] : []
+  const snap = await getDocs(studioListenQuery('documents', studioId, 'createdAt', maxItems, extra))
   return snap.docs.map(d => ({ id: d.id, ...(d.data() as Record<string, unknown>) } as DocRecord))
 }
 
@@ -417,23 +358,8 @@ export function listenDocuments(
   maxItems = FIRESTORE_LIVE_WINDOW,
   type?: string,
 ) {
-  let q
-  if (type) {
-    q = query(
-      collection(db, 'documents'),
-      where('studioId', '==', studioId),
-      where('type', '==', type),
-      orderBy('createdAt', 'desc'),
-      limit(maxItems),
-    )
-  } else {
-    q = query(
-      collection(db, 'documents'),
-      where('studioId', '==', studioId),
-      orderBy('createdAt', 'desc'),
-      limit(maxItems),
-    )
-  }
+  const extra = type ? [where('type', '==', type)] : []
+  const q = studioListenQuery('documents', studioId, 'createdAt', maxItems, extra)
   return onSnapshot(
     q,
     snap => callback(snap.docs.map(d => ({ id: d.id, ...(d.data() as Record<string, unknown>) } as DocRecord))),
@@ -503,13 +429,7 @@ export const ensureDefaultPaymentResources = async (studioId: string): Promise<P
 // ==================== PAYMENTS ====================
 
 export const getPayments = async (studioId: string, maxItems = FIRESTORE_LIVE_WINDOW): Promise<Payment[]> => {
-  const q = query(
-    collection(db, 'payments'),
-    where('studioId', '==', studioId),
-    orderBy('date', 'desc'),
-    limit(maxItems),
-  )
-  const snap = await getDocs(q)
+  const snap = await getDocs(studioListenQuery('payments', studioId, 'date', maxItems))
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Payment))
 }
 
@@ -531,12 +451,7 @@ export function listenPayments(
   onError?: (error: Error) => void,
   maxItems = FIRESTORE_LIVE_WINDOW,
 ) {
-  const q = query(
-    collection(db, 'payments'),
-    where('studioId', '==', studioId),
-    orderBy('date', 'desc'),
-    limit(maxItems),
-  )
+  const q = studioListenQuery('payments', studioId, 'date', maxItems)
   return onSnapshot(
     q,
     snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as Payment))),
@@ -547,13 +462,7 @@ export function listenPayments(
 // ==================== STOCK MOVEMENTS ====================
 
 export const getStockMovements = async (studioId: string, maxItems = FIRESTORE_LIVE_WINDOW): Promise<StockMovement[]> => {
-  const q = query(
-    collection(db, 'stockMovements'),
-    where('studioId', '==', studioId),
-    orderBy('date', 'desc'),
-    limit(maxItems),
-  )
-  const snap = await getDocs(q)
+  const snap = await getDocs(studioListenQuery('stockMovements', studioId, 'date', maxItems))
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as StockMovement))
 }
 
@@ -575,12 +484,7 @@ export function listenStockMovements(
   onError?: (error: Error) => void,
   maxItems = FIRESTORE_LIVE_WINDOW,
 ) {
-  const q = query(
-    collection(db, 'stockMovements'),
-    where('studioId', '==', studioId),
-    orderBy('date', 'desc'),
-    limit(maxItems),
-  )
+  const q = studioListenQuery('stockMovements', studioId, 'date', maxItems)
   return onSnapshot(
     q,
     snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as StockMovement))),

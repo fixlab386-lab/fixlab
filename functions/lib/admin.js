@@ -6,7 +6,11 @@ const storage_1 = require("firebase-admin/storage");
 const firestore_1 = require("firebase-admin/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const db = (0, firestore_1.getFirestore)('fixlab');
-const SUPER_ADMIN_EMAILS = ['studio@gmail.com', 'samuelelazzaro78@gmail.com'];
+const SUPER_ADMIN_EMAILS = [
+    'studio@gmail.com',
+    'samuelelazzaro78@gmail.com',
+    'samuele.lazzaro78@gmail.com',
+];
 function isSuperAdminEmail(email) {
     if (!email)
         return false;

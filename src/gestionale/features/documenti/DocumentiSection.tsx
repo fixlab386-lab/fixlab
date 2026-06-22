@@ -29,6 +29,8 @@ import DocumentiActionBar from './DocumentiActionBar'
 import { formatDocDate } from './utils'
 import { resolvePeriodIsoRange } from '../analisi/analisiAggregation'
 import { useOpenDocumentFlow } from '../../lib/openDocumentFlow'
+import { openEntitySpreadsheetImport } from '../../lib/openEntitySpreadsheetImport'
+import { formatRepairError, runDaneaDocumentRepair } from '../../lib/runDaneaDocumentRepair'
 import { ALL_DOCUMENT_TYPE_LABELS } from './constants'
 import '../../theme/gestionale-tokens.css'
 import '../../theme/documenti-hub.css'
@@ -72,7 +74,6 @@ export default function DocumentiSection({ lockedType }: Props) {
     syncing,
     loadingMore,
     hasMore,
-    truncated,
     error: loadError,
     loadMore,
     showInitialSpinner,
@@ -370,6 +371,7 @@ export default function DocumentiSection({ lockedType }: Props) {
             rows={tableRows}
             columns={visibleColumns}
             rowKey={d => d.id}
+            tableId="documenti"
             selectable={list.selectionMode}
             selectedKeys={list.selectedKeys}
             onSelectionChange={keys => {
@@ -390,8 +392,8 @@ export default function DocumentiSection({ lockedType }: Props) {
             virtualize
             virtualizeThreshold={50}
           />
-          <PaginatedFilterHint visible={truncated && hasActiveFilters} loading={loadingMore} onLoadMore={loadMore} />
-          <LoadMoreBar hasMore={hasMore} loading={loadingMore} truncated={truncated} onLoadMore={loadMore} />
+          <PaginatedFilterHint visible={hasActiveFilters} loading={loadingMore} onLoadMore={loadMore} />
+          <LoadMoreBar hasMore={hasMore} loading={loadingMore} onLoadMore={loadMore} />
 
           <div className="documenti-list-section__foot">
             <span className="documenti-list-section__foot-count">{filteredRows.length} voci</span>
@@ -420,6 +422,30 @@ export default function DocumentiSection({ lockedType }: Props) {
         onElimina={() => void handleDelete()}
         onStampa={() => void handlePrint()}
         onExcel={handleExcel}
+        onUtilita={tipo => {
+          if (tipo.startsWith('Esporta')) handleExcel()
+          else if (tipo.startsWith('Ripara collegamenti')) {
+            if (!studioId) {
+              setActionError('Seleziona uno studio prima di riparare i documenti.')
+              return
+            }
+            setActionError('Riparazione in corso…')
+            void runDaneaDocumentRepair({
+              studioId,
+              onProgress: msg => setActionError(msg),
+            })
+              .then(msg => setActionError(msg))
+              .catch(err => setActionError(formatRepairError(err)))
+          } else {
+            openEntitySpreadsheetImport({
+              studioId,
+              entity: 'documents',
+              onSuccess: msg => setActionError(msg),
+              onError: msg => setActionError(msg),
+              onProgress: msg => setActionError(msg),
+            })
+          }
+        }}
       />
     </div>
   )
